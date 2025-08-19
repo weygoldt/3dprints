@@ -1,6 +1,6 @@
 $fn = $preview ? 24 : 120;
-include <../BOSL2/std.scad>
-include <../BOSL2/screws.scad>
+include <BOSL2/std.scad>
+include <BOSL2/screws.scad>
 
 
 contact_spring_clearance = 4.5; // clearance for contact spring in z direction
@@ -100,7 +100,7 @@ module cell_bundle(
       rotate([0, 0, theta]){
         translate([r, 0, h_open / 2]){
           cube([d_open, w_open, h_open], center=true);
-          translate([-11,0, 0]) cube([1, contact_spring_width, 100], center=true);
+          translate([-11-1.5,0, 0]) cube([1, contact_spring_width, 100], center=true);
           translate([-20,0, 0]) cube([6, contact_spring_width, 100], center=true);
           }
         }
@@ -122,7 +122,7 @@ difference() {
   body();
   translate([0, 0, bottom_top_thick]) {
     translate([0, 0, cell_h/2+0.5]) cylinder(h=cell_h+10, d=20, center=true);
-    cell_bundle(rows=[2, 1], cell_spacing=cell_spacing, row_spacing=row_spacing, cell_d=cell_d, cell_h=cell_h, add_openings=true, opening_width=25, opening_depth=28, clearance=0.2);
+    cell_bundle(rows=[2, 1], cell_spacing=cell_spacing, row_spacing=row_spacing, cell_d=cell_d, cell_h=cell_h, add_openings=true, opening_width=26, opening_depth=28, clearance=0.2);
   }
   tol = 0.1;
   cable_channel_height = cell_h + 2 * bottom_top_thick + 2 * tol;
