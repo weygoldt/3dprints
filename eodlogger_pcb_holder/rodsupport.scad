@@ -1,5 +1,5 @@
-include <BOSL2/std.scad>
-include <BOSL2/threading.scad>
+include <../BOSL2/std.scad>
+include <../BOSL2/threading.scad>
 include <main_vars.scad>
 
 // Helper for port holes
