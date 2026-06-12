@@ -10,29 +10,38 @@ include <../BOSL2/screws.scad>
 // -----------------------------------------------------------
 
 // Adjust this parameter to change the cell height
-cell_height = 68.1; // height of the cell
-cell_width = 18.1; // diameter of the cell
+cell_height = 68.5;
 
-contact_spring_clearance = 5.0; // clearance for contact spring in z direction
+contact_spring_clearance = 4.5; // clearance for contact spring in z direction
 contact_spring_width = 8.1; // width of the contact spring 
 contact_spring_len = 12; // length of the contact spring
 contact_spring_slot = 1; // depth of the contact spring slot
 contact_spring_opening_offset = contact_spring_len / 2; // offset for the contact spring opening from the xycenter of one battery
 contact_spring_slot_hole_distance = 4; // distance between the opening and the slot hole for the retainer
 
-cell_d = cell_width;
+cell_d = 26.2;
 cell_h = cell_height + 2 * contact_spring_clearance;
 max_outer_diam = 54;
-padding = 0.2;
+padding = 0.1;
 bottom_top_thick = 2;
 
 // Effective spacing between cell centers
 cell_spacing = cell_d + padding;
 row_spacing = sqrt(3) * cell_spacing / 2;
 
+module contact_spring_negative() {
+  diff()
+    cube([contact_spring_width, contact_spring_len, bottom_top_thick], center=true) {
+      edge_mask(BOTTOM + FRONT)
+        chamfer_edge_mask(l=contact_spring_width, chamfer=bottom_top_thick);
+    }
+  translate([0, -(contact_spring_len / 2 + contact_spring_slot_hole_distance + 0.5), bottom_top_thick / 2 - 0.6]) {
+    cube([contact_spring_width, 1, 1], center=true);
+  }
+}
+
 module body() {
   height = cell_h + bottom_top_thick * 2;
-  //height = 10;
   translate([0, 0, height / 2]) {
     cylinder(h=height, d=max_outer_diam, center=true);
   }
@@ -100,14 +109,13 @@ module cell_bundle(
         translate([r, 0, h_open / 2]) {
           //difference() {
           cube([d_open, w_open, h_open], center=true);
-          translate([-14, 8, 0]) cylinder(h=h_open, d=5, center=true);
           // Nubsies to retain the battery in the opening
           // translate([-d_open / 4, -d_open / 2, 0]) {
           //  sphere(r=1.5);
           // }
           // }
-          translate([-9.5, 0, 0]) cube([1, contact_spring_width, 100], center=true);
-          translate([-1, 0, 0]) cube([8, contact_spring_width, 100], center=true);
+          translate([-12.5, 0, 0]) cube([1, contact_spring_width, 100], center=true);
+          translate([-20, 0, 0]) cube([6, contact_spring_width, 100], center=true);
           //translate([-20, 0, (cell_h + bottom_top_thick * 2) / 2 - 1 / 2]) cube([26, contact_spring_width * 1.4, 1.1], center=true);
           //translate([-20, 0, -( (cell_h + bottom_top_thick * 2) / 2 - 1 / 2)]) cube([26, contact_spring_width * 1.4, 1.1], center=true);
         }
@@ -117,23 +125,23 @@ module cell_bundle(
 
   // --- place cells and optional openings ---
   for (p = pts_shifted) {
-    // if cell count is seven, only place six cells and skip the center one
-    if (p[0] != 0 || p[1] != 0) {
-      // your existing cell geometry
-      bat18650(p[0], p[1]);
-      // optional drop-in opening (negative)
-      if (add_openings)
-        radial_opening(p[0], p[1]);
-    }
+    // your existing cell geometry
+    bat18650(p[0], p[1]);
+
+    // optional drop-in opening (negative)
+    if (add_openings)
+      radial_opening(p[0], p[1]);
   }
 }
 
 difference() {
   body();
   translate([0, 0, bottom_top_thick]) {
-    translate([0, 0, cell_h / 2 + 0.5]) {
-      cylinder(h=cell_h + 10, d=cell_width * 0.8, center=true);
-    }
-    cell_bundle(rows=[2, 3, 2], cell_spacing=cell_spacing, row_spacing=row_spacing, cell_d=cell_d, cell_h=cell_h, add_openings=true, opening_width=cell_width * 0.99, opening_depth=20, clearance=0.2);
+    translate([0, 0, cell_h / 2 + 0.5]) cylinder(h=cell_h + 10, d=20, center=true);
+    cell_bundle(rows=[2, 1], cell_spacing=cell_spacing, row_spacing=row_spacing, cell_d=cell_d, cell_h=cell_h, add_openings=true, opening_width=26, opening_depth=28, clearance=0.2);
   }
+  tol = 0.1;
+  cable_channel_height = cell_h + 2 * bottom_top_thick + 2 * tol;
+  translate([0, -(max_outer_diam / 2) * 0.8, cable_channel_height / 2 - tol])
+    cylinder(h=cable_channel_height, d=5, center=true);
 }
