@@ -1,28 +1,39 @@
 // =====================================================================
-//  Chest-mounted field-stimulator enclosure  (v0.8)
+//  Chest-mounted field-stimulator enclosure  (v0.9)
 //  Bare Teensy 4.1 | single KeePower 26650 cell in holder | 2x BNC
-//  | trigger | 3-way toggle | LED | on/off switch | XT60 charge port
+//  | 4 playback buttons (CAL/LOC/VOL/L+V) | LED + on/off on top
+//  | XT60 charge port
 //
 //  INTERIOR (stacked, all long axes = X):
 //     - battery holder horizontal along the BOTTOM (cell axis = X)
 //     - bare Teensy 4.1 horizontal, directly ABOVE the battery
-//     - top cavity holds the door controls (toggle / LED / power)
+//     - top cavity holds the button bodies (door) + power/LED (top)
 //  The ENTIRE FRONT PANEL is a hinged, latched door.
-//     HINGE : EXTERNAL two-part, left edge. One leaf on the DOOR, one on
-//             the HOUSING, interleaved knuckles, VERTICAL axis. User threads
-//             a length of 1.75 mm filament as the pin. No print-in-place, no screws.
-//     LATCH : EXTERNAL thumb snap-clip on the RIGHT edge.
+//     HINGE : BOSL2 knuckle_hinge() on the LEFT edge, VERTICAL axis.
+//             Outer half on the HOUSING, inner half on the DOOR, teardrop
+//             pin bores. User threads a length of 1.75 mm filament as the
+//             pin. No print-in-place, no screws.
+//     LATCH : the battery-case inspo closure, verbatim: the housing's
+//             front band steps in (the inspo's proud inner block), the
+//             door carries a thin skirt that wraps it flush with the
+//             outer walls (0.1 clearance/side), and little prismoid
+//             bumps on the skirt inner face click into 5 % oversized,
+//             0.1 deeper dents in the band.  Locks on the right, top
+//             and bottom edges; plain butt joint on the hinge side.
 //  Battery retention: printed snap features that grab the holder's side flaps.
 //
-//  Build from primitives only (no BOSL2 needed).  Print PETG, no supports.
+//  Requires BOSL2 (../BOSL2).  Print PETG, no supports.
 //  PARTS (part=): shell | lid(=door) | plug(BNC blank) | assembly(preview)
 //     shell : BACK face on the bed
 //     lid   : outer face down
 //     plug  : flange down
 // =====================================================================
 
+include <../BOSL2/std.scad>
+include <../BOSL2/hinges.scad>
+
 /* [What to render] */
-part = "assembly";   // [assembly, shell, lid, plug]
+part = "lid";   // [assembly, shell, lid, plug]
 print_ready = true;
 door_open   = 0;     // assembly preview only: degrees the door is swung open
 show_ghosts = true;  // assembly preview: draw battery + Teensy phantoms
@@ -38,24 +49,26 @@ wall     = 2.5;
 corner_r = 5;
 
 /* [Front door] */
-lid_t     = 3;
-fit_clr   = 0.4;   // door-to-shell gap all round
+lid_t     = 3;     // door outline matches the housing exactly, like the inspo lid
 
 /* [Panel cut-outs] -- measured bores */
 hole_bnc     = 9.5;   // BNC panel bore (confirmed)
-hole_toggle  = 12.2;
-hole_power   = 12.2; // on/off switch bore (confirmed)
-hole_led     = 9;    // LED bore (confirmed)
-toggle_key_w = 0;
-toggle_key_d = 1.5;
-led_bezel_d  = 0;
-led_bezel_t  = 1.0;
+hole_power   = 12.2;  // on/off switch bore (confirmed)
+hole_led     = 9;     // LED bore (confirmed)
 
-// Door controls live in the TOP band, clear of the battery/Teensy depth.
-toggle_pos = [-20,  30];   // FRONT [x, z]
-power_pos  = [ 20,  30];
-led_pos    = [  0,  12];
-panel_depth = 15;          // how far a switch body reaches inward (for fit checks)
+/* [Playback buttons] -- 4 momentary buttons in ONE ROW on the door:
+   CAL | LOC | VOL | L+V.  Full sequence = L+V, deconstruction = LOC, VOL.
+   Bodies live in the top interior band, clear of the Teensy/battery. */
+btn_d       = 12;     // panel bore, same as the old trigger (confirmed)
+btn_body_d  = 14;     // button body diameter (fit checks)
+btn_row_z   = 20;     // Z of the button row (above the Teensy band)
+btn_pitch   = 20;     // X spacing between buttons
+btn_names   = ["CAL", "LOC", "VOL", "L+V"];
+panel_depth = 15;     // how far a button body reaches inward (for fit checks)
+
+/* [Top controls] -- on/off switch and LED on the TOP face, one per side */
+power_top = [ 22, 0];  // [x, y-offset from the top-face center]
+led_top   = [-22, 0];
 
 /* [BNC outputs] -- one per side wall */
 bnc_face    = "both";  // [both, left, right, bottom, top]
@@ -64,21 +77,11 @@ bnc_x       = 0;
 bnc_y       = -4;
 bnc_keepout = 14;
 
-/* [Trigger button] -- on the TOP of the shell, 45 deg guard collar */
-button_top    = [22, 0];
-hole_button   = 12;
-button_body_d = 14;
-button_guard  = false;     // 45 deg finger-guard collar (removed -- plain hole)
-guard_t       = 2;
-guard_h       = 3;
-
-/* [Panel engraving] */
+/* [Panel engraving] -- one label above each playback button */
 engrave    = true;
 engrave_d  = 0.6;
 label_size = 3.5;
-labels = [ ["CAL", -32, 40, 0], ["VOL", -32, 30, 0], ["LOC", -32, 20, 0],
-           ["TRIG", 0, 22, 0],
-           ["ON", 31, 36, 0], ["OFF", 31, 24, 0] ];
+labels = [ for (i = [0:3]) [btn_names[i], (i-1.5)*btn_pitch, btn_row_z+9.5, 0] ];
 
 /* [Lanyard eyes] -- 4 corners, VERTICAL 5 mm bores */
 lanyard   = true;
@@ -88,25 +91,29 @@ lug_out   = 5;
 lug_t     = 8;
 lug_inset = 12;
 
-/* [External filament-pin hinge] -- LEFT edge, vertical axis */
-hinge_n        = 5;      // total knuckles (odd -> housing gets the two ends)
-hinge_span     = 80;     // Z span of the knuckle stack
-hinge_gap      = 0.6;    // Z clearance between adjacent knuckles (rotation)
-knuckle_d      = 6;      // barrel outer diameter (= 2*lid_t: door prints flat, barrel on bed)
-pin_d          = 1.75;   // filament pin nominal
-pin_clr        = 0.5;    // added to pin bore
-hinge_standoff = 0.6;    // barrel gap outside the left wall
-hinge_neck_y   = 6;      // neck width in Y (housing leaf)
+/* [Knuckle hinge] -- BOSL2, LEFT edge, vertical axis, 1.75 mm filament pin */
+hinge_segs   = 5;      // total knuckles (odd -> housing gets the two ends)
+hinge_span   = 56;     // Z span of the knuckle stack (ends 2.5 mm shy of the
+                       // left BNC nut zone at z = bnc_z - 7.5)
+hinge_gap    = 0.3;    // Z clearance between adjacent knuckles (rotation)
+knuckle_d    = 6;      // hinge barrel outer diameter
+hinge_offset = 4;      // pin axis standoff from the left wall face (>= knuckle_d/2)
+hinge_arm_h  = 1;      // housing-side straight arm height (inspo look)
+hinge_arm_ang = 60;    // housing leaf angle; 60 keeps the leaf's reach along
+                       // the wall under the XT60 plug envelope (y < ~10)
+pin_d        = 1.75;   // filament pin nominal
+pin_clr      = 0.5;    // added to pin bore
 
-/* [External thumb latch] -- RIGHT edge snap clip */
-latch_zs      = [18, -30]; // Z of catches; right wall now only has BNC (z38) -> ~10mm padding
-latch_w       = 12;        // Z width of each clip
-latch_arm_len = 15;        // how far the arm reaches back (+Y) along the wall
-latch_arm_th  = 2.2;       // arm thickness in X (flex beam)
-latch_gap     = 0.6;       // beam-to-ridge-tip clearance in X (print + flex clearance)
-latch_proud   = 3;         // how far the thumb pad sits in front of the door (-Y)
-ridge_p       = 1.2;       // housing catch ridge protrusion (+X) beyond the wall
-lip_reach     = 1.6;       // door lip inward reach from the beam; catch depth = lip_reach - gap
+/* [Lid overlap + snap locks] -- the inspo closure with its tolerances:
+   door skirt over a stepped housing band, bump-in-dent interlocks */
+ov_d          = 2.5;   // overlap depth: skirt/band engagement behind the door plane
+skirt_t       = 1.1;   // door skirt thickness (inspo: wall_thickness - lid_clearance)
+lid_clearance = 0.1;   // per-side skirt-to-band clearance (inspo)
+n_locks       = 3;     // 1 = right edge, 2 = + top, 3 = + bottom
+bump_l        = 16;    // lock bump length along the wall (inspo: case_length/3)
+bump_w        = 1.0;   // bump profile width (inspo)
+bump_h        = 0.3;   // bump proudness (inspo); dent = 5 % wider, 0.1 deeper
+grip          = true;  // inspo-style thumb grip ridge on the right skirt face
 
 /* [Battery holder] -- single-cell 26650, horizontal, cell axis = X.
    Sits with its FLAT SIDE against the BACK (chest) wall, bottom on the floor,
@@ -142,8 +149,8 @@ W = inner_w + 2*wall;
 H = inner_h + 2*wall;
 D = inner_d + wall;          // SHELL depth only; the door sits PROUD in front (Y<0)
 
-lid_w = inner_w + 2*wall - 2*fit_clr;
-lid_h = inner_h + 2*wall - 2*fit_clr;
+lid_w = W;                   // door outline == housing outline (inspo: lid == base)
+lid_h = H;
 lid_r = corner_r;
 
 floor_z       = -inner_h/2;
@@ -156,9 +163,14 @@ teensy_bot_z  = battery_top_z + teensy_gap;
 teensy_top_z  = teensy_bot_z + teensy_wid;
 
 // hinge axis (vertical, just outside the front-left corner)
-Ax = -(W/2) - (knuckle_d/2) - hinge_standoff;
+Ax = -(W/2) - hinge_offset;
 Ay = 0;                                     // at the front-face plane
 pin_bore = pin_d + pin_clr;
+
+// lid overlap derived values
+step      = skirt_t + lid_clearance;   // housing band inset from the outer walls
+skirt_end = -W/2 + corner_r + 2;       // top/bottom skirt legs stop here (hinge side)
+lock_y    = ov_d - 1.0;                // bump/dent center, 1 mm shy of the skirt rim (inspo)
 
 lug_d  = lug_hole + 2*lug_web;
 lug_ex = W/2 + lug_out;
@@ -185,13 +197,24 @@ echo("--- Teensy (phantom, no mount) -----------------------------------");
 echo(str("  Teensy z span = [", teensy_bot_z, ", ", teensy_top_z, "]  (top wall ", inner_h/2, ")"));
 echo(str("  Teensy X span = [", -teensy_len/2, ", ", teensy_len/2, "]  (inner +/-", inner_w/2, ")"));
 if (teensy_top_z > inner_h/2) echo("  WARNING: Teensy runs past the top wall");
-echo("--- door controls vs interior depth (need ", panel_depth, " mm) -------");
-for (c = [["toggle", toggle_pos], ["power", power_pos], ["led", led_pos]]) {
-  over_batt   = c[1][1] - (c[1][1] < battery_top_z ? 0 : 999) < battery_top_z; // crude
-  clash = c[1][1] - 6 < teensy_top_z;   // control lower edge dips into Teensy band?
-  echo(str("  ", c[0], " at ", c[1],
+echo("--- playback buttons (door) vs interior (need ", panel_depth, " mm) ----");
+for (i = [0:3]) {
+  bx = (i-1.5)*btn_pitch;
+  clash = btn_row_z - btn_body_d/2 < teensy_top_z;   // body lower edge in Teensy band?
+  echo(str("  ", btn_names[i], " at [", bx, ", ", btn_row_z, "]",
            clash ? "  << WARNING: body may reach the Teensy band" : "  (clear top band)"));
 }
+if (btn_pitch < btn_body_d + 2)
+  echo("  WARNING: button bodies closer than 2 mm -- widen btn_pitch");
+if (btn_row_z + btn_body_d/2 > bnc_z - bnc_keepout/2)
+  echo("  note: outer button bodies reach the side-wall BNC body band");
+echo(str("  row span x = [", -1.5*btn_pitch - btn_d/2, ", ", 1.5*btn_pitch + btn_d/2,
+         "]  (cavity +/-", inner_w/2, ")"));
+echo("--- top controls (power switch + LED) ------------------------------");
+echo(str("  power at x=", power_top[0], " (old trigger spot), LED at x=", led_top[0],
+         " ; bodies reach down to z~", inner_h/2 - panel_depth));
+if (abs(bnc_z - inner_h/2) < panel_depth + bnc_keepout/2)
+  echo("  note: top-control bodies share the corner zone with the BNC bodies -- checked OK for the trigger before");
 echo("--- BNC ----------------------------------------------------------");
 echo(str("  BNC at z = ", bnc_z, "  (battery top ", battery_top_z, ", top wall ", inner_h/2, ")"));
 if (bnc_z - bnc_keepout/2 < battery_top_z) echo("  note: BNC body dips toward the battery band");
@@ -216,14 +239,28 @@ if (xt60 && xt60_face!="none") {
     echo("  note: back face is the chest side -- awkward for plugging a charger");
   }
 }
-echo("--- external hinge -----------------------------------------------");
+echo("--- knuckle hinge (BOSL2, left edge) ------------------------------");
 echo(str("  pin axis (x,y) = (", Ax, ", ", Ay, ") ; barrel d=", knuckle_d,
-         " ; pin bore=", pin_bore));
-echo(str("  barrel inner edge x = ", Ax + knuckle_d/2, "  (left wall ", -W/2, ")"));
-echo("--- latch --------------------------------------------------------");
-echo(str("  catch depth (lip_reach - gap) = ", lip_reach - latch_gap,
-         " mm ; lip inner x = ", W/2 + ridge_p + latch_gap - lip_reach,
-         " (wall face ", W/2, ")  (tune on calibration print)"));
+         " ; pin bore=", pin_bore, " (teardrop)"));
+echo(str("  barrel inner edge x = ", Ax + knuckle_d/2, "  (left wall ", -W/2,
+         ", door edge ", -lid_w/2, ")"));
+if (hinge_offset < knuckle_d/2) echo("  ERROR: hinge_offset must be >= knuckle_d/2");
+leaf_reach = hinge_arm_h + hinge_offset/tan(hinge_arm_ang)
+           + knuckle_d/(2*sin(hinge_arm_ang)) + 1.0;   // + round_bot fillet
+echo(str("  housing leaf reach along left wall y = ", leaf_reach,
+         " mm ; knuckle stack z = +/-", hinge_span/2));
+if (hinge_span/2 > bnc_z - 7.5 - 1)   // d15 BNC nut needs flat wall
+  echo("  WARNING: hinge leaf runs into the left BNC nut zone -- shorten hinge_span");
+if (leaf_reach > D/2 + bnc_y - 10.5/2 - 1)   // XT60 plug housing envelope
+  echo("  WARNING: hinge leaf reaches the XT60 plug envelope -- steepen hinge_arm_ang");
+echo("--- lid overlap + snap locks --------------------------------------");
+echo(str("  skirt ", skirt_t, " thick x ", ov_d, " deep over a ", step,
+         " step band ; clearance ", lid_clearance, "/side (inspo)"));
+echo(str("  ", n_locks, " lock(s): bump ", bump_l, " x ", bump_w, " x ", bump_h,
+         " proud ; cam-over ", bump_h - lid_clearance,
+         " ; dent 5 % oversize, ", bump_h + 0.1, " deep (inspo)"));
+if (step >= wall - 1.0)
+  echo("  WARNING: step band leaves < 1 mm of wall behind the dents");
 echo("------------------------------------------------------------------");
 
 // =====================================================================
@@ -307,64 +344,97 @@ module xt60_cut() {
 // =====================================================================
 
 // =====================================================================
-//  EXTERNAL FILAMENT-PIN HINGE
-//  which_door=true -> the DOOR's knuckles; false -> the HOUSING's knuckles.
-//  Housing gets the two END knuckles (indices 0,2,4); door gets 1,3.
+//  KNUCKLE HINGE  (BOSL2, left edge, vertical axis, filament pin)
+//  Mounted exactly like the inspo battery case: each half hangs off the
+//  wall next to the joint edge via position()+orient().  The housing gets
+//  the outer half (both end knuckles), the door the inner half.  Both
+//  halves put the pin axis at (Ax, 0) so they interleave coaxially.
 // =====================================================================
-module hinge_knuckles(which_door) {
-  seg = hinge_span / hinge_n;
-  for (i = [0:hinge_n-1]) {
-    is_door_i = (i % 2 == 1);
-    if (is_door_i == which_door) {
-      z0 = -hinge_span/2 + i*seg + hinge_gap/2;
-      L  = seg - hinge_gap;
-      // barrel
-      translate([Ax, Ay, z0]) cylinder(h=L, d=knuckle_d);
-      // neck to the parent
-      if (which_door) {
-        // door neck: barrel -> door left edge, spanning the proud door thickness in Y
-        x_edge = -lid_w/2;
-        translate([Ax, -lid_t, z0]) cube([x_edge-Ax, lid_t, L]);
-      } else {
-        // housing neck: barrel -> left wall, hugging the wall BEHIND the opening
-        // plane (Y>=0) so it stays out of the door's forward swing path
-        x_wall = -W/2;
-        translate([Ax, 0, z0]) cube([(x_wall+1)-Ax, hinge_neck_y, L]);
-      }
-    }
-  }
+module hinge_housing() {
+  // proxy strip coincident with the left wall; the hinge hangs off its
+  // front-left edge with the leaf hugging the wall exterior (+Y)
+  translate([-W/2 + wall/2, D/2, 0])
+    cuboid([wall, D, hinge_span + 4])
+      position(FRONT+LEFT) orient(anchor=LEFT, spin=180)
+        knuckle_hinge(length=hinge_span, segs=hinge_segs, offset=hinge_offset,
+                      arm_height=hinge_arm_h, arm_angle=hinge_arm_ang,
+                      knuckle_diam=knuckle_d, gap=hinge_gap, pin_diam=pin_bore,
+                      teardrop=true, round_bot=1.0, clear_top=true);
 }
-module hinge_pin_bore() {
-  translate([Ax, Ay, -hinge_span/2-5]) cylinder(h=hinge_span+10, d=pin_bore);
+module hinge_door() {
+  // proxy strip coincident with the door's left edge band; the inner hinge
+  // half hangs off its back-left edge, leaf clipped flush with the door front
+  translate([-lid_w/2 + 1.5, -lid_t/2, 0])
+    cuboid([3, lid_t, hinge_span + 4])
+      position(BACK+LEFT) orient(anchor=LEFT, spin=0)
+        knuckle_hinge(length=hinge_span, segs=hinge_segs,
+                      offset=hinge_offset, arm_height=0,
+                      knuckle_diam=knuckle_d, gap=hinge_gap, pin_diam=pin_bore,
+                      teardrop=true, inner=true, clip=lid_t, clear_top=true);
 }
 
 // =====================================================================
-//  EXTERNAL THUMB LATCH  (right edge)
+//  LID OVERLAP + SNAP LOCKS  (right/top/bottom edges)
+//  The inspo mechanism, tolerances included: the housing's front band
+//  steps in by `step` (the inspo's block standing proud of its outer
+//  shell); the door skirt wraps it flush with the outer walls at 0.1
+//  clearance per side.  Prismoid bumps on the skirt inner face, 1 mm
+//  shy of the rim, click into 5 % oversized / 0.1 deeper dents cut in
+//  the band; the skirt bows locally to cam over, like the inspo lid
+//  wall.  No step or skirt on the hinge side (the swing arc would
+//  bind); the door lands butt-flush there and the hinge aligns it.
 // =====================================================================
-// housing catch ridge on the RIGHT wall exterior (X=W/2).
-//   front (-Y) face is a ramp so the closing door lip cams over it;
-//   rear (+Y) face is the vertical catch that blocks re-opening.
-ridge_y0 = latch_arm_len - 5;   // front of ridge
-ridge_y1 = latch_arm_len - 2;   // rear catch face
-module latch_housing() {
-  for (z = latch_zs)
-    translate([W/2, 0, z - latch_w/2]) linear_extrude(latch_w)
-      polygon([[0, ridge_y0-2], [ridge_p, ridge_y0], [ridge_p, ridge_y1], [0, ridge_y1]]);
-}
-// door thumb-arm on the right edge: proud thumb pad, beam back along the wall, rear inward lip
-module latch_door() {
-  x_in = W/2 + ridge_p + latch_gap;    // beam inner face, just OUTBOARD of the ridge tip
-  for (z = latch_zs) {
-    // thumb pad, flush with the door front, bridging the door edge to the beam
-    translate([lid_w/2-2, -lid_t, z-latch_w/2])
-      cube([(x_in+latch_arm_th)-(lid_w/2-2), lid_t, latch_w]);
-    // flexing beam running back (+Y) along the outside of the wall
-    translate([x_in, 0, z-latch_w/2])
-      cube([latch_arm_th, latch_arm_len, latch_w]);
-    // rear inward lip: sits behind the ridge catch face, reaches -X to overlap the ridge
-    translate([x_in-lip_reach, ridge_y1, z-latch_w/2])
-      cube([lip_reach+latch_arm_th, latch_arm_len-ridge_y1, latch_w]);
+// rounded prism of the stepped front cross-section: right/top/bottom
+// inset by `inset`, left side bled out past the outline (open side)
+module stepped_profile(inset, l) {
+  r = corner_r - inset;
+  hull() for (sz=[-1,1]) {
+    translate([ W/2-inset-r, 0, sz*(H/2-inset-r)]) rotate([-90,0,0]) cylinder(h=l, r=r);
+    translate([-W/2-8,       0, sz*(H/2-inset-r)]) rotate([-90,0,0]) cylinder(h=l, r=r);
   }
+}
+// cut: recess the housing's outer band behind the door plane so the
+// skirt sits flush (0.3 axial slack so the panel, not the skirt tip,
+// seats on the band rim -- like the inspo lid resting on the case rim)
+module front_step_cut() {
+  intersection() {
+    difference() {
+      translate([-W/2-5, -eps, -H/2-5]) cube([W+10, ov_d+0.3+eps, H+10]);
+      translate([0, -2*eps, 0]) stepped_profile(step, ov_d+0.3+4*eps);
+    }
+    translate([skirt_end-0.5, -1, -H/2-6]) cube([W+10, ov_d+2, H+12]);
+  }
+}
+module lock_wedge(o, dent=false) {   // inspo bump; dent -> 5 % oversize, 0.1 deeper
+  s = dent ? 1.05 : 1;
+  prismoid(size1=[bump_l*s, bump_w*s], size2=[bump_l*0.75*s, 0],
+           h=bump_h + (dent ? 0.1 : 0), orient=o);
+}
+// dents in the stepped band faces (cut from the shell), one per lock
+module lock_dents() {
+  translate([W/2-step+eps, lock_y, 0]) lock_wedge(LEFT, dent=true);
+  if (n_locks >= 2) translate([0, lock_y,  H/2-step+eps])  lock_wedge(DOWN, dent=true);
+  if (n_locks >= 3) translate([0, lock_y, -(H/2-step)-eps]) lock_wedge(UP, dent=true);
+}
+// door skirt: C-shaped ring (open on the hinge side) wrapping the band,
+// lock bumps on its inner faces, inspo grip ridge on the right face
+module door_skirt() {
+  intersection() {
+    union() {
+      difference() {
+        rprism(W, H, ov_d, corner_r);                                  // outer = housing outline
+        translate([0, -eps, 0]) stepped_profile(skirt_t, ov_d+3*eps);  // inner = band + clearance
+      }
+      translate([W/2-skirt_t+eps, lock_y, 0]) lock_wedge(LEFT);
+      if (n_locks >= 2) translate([0, lock_y,  H/2-skirt_t+eps])  lock_wedge(DOWN);
+      if (n_locks >= 3) translate([0, lock_y, -(H/2-skirt_t)-eps]) lock_wedge(UP);
+    }
+    translate([skirt_end, -1, -H/2-1]) cube([W+10, ov_d+2, H+2]);      // open the hinge side
+  }
+  if (grip)
+    translate([W/2-eps, ov_d/2-0.05, 0])
+      prismoid(size1=[bump_l, 2], size2=[bump_l*0.75, 1], shift=[0, -0.5],
+               h=1.5, orient=RIGHT);
 }
 
 // =====================================================================
@@ -375,22 +445,22 @@ module shell() {
   difference() {
     union() {
       rprism(W, H, D, corner_r);
-      if (button_guard)
-        translate([button_top[0], D/2+button_top[1], H/2-eps])
-          cylinder(h=guard_h+eps, d1=hole_button+2*guard_t+2*guard_h, d2=hole_button+2*guard_t);
       if (lanyard) for (sx=[-1,1], sz=[-1,1]) lanyard_ear(sx, sz);
-      hinge_knuckles(false);   // housing knuckles (external, left)
-      latch_housing();         // catch ridges (external, right)
+      hinge_housing();         // knuckle hinge, outer half (external, left)
     }
     translate([0,-eps,0]) rprism(inner_w, inner_h, inner_d+eps, corner_r-wall);  // cavity (front open)
     bnc_cut();
-    translate([button_top[0], D/2+button_top[1], H/2-wall-eps])
-      cylinder(h=wall+guard_h+2*eps, d=hole_button);
+    // top controls: on/off switch on one side, LED on the other
+    translate([power_top[0], D/2+power_top[1], H/2-wall-eps])
+      cylinder(h=wall+2*eps, d=hole_power);
+    translate([led_top[0], D/2+led_top[1], H/2-wall-eps])
+      cylinder(h=wall+2*eps, d=hole_led);
     if (lanyard) for (sx=[-1,1], sz=[-1,1]) lanyard_bore(sx, sz);
     translate([-inner_w/2+loom_slot[0]/2, loom_slot[1]/2+2, 0])   // loom slot (near front opening)
       cube([loom_slot[0], loom_slot[1], 2*wall+eps], center=true);
     xt60_cut();
-    hinge_pin_bore();          // bore through the housing knuckles
+    front_step_cut();          // stepped band the door skirt wraps
+    lock_dents();              // lock dents in the band faces
   }
   // (battery holder is glued in — no printed retention features)
 }
@@ -402,29 +472,17 @@ module lid_body() {
   // door panel sits PROUD in front of the opening: Y in [-lid_t, 0]
   difference() {
     translate([0,-lid_t,0]) rprism(lid_w, lid_h, lid_t, lid_r);
-    // control bores run through the whole panel thickness (Y from -lid_t-eps to +eps)
-    translate([toggle_pos[0], -lid_t-eps, toggle_pos[1]]) rotate([-90,0,0]) {
-      cylinder(h=lid_t+2*eps, d=hole_toggle);
-      if (toggle_key_w>0) translate([-toggle_key_w/2, hole_toggle/2-eps, 0])
-        cube([toggle_key_w, toggle_key_d+eps, lid_t+2*eps]);
-    }
-    translate([led_pos[0], -lid_t-eps, led_pos[1]]) rotate([-90,0,0]) {
-      cylinder(h=lid_t+2*eps, d=hole_led);
-      if (led_bezel_d>0) translate([0,0,eps]) cylinder(h=led_bezel_t+eps, d=led_bezel_d);
-    }
-    translate([power_pos[0], -lid_t-eps, power_pos[1]]) rotate([-90,0,0]) cylinder(h=lid_t+2*eps, d=hole_power);
+    // playback button bores, one row (Y from -lid_t-eps to +eps)
+    for (i = [0:3])
+      translate([(i-1.5)*btn_pitch, -lid_t-eps, btn_row_z]) rotate([-90,0,0])
+        cylinder(h=lid_t+2*eps, d=btn_d);
     if (engrave) for (l=labels) face_text(l[0], l[1], l[2], label_size, len(l)>3 ? l[3] : 0);
   }
 }
 module lid() {
-  difference() {
-    union() {
-      lid_body();
-      hinge_knuckles(true);   // door knuckles (external, left)
-      latch_door();           // thumb clip (external, right)
-    }
-    hinge_pin_bore();         // bore through the door knuckles
-  }
+  lid_body();
+  hinge_door();   // knuckle hinge, inner half (external, left)
+  door_skirt();   // overlap skirt + lock bumps + grip (right/top/bottom)
 }
 
 // =====================================================================
