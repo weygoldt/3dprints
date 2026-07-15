@@ -1,12 +1,13 @@
 // =====================================================================
-//  Chest-mounted field-stimulator enclosure  (v0.8)
+//  Chest-mounted field-stimulator enclosure  (v0.9)
 //  Bare Teensy 4.1 | single KeePower 26650 cell in holder | 2x BNC
-//  | trigger | 3-way toggle | LED | on/off switch | XT60 charge port
+//  | 4 playback buttons (CAL/LOC/VOL/L+V) | LED + on/off on top
+//  | XT60 charge port
 //
 //  INTERIOR (stacked, all long axes = X):
 //     - battery holder horizontal along the BOTTOM (cell axis = X)
 //     - bare Teensy 4.1 horizontal, directly ABOVE the battery
-//     - top cavity holds the door controls (toggle / LED / power)
+//     - top cavity holds the button bodies (door) + power/LED (top)
 //  The ENTIRE FRONT PANEL is a hinged, latched door.
 //     HINGE : BOSL2 knuckle_hinge() on the LEFT edge, VERTICAL axis.
 //             Outer half on the HOUSING, inner half on the DOOR, teardrop
@@ -32,7 +33,7 @@ include <../BOSL2/std.scad>
 include <../BOSL2/hinges.scad>
 
 /* [What to render] */
-part = "assembly";   // [assembly, shell, lid, plug]
+part = "lid";   // [assembly, shell, lid, plug]
 print_ready = true;
 door_open   = 0;     // assembly preview only: degrees the door is swung open
 show_ghosts = true;  // assembly preview: draw battery + Teensy phantoms
@@ -52,19 +53,22 @@ lid_t     = 3;     // door outline matches the housing exactly, like the inspo l
 
 /* [Panel cut-outs] -- measured bores */
 hole_bnc     = 9.5;   // BNC panel bore (confirmed)
-hole_toggle  = 12.2;
-hole_power   = 12.2; // on/off switch bore (confirmed)
-hole_led     = 9;    // LED bore (confirmed)
-toggle_key_w = 0;
-toggle_key_d = 1.5;
-led_bezel_d  = 0;
-led_bezel_t  = 1.0;
+hole_power   = 12.2;  // on/off switch bore (confirmed)
+hole_led     = 9;     // LED bore (confirmed)
 
-// Door controls live in the TOP band, clear of the battery/Teensy depth.
-toggle_pos = [-20,  30];   // FRONT [x, z]
-power_pos  = [ 20,  30];
-led_pos    = [  0,  12];
-panel_depth = 15;          // how far a switch body reaches inward (for fit checks)
+/* [Playback buttons] -- 4 momentary buttons in ONE ROW on the door:
+   CAL | LOC | VOL | L+V.  Full sequence = L+V, deconstruction = LOC, VOL.
+   Bodies live in the top interior band, clear of the Teensy/battery. */
+btn_d       = 12;     // panel bore, same as the old trigger (confirmed)
+btn_body_d  = 14;     // button body diameter (fit checks)
+btn_row_z   = 20;     // Z of the button row (above the Teensy band)
+btn_pitch   = 20;     // X spacing between buttons
+btn_names   = ["CAL", "LOC", "VOL", "L+V"];
+panel_depth = 15;     // how far a button body reaches inward (for fit checks)
+
+/* [Top controls] -- on/off switch and LED on the TOP face, one per side */
+power_top = [ 22, 0];  // [x, y-offset from the top-face center]
+led_top   = [-22, 0];
 
 /* [BNC outputs] -- one per side wall */
 bnc_face    = "both";  // [both, left, right, bottom, top]
@@ -73,21 +77,11 @@ bnc_x       = 0;
 bnc_y       = -4;
 bnc_keepout = 14;
 
-/* [Trigger button] -- on the TOP of the shell, 45 deg guard collar */
-button_top    = [22, 0];
-hole_button   = 12;
-button_body_d = 14;
-button_guard  = false;     // 45 deg finger-guard collar (removed -- plain hole)
-guard_t       = 2;
-guard_h       = 3;
-
-/* [Panel engraving] */
+/* [Panel engraving] -- one label above each playback button */
 engrave    = true;
 engrave_d  = 0.6;
 label_size = 3.5;
-labels = [ ["CAL", -32, 40, 0], ["VOL", -32, 30, 0], ["LOC", -32, 20, 0],
-           ["TRIG", 0, 22, 0],
-           ["ON", 31, 36, 0], ["OFF", 31, 24, 0] ];
+labels = [ for (i = [0:3]) [btn_names[i], (i-1.5)*btn_pitch, btn_row_z+9.5, 0] ];
 
 /* [Lanyard eyes] -- 4 corners, VERTICAL 5 mm bores */
 lanyard   = true;
@@ -200,13 +194,24 @@ echo("--- Teensy (phantom, no mount) -----------------------------------");
 echo(str("  Teensy z span = [", teensy_bot_z, ", ", teensy_top_z, "]  (top wall ", inner_h/2, ")"));
 echo(str("  Teensy X span = [", -teensy_len/2, ", ", teensy_len/2, "]  (inner +/-", inner_w/2, ")"));
 if (teensy_top_z > inner_h/2) echo("  WARNING: Teensy runs past the top wall");
-echo("--- door controls vs interior depth (need ", panel_depth, " mm) -------");
-for (c = [["toggle", toggle_pos], ["power", power_pos], ["led", led_pos]]) {
-  over_batt   = c[1][1] - (c[1][1] < battery_top_z ? 0 : 999) < battery_top_z; // crude
-  clash = c[1][1] - 6 < teensy_top_z;   // control lower edge dips into Teensy band?
-  echo(str("  ", c[0], " at ", c[1],
+echo("--- playback buttons (door) vs interior (need ", panel_depth, " mm) ----");
+for (i = [0:3]) {
+  bx = (i-1.5)*btn_pitch;
+  clash = btn_row_z - btn_body_d/2 < teensy_top_z;   // body lower edge in Teensy band?
+  echo(str("  ", btn_names[i], " at [", bx, ", ", btn_row_z, "]",
            clash ? "  << WARNING: body may reach the Teensy band" : "  (clear top band)"));
 }
+if (btn_pitch < btn_body_d + 2)
+  echo("  WARNING: button bodies closer than 2 mm -- widen btn_pitch");
+if (btn_row_z + btn_body_d/2 > bnc_z - bnc_keepout/2)
+  echo("  note: outer button bodies reach the side-wall BNC body band");
+echo(str("  row span x = [", -1.5*btn_pitch - btn_d/2, ", ", 1.5*btn_pitch + btn_d/2,
+         "]  (cavity +/-", inner_w/2, ")"));
+echo("--- top controls (power switch + LED) ------------------------------");
+echo(str("  power at x=", power_top[0], " (old trigger spot), LED at x=", led_top[0],
+         " ; bodies reach down to z~", inner_h/2 - panel_depth));
+if (abs(bnc_z - inner_h/2) < panel_depth + bnc_keepout/2)
+  echo("  note: top-control bodies share the corner zone with the BNC bodies -- checked OK for the trigger before");
 echo("--- BNC ----------------------------------------------------------");
 echo(str("  BNC at z = ", bnc_z, "  (battery top ", battery_top_z, ", top wall ", inner_h/2, ")"));
 if (bnc_z - bnc_keepout/2 < battery_top_z) echo("  note: BNC body dips toward the battery band");
@@ -432,16 +437,16 @@ module shell() {
   difference() {
     union() {
       rprism(W, H, D, corner_r);
-      if (button_guard)
-        translate([button_top[0], D/2+button_top[1], H/2-eps])
-          cylinder(h=guard_h+eps, d1=hole_button+2*guard_t+2*guard_h, d2=hole_button+2*guard_t);
       if (lanyard) for (sx=[-1,1], sz=[-1,1]) lanyard_ear(sx, sz);
       hinge_housing();         // knuckle hinge, outer half (external, left)
     }
     translate([0,-eps,0]) rprism(inner_w, inner_h, inner_d+eps, corner_r-wall);  // cavity (front open)
     bnc_cut();
-    translate([button_top[0], D/2+button_top[1], H/2-wall-eps])
-      cylinder(h=wall+guard_h+2*eps, d=hole_button);
+    // top controls: on/off switch on one side, LED on the other
+    translate([power_top[0], D/2+power_top[1], H/2-wall-eps])
+      cylinder(h=wall+2*eps, d=hole_power);
+    translate([led_top[0], D/2+led_top[1], H/2-wall-eps])
+      cylinder(h=wall+2*eps, d=hole_led);
     if (lanyard) for (sx=[-1,1], sz=[-1,1]) lanyard_bore(sx, sz);
     translate([-inner_w/2+loom_slot[0]/2, loom_slot[1]/2+2, 0])   // loom slot (near front opening)
       cube([loom_slot[0], loom_slot[1], 2*wall+eps], center=true);
@@ -459,17 +464,10 @@ module lid_body() {
   // door panel sits PROUD in front of the opening: Y in [-lid_t, 0]
   difference() {
     translate([0,-lid_t,0]) rprism(lid_w, lid_h, lid_t, lid_r);
-    // control bores run through the whole panel thickness (Y from -lid_t-eps to +eps)
-    translate([toggle_pos[0], -lid_t-eps, toggle_pos[1]]) rotate([-90,0,0]) {
-      cylinder(h=lid_t+2*eps, d=hole_toggle);
-      if (toggle_key_w>0) translate([-toggle_key_w/2, hole_toggle/2-eps, 0])
-        cube([toggle_key_w, toggle_key_d+eps, lid_t+2*eps]);
-    }
-    translate([led_pos[0], -lid_t-eps, led_pos[1]]) rotate([-90,0,0]) {
-      cylinder(h=lid_t+2*eps, d=hole_led);
-      if (led_bezel_d>0) translate([0,0,eps]) cylinder(h=led_bezel_t+eps, d=led_bezel_d);
-    }
-    translate([power_pos[0], -lid_t-eps, power_pos[1]]) rotate([-90,0,0]) cylinder(h=lid_t+2*eps, d=hole_power);
+    // playback button bores, one row (Y from -lid_t-eps to +eps)
+    for (i = [0:3])
+      translate([(i-1.5)*btn_pitch, -lid_t-eps, btn_row_z]) rotate([-90,0,0])
+        cylinder(h=lid_t+2*eps, d=btn_d);
     if (engrave) for (l=labels) face_text(l[0], l[1], l[2], label_size, len(l)>3 ? l[3] : 0);
   }
 }
