@@ -2,3 +2,4 @@ BOSL2/
 GoProScad/
 *.gcode
 *.stl
+.claude/

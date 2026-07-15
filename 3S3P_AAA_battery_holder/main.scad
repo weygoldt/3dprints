@@ -2,15 +2,8 @@ $fn = $preview ? 64 : 120;
 include <../BOSL2/std.scad>
 include <../BOSL2/screws.scad>
 
-// Some common battery configurations possible in this holder:
-// -----------------------------------------------------------
-// Protected KEEPOWER 26650 cell height: 68.5 mm
-// Unprotected standard 26650 cell height: 65 mm
-// Two Baby C / LR14 / Baby 1.5V cells in series: 100 mm
-// -----------------------------------------------------------
-
 // Adjust this parameter to change the cell height
-cell_height = 68.5;
+cell_height = 44.5;
 
 contact_spring_clearance = 4.5; // clearance for contact spring in z direction
 contact_spring_width = 8.1; // width of the contact spring 
@@ -19,7 +12,7 @@ contact_spring_slot = 1; // depth of the contact spring slot
 contact_spring_opening_offset = contact_spring_len / 2; // offset for the contact spring opening from the xycenter of one battery
 contact_spring_slot_hole_distance = 4; // distance between the opening and the slot hole for the retainer
 
-cell_d = 26.2;
+cell_d = 10.5;
 cell_h = cell_height + 2 * contact_spring_clearance;
 max_outer_diam = 54;
 padding = 0.1;
@@ -140,8 +133,8 @@ difference() {
     translate([0, 0, cell_h / 2 + 0.5]) cylinder(h=cell_h + 10, d=20, center=true);
     cell_bundle(rows=[2, 1], cell_spacing=cell_spacing, row_spacing=row_spacing, cell_d=cell_d, cell_h=cell_h, add_openings=true, opening_width=26, opening_depth=28, clearance=0.2);
   }
-  tol = 0.1;
-  cable_channel_height = cell_h + 2 * bottom_top_thick + 2 * tol;
-  translate([0, -(max_outer_diam / 2) * 0.8, cable_channel_height / 2 - tol])
-    cylinder(h=cable_channel_height, d=5, center=true);
+  // tol = 0.1;
+  // cable_channel_height = cell_h + 2 * bottom_top_thick + 2 * tol;
+  // translate([0, -(max_outer_diam / 2) * 0.8, cable_channel_height / 2 - tol])
+  //   cylinder(h=cable_channel_height, d=5, center=true);
 }
