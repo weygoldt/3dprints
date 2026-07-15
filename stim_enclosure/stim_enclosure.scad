@@ -106,13 +106,16 @@ pin_clr      = 0.5;    // added to pin bore
 
 /* [Lid overlap + snap locks] -- the inspo closure with its tolerances:
    door skirt over a stepped housing band, bump-in-dent interlocks */
-ov_d          = 2.5;   // overlap depth: skirt/band engagement behind the door plane
+ov_d          = 4.0;   // overlap depth: skirt/band engagement behind the door
+                       // plane; 4.0 doubles the bump lever arm so the PLA
+                       // skirt cams over at ~1/4 the bending strain
 skirt_t       = 1.1;   // door skirt thickness (inspo: wall_thickness - lid_clearance)
 lid_clearance = 0.1;   // per-side skirt-to-band clearance (inspo)
 n_locks       = 3;     // 1 = right edge, 2 = + top, 3 = + bottom
 bump_l        = 16;    // lock bump length along the wall (inspo: case_length/3)
 bump_w        = 1.0;   // bump profile width (inspo)
-bump_h        = 0.3;   // bump proudness (inspo); dent = 5 % wider, 0.1 deeper
+bump_h        = 0.25;  // bump proudness (inspo 0.3, softened for PLA);
+                       // dent = 5 % wider, 0.1 deeper
 grip          = true;  // inspo-style thumb grip ridge on the right skirt face
 
 /* [Battery holder] -- single-cell 26650, horizontal, cell axis = X.
