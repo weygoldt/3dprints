@@ -93,11 +93,14 @@ lug_inset = 12;
 
 /* [Knuckle hinge] -- BOSL2, LEFT edge, vertical axis, 1.75 mm filament pin */
 hinge_segs   = 5;      // total knuckles (odd -> housing gets the two ends)
-hinge_span   = 80;     // Z span of the knuckle stack
+hinge_span   = 56;     // Z span of the knuckle stack (ends 2.5 mm shy of the
+                       // left BNC nut zone at z = bnc_z - 7.5)
 hinge_gap    = 0.3;    // Z clearance between adjacent knuckles (rotation)
 knuckle_d    = 6;      // hinge barrel outer diameter
 hinge_offset = 4;      // pin axis standoff from the left wall face (>= knuckle_d/2)
 hinge_arm_h  = 1;      // housing-side straight arm height (inspo look)
+hinge_arm_ang = 60;    // housing leaf angle; 60 keeps the leaf's reach along
+                       // the wall under the XT60 plug envelope (y < ~10)
 pin_d        = 1.75;   // filament pin nominal
 pin_clr      = 0.5;    // added to pin bore
 
@@ -242,9 +245,14 @@ echo(str("  pin axis (x,y) = (", Ax, ", ", Ay, ") ; barrel d=", knuckle_d,
 echo(str("  barrel inner edge x = ", Ax + knuckle_d/2, "  (left wall ", -W/2,
          ", door edge ", -lid_w/2, ")"));
 if (hinge_offset < knuckle_d/2) echo("  ERROR: hinge_offset must be >= knuckle_d/2");
-echo(str("  housing leaf reach along left wall y = ",
-         hinge_arm_h + hinge_offset + knuckle_d/(2*sin(45)),
-         " mm  (XT60 body window starts y~11)"));
+leaf_reach = hinge_arm_h + hinge_offset/tan(hinge_arm_ang)
+           + knuckle_d/(2*sin(hinge_arm_ang)) + 1.0;   // + round_bot fillet
+echo(str("  housing leaf reach along left wall y = ", leaf_reach,
+         " mm ; knuckle stack z = +/-", hinge_span/2));
+if (hinge_span/2 > bnc_z - 7.5 - 1)   // d15 BNC nut needs flat wall
+  echo("  WARNING: hinge leaf runs into the left BNC nut zone -- shorten hinge_span");
+if (leaf_reach > D/2 + bnc_y - 10.5/2 - 1)   // XT60 plug housing envelope
+  echo("  WARNING: hinge leaf reaches the XT60 plug envelope -- steepen hinge_arm_ang");
 echo("--- lid overlap + snap locks --------------------------------------");
 echo(str("  skirt ", skirt_t, " thick x ", ov_d, " deep over a ", step,
          " step band ; clearance ", lid_clearance, "/side (inspo)"));
@@ -349,9 +357,9 @@ module hinge_housing() {
     cuboid([wall, D, hinge_span + 4])
       position(FRONT+LEFT) orient(anchor=LEFT, spin=180)
         knuckle_hinge(length=hinge_span, segs=hinge_segs, offset=hinge_offset,
-                      arm_height=hinge_arm_h, knuckle_diam=knuckle_d,
-                      gap=hinge_gap, pin_diam=pin_bore, teardrop=true,
-                      round_bot=1.0);
+                      arm_height=hinge_arm_h, arm_angle=hinge_arm_ang,
+                      knuckle_diam=knuckle_d, gap=hinge_gap, pin_diam=pin_bore,
+                      teardrop=true, round_bot=1.0, clear_top=true);
 }
 module hinge_door() {
   // proxy strip coincident with the door's left edge band; the inner hinge
