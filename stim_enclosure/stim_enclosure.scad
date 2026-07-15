@@ -12,10 +12,13 @@
 //             Outer half on the HOUSING, inner half on the DOOR, teardrop
 //             pin bores. User threads a length of 1.75 mm filament as the
 //             pin. No print-in-place, no screws.
-//     LATCH : snap closure mimicking the battery-case inspo: a prismoid
-//             wedge bump on a thin door flange that wraps the RIGHT wall
-//             and clicks into a slightly oversized prismoid socket dent,
-//             plus an inspo-style thumb grip ridge to pop it open.
+//     LATCH : the battery-case inspo closure, verbatim: the housing's
+//             front band steps in (the inspo's proud inner block), the
+//             door carries a thin skirt that wraps it flush with the
+//             outer walls (0.1 clearance/side), and little prismoid
+//             bumps on the skirt inner face click into 5 % oversized,
+//             0.1 deeper dents in the band.  Locks on the right, top
+//             and bottom edges; plain butt joint on the hinge side.
 //  Battery retention: printed snap features that grab the holder's side flaps.
 //
 //  Requires BOSL2 (../BOSL2).  Print PETG, no supports.
@@ -45,8 +48,7 @@ wall     = 2.5;
 corner_r = 5;
 
 /* [Front door] */
-lid_t     = 3;
-fit_clr   = 0.4;   // door-to-shell gap all round
+lid_t     = 3;     // door outline matches the housing exactly, like the inspo lid
 
 /* [Panel cut-outs] -- measured bores */
 hole_bnc     = 9.5;   // BNC panel bore (confirmed)
@@ -105,15 +107,16 @@ hinge_arm_h  = 1;      // housing-side straight arm height (inspo look)
 pin_d        = 1.75;   // filament pin nominal
 pin_clr      = 0.5;    // added to pin bore
 
-/* [Snap latch] -- inspo-style prismoid wedge + socket dent, RIGHT edge */
-latch_z      = 0;      // Z center of the latch (keep clear of the BNC at z=38)
-latch_len    = 34;     // Z length of the door flange (~lid_h/3, like the inspo)
-flange_reach = 10;     // how far the flange wraps past the door plane (+Y)
-flange_t     = 1.6;    // flange thickness in X (flex wall, like the inspo lid wall)
-flange_clr   = 0.2;    // flange inner face to shell wall clearance
-bump_len     = 26;     // wedge bump length along Z
-bump_w       = 1.8;    // wedge bump width along Y (both faces are cam ramps)
-bump_h       = 0.55;   // wedge bump proudness; catch depth = bump_h - flange_clr
+/* [Lid overlap + snap locks] -- the inspo closure with its tolerances:
+   door skirt over a stepped housing band, bump-in-dent interlocks */
+ov_d          = 2.5;   // overlap depth: skirt/band engagement behind the door plane
+skirt_t       = 1.1;   // door skirt thickness (inspo: wall_thickness - lid_clearance)
+lid_clearance = 0.1;   // per-side skirt-to-band clearance (inspo)
+n_locks       = 3;     // 1 = right edge, 2 = + top, 3 = + bottom
+bump_l        = 16;    // lock bump length along the wall (inspo: case_length/3)
+bump_w        = 1.0;   // bump profile width (inspo)
+bump_h        = 0.3;   // bump proudness (inspo); dent = 5 % wider, 0.1 deeper
+grip          = true;  // inspo-style thumb grip ridge on the right skirt face
 
 /* [Battery holder] -- single-cell 26650, horizontal, cell axis = X.
    Sits with its FLAT SIDE against the BACK (chest) wall, bottom on the floor,
@@ -149,8 +152,8 @@ W = inner_w + 2*wall;
 H = inner_h + 2*wall;
 D = inner_d + wall;          // SHELL depth only; the door sits PROUD in front (Y<0)
 
-lid_w = inner_w + 2*wall - 2*fit_clr;
-lid_h = inner_h + 2*wall - 2*fit_clr;
+lid_w = W;                   // door outline == housing outline (inspo: lid == base)
+lid_h = H;
 lid_r = corner_r;
 
 floor_z       = -inner_h/2;
@@ -167,9 +170,10 @@ Ax = -(W/2) - hinge_offset;
 Ay = 0;                                     // at the front-face plane
 pin_bore = pin_d + pin_clr;
 
-// latch derived values
-flange_x = W/2 + flange_clr;                // flange inner face
-bump_y   = flange_reach - 2.5;              // wedge center behind the door plane
+// lid overlap derived values
+step      = skirt_t + lid_clearance;   // housing band inset from the outer walls
+skirt_end = -W/2 + corner_r + 2;       // top/bottom skirt legs stop here (hinge side)
+lock_y    = ov_d - 1.0;                // bump/dent center, 1 mm shy of the skirt rim (inspo)
 
 lug_d  = lug_hole + 2*lug_web;
 lug_ex = W/2 + lug_out;
@@ -236,13 +240,14 @@ if (hinge_offset < knuckle_d/2) echo("  ERROR: hinge_offset must be >= knuckle_d
 echo(str("  housing leaf reach along left wall y = ",
          hinge_arm_h + hinge_offset + knuckle_d/(2*sin(45)),
          " mm  (XT60 body window starts y~11)"));
-echo("--- snap latch (right edge) ---------------------------------------");
-echo(str("  catch depth (bump_h - flange_clr) = ", bump_h - flange_clr,
-         " mm ; flange cam strain ~ ",
-         round(1000*1.5*flange_t*(bump_h - flange_clr)/(bump_y*bump_y))/10,
-         " %  (PETG ok < ~1.5)  (tune on calibration print)"));
-if (latch_z + latch_len/2 > bnc_z - bnc_keepout/2)
-  echo("  WARNING: latch flange runs into the right-wall BNC keepout");
+echo("--- lid overlap + snap locks --------------------------------------");
+echo(str("  skirt ", skirt_t, " thick x ", ov_d, " deep over a ", step,
+         " step band ; clearance ", lid_clearance, "/side (inspo)"));
+echo(str("  ", n_locks, " lock(s): bump ", bump_l, " x ", bump_w, " x ", bump_h,
+         " proud ; cam-over ", bump_h - lid_clearance,
+         " ; dent 5 % oversize, ", bump_h + 0.1, " deep (inspo)"));
+if (step >= wall - 1.0)
+  echo("  WARNING: step band leaves < 1 mm of wall behind the dents");
 echo("------------------------------------------------------------------");
 
 // =====================================================================
@@ -350,39 +355,73 @@ module hinge_door() {
     cuboid([3, lid_t, hinge_span + 4])
       position(BACK+LEFT) orient(anchor=LEFT, spin=0)
         knuckle_hinge(length=hinge_span, segs=hinge_segs,
-                      offset=hinge_offset + fit_clr, arm_height=0,
+                      offset=hinge_offset, arm_height=0,
                       knuckle_diam=knuckle_d, gap=hinge_gap, pin_diam=pin_bore,
                       teardrop=true, inner=true, clip=lid_t, clear_top=true);
 }
 
 // =====================================================================
-//  SNAP LATCH  (right edge)
-//  Straight from the inspo: a prismoid wedge bump on a thin flexing wall
-//  seats into a 5 % oversized, slightly deeper prismoid dent.  Both wedge
-//  faces are shallow ramps, so the door cams shut and pops open again.
+//  LID OVERLAP + SNAP LOCKS  (right/top/bottom edges)
+//  The inspo mechanism, tolerances included: the housing's front band
+//  steps in by `step` (the inspo's block standing proud of its outer
+//  shell); the door skirt wraps it flush with the outer walls at 0.1
+//  clearance per side.  Prismoid bumps on the skirt inner face, 1 mm
+//  shy of the rim, click into 5 % oversized / 0.1 deeper dents cut in
+//  the band; the skirt bows locally to cam over, like the inspo lid
+//  wall.  No step or skirt on the hinge side (the swing arc would
+//  bind); the door lands butt-flush there and the hinge aligns it.
 // =====================================================================
-module latch_wedge(s=1, h=bump_h) {   // wedge pointing LEFT (-X)
-  prismoid(size1=[bump_len*s, bump_w*s], size2=[bump_len*0.75*s, 0],
-           h=h, orient=LEFT);
+// rounded prism of the stepped front cross-section: right/top/bottom
+// inset by `inset`, left side bled out past the outline (open side)
+module stepped_profile(inset, l) {
+  r = corner_r - inset;
+  hull() for (sz=[-1,1]) {
+    translate([ W/2-inset-r, 0, sz*(H/2-inset-r)]) rotate([-90,0,0]) cylinder(h=l, r=r);
+    translate([-W/2-8,       0, sz*(H/2-inset-r)]) rotate([-90,0,0]) cylinder(h=l, r=r);
+  }
 }
-// socket dent in the right wall exterior (cut from the shell)
-module latch_socket() {
-  translate([W/2 + 0.01, bump_y, latch_z]) latch_wedge(s=1.05, h=bump_h+0.11);
+// cut: recess the housing's outer band behind the door plane so the
+// skirt sits flush (0.3 axial slack so the panel, not the skirt tip,
+// seats on the band rim -- like the inspo lid resting on the case rim)
+module front_step_cut() {
+  intersection() {
+    difference() {
+      translate([-W/2-5, -eps, -H/2-5]) cube([W+10, ov_d+0.3+eps, H+10]);
+      translate([0, -2*eps, 0]) stepped_profile(step, ov_d+0.3+4*eps);
+    }
+    translate([skirt_end-0.5, -1, -H/2-6]) cube([W+10, ov_d+2, H+12]);
+  }
 }
-// door side: root block, flexing flange along the wall, wedge bump, grip
-module latch_door() {
-  // root block bridging the door edge to the flange, proud like the door
-  translate([lid_w/2 - 2, -lid_t, latch_z - latch_len/2])
-    cube([(flange_x + flange_t) - (lid_w/2 - 2), lid_t, latch_len]);
-  // flexing flange wrapping the right wall (the inspo's thin lid wall)
-  translate([flange_x, 0, latch_z - latch_len/2])
-    cube([flange_t, flange_reach, latch_len]);
-  // wedge bump on the flange inner face
-  translate([flange_x + eps, bump_y, latch_z]) latch_wedge();
-  // thumb grip ridge on the flange outer face (inspo-style pry tab)
-  translate([flange_x + flange_t - eps, bump_y, latch_z])
-    prismoid(size1=[bump_len, 2], size2=[bump_len*0.75, 1], shift=[0, -0.5],
-             h=1.5, orient=RIGHT);
+module lock_wedge(o, dent=false) {   // inspo bump; dent -> 5 % oversize, 0.1 deeper
+  s = dent ? 1.05 : 1;
+  prismoid(size1=[bump_l*s, bump_w*s], size2=[bump_l*0.75*s, 0],
+           h=bump_h + (dent ? 0.1 : 0), orient=o);
+}
+// dents in the stepped band faces (cut from the shell), one per lock
+module lock_dents() {
+  translate([W/2-step+eps, lock_y, 0]) lock_wedge(LEFT, dent=true);
+  if (n_locks >= 2) translate([0, lock_y,  H/2-step+eps])  lock_wedge(DOWN, dent=true);
+  if (n_locks >= 3) translate([0, lock_y, -(H/2-step)-eps]) lock_wedge(UP, dent=true);
+}
+// door skirt: C-shaped ring (open on the hinge side) wrapping the band,
+// lock bumps on its inner faces, inspo grip ridge on the right face
+module door_skirt() {
+  intersection() {
+    union() {
+      difference() {
+        rprism(W, H, ov_d, corner_r);                                  // outer = housing outline
+        translate([0, -eps, 0]) stepped_profile(skirt_t, ov_d+3*eps);  // inner = band + clearance
+      }
+      translate([W/2-skirt_t+eps, lock_y, 0]) lock_wedge(LEFT);
+      if (n_locks >= 2) translate([0, lock_y,  H/2-skirt_t+eps])  lock_wedge(DOWN);
+      if (n_locks >= 3) translate([0, lock_y, -(H/2-skirt_t)-eps]) lock_wedge(UP);
+    }
+    translate([skirt_end, -1, -H/2-1]) cube([W+10, ov_d+2, H+2]);      // open the hinge side
+  }
+  if (grip)
+    translate([W/2-eps, ov_d/2-0.05, 0])
+      prismoid(size1=[bump_l, 2], size2=[bump_l*0.75, 1], shift=[0, -0.5],
+               h=1.5, orient=RIGHT);
 }
 
 // =====================================================================
@@ -407,7 +446,8 @@ module shell() {
     translate([-inner_w/2+loom_slot[0]/2, loom_slot[1]/2+2, 0])   // loom slot (near front opening)
       cube([loom_slot[0], loom_slot[1], 2*wall+eps], center=true);
     xt60_cut();
-    latch_socket();            // latch dent in the right wall exterior
+    front_step_cut();          // stepped band the door skirt wraps
+    lock_dents();              // lock dents in the band faces
   }
   // (battery holder is glued in — no printed retention features)
 }
@@ -436,7 +476,7 @@ module lid_body() {
 module lid() {
   lid_body();
   hinge_door();   // knuckle hinge, inner half (external, left)
-  latch_door();   // snap flange + wedge bump + grip (external, right)
+  door_skirt();   // overlap skirt + lock bumps + grip (right/top/bottom)
 }
 
 // =====================================================================
