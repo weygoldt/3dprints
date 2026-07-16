@@ -109,11 +109,13 @@ hinge_round_bot = 0.5; // leaf-to-wall fillet (BOSL2 round_bot flare).  Its
                        // thin tail hugs the wall for ~4.4x this length past
                        // the leaf underside plane -- keep small so the leaf
                        // stays clear of the XT60 flange seat
-hinge_arm_ang = 45;    // housing leaf angle; smaller = the leaf descends
-                       // farther along the wall = shallower print overhang.
-                       // 45 puts the underside at ~39 deg from vertical (60
-                       // gave ~50: too steep supportless); its longer reach
-                       // still clears the recentered XT60 flange (see echoes)
+hinge_arm_ang = 35;    // housing leaf angle == underside print overhang from
+                       // vertical (BOSL2 keeps the underside parallel to the
+                       // arm skeleton).  Smaller = shallower but longer leaf;
+                       // 35 is comfortable supportless PLA, and below ~35 the
+                       // knuckle barrels dominate print quality anyway.  The
+                       // longer reach clears the XT60 flange because the port
+                       // moved toward the backplate (xt60_y, see echoes)
 pin_d        = 1.75;   // filament pin nominal
 pin_clr      = 0.5;    // added to pin bore
 
@@ -156,9 +158,11 @@ xt60_body     = [16, 8.5]; // body cutout W x H  (XT60E-F ~15.6 x 8.1, +clearanc
 xt60_screw_d  = 3.2;       // M3 clearance
 xt60_screw_sep= 25;        // XT60E-F current version (older version = 23.4)
 xt60_pos      = 10;        // position along the face (X on bottom/back, Z on a side)
-xt60_y        = 0;         // Y offset from mid-depth; 0 centers the port between
-                           // backplate and door, keeping the flange off the hinge
-                           // leaf (the BNC keeps its own bnc_y -- the lanyard lug
+xt60_y        = 4;         // Y offset from mid-depth, toward the backplate; 4
+                           // keeps the flange seat clear of the 35-deg leaf's
+                           // longer reach (~1.5 mm margin, see echoes).  Budget
+                           // runs to ~12 before the flange hits the back edge
+                           // (the BNC keeps its own bnc_y -- the lanyard lug
                            // blocks moving it back)
 xt60_flange_h = 14;        // flange height across the screw axis (fit check)
 xt60_body_depth = 12;      // how far the connector body reaches inward (collision check)
@@ -306,13 +310,15 @@ echo(str("  barrel inner edge x = ", Ax + knuckle_d/2, "  (left wall ", -W/2,
 if (hinge_offset < knuckle_d/2) echo("  ERROR: hinge_offset must be >= knuckle_d/2");
 leaf_reach = hinge_arm_h + hinge_offset/tan(hinge_arm_ang)
            + knuckle_d/(2*sin(hinge_arm_ang))
-           + 4.5*hinge_round_bot;   // + fillet flare tail (measured ~4.4x cut)
+           + 1.7*hinge_round_bot/tan(hinge_arm_ang/2);
+           // + fillet flare tail along the wall, slightly conservative fit
+           // to STL measurements: 4.0x cut at 45 deg arm angle, 5.1x at 35
 echo(str("  housing leaf reach along left wall y = ", leaf_reach,
          " mm ; knuckle stack z = +/-", hinge_span/2));
-echo(str("  housing leaf underside overhang = ",
-         round(10*atan(hinge_offset/(hinge_arm_h + hinge_offset/tan(hinge_arm_ang))))/10,
-         " deg from vertical (shell prints back face down; keep <= ~45)"));
-if (atan(hinge_offset/(hinge_arm_h + hinge_offset/tan(hinge_arm_ang))) > 45)
+echo(str("  housing leaf underside overhang = ", hinge_arm_ang,
+         " deg from vertical, STL-verified == arm_angle",
+         " (shell prints back face down; keep <= ~45)"));
+if (hinge_arm_ang > 45)
   echo("  WARNING: hinge leaf underside too steep to print -- lower hinge_arm_ang");
 if (hinge_span/2 > bnc_z - 7.5 - 1)   // d15 BNC nut needs flat wall
   echo("  WARNING: hinge leaf runs into the left BNC nut zone -- shorten hinge_span");
