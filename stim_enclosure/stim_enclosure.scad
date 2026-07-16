@@ -39,7 +39,7 @@ include <../BOSL2/std.scad>
 include <../BOSL2/hinges.scad>
 
 /* [What to render] */
-part = "assembly";   // [assembly, shell, lid, plug]
+part = "shell";   // [assembly, shell, lid, plug]
 print_ready = true;
 door_open   = 0;     // assembly preview only: degrees the door is swung open
 show_ghosts = true;  // assembly preview: draw battery + Teensy phantoms
