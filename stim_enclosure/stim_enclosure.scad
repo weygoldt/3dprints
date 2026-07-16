@@ -151,7 +151,15 @@ xt60_body_depth = 12;      // how far the connector body reaches inward (collisi
 /* [Wire routing] */
 loom_slot = [10, 8];   // W x H slot near the hinge for the control loom
 
-screw_pilot_d = 2.6;   // (kept for the plug)
+/* [BNC blank plug] -- snap-in: hollow slotted stem forms two sprung
+   prongs; a barb ring (interrupted by the slot -> two catch nubs)
+   clicks in behind the wall's inner face */
+plug_flange_t = 2;     // flange disc thickness
+plug_clr      = 0.3;   // stem-to-bore diametral clearance
+plug_nub      = 0.35;  // barb radial proudness (snap = 2*nub - clr per diameter)
+plug_nub_clr  = 0.15;  // axial slack behind the inner wall face
+plug_slot     = 1.4;   // flex slot width through the stem tip
+plug_bore     = 6.2;   // blind core diameter (thins the prongs so they flex)
 
 // =====================================================================
 //  DERIVED
@@ -229,6 +237,11 @@ if (abs(bnc_z - inner_h/2) < panel_depth + bnc_keepout/2)
 echo("--- BNC ----------------------------------------------------------");
 echo(str("  BNC at z = ", bnc_z, "  (battery top ", battery_top_z, ", top wall ", inner_h/2, ")"));
 if (bnc_z - bnc_keepout/2 < battery_top_z) echo("  note: BNC body dips toward the battery band");
+echo(str("  blank plug: snap interference ", 2*plug_nub - plug_clr,
+         " on the bore ; prong strain ~ ",
+         round(1000*1.5*((hole_bnc-plug_clr-plug_bore)/2)*(plug_nub-plug_clr/2)
+               / pow(plug_flange_t + wall + plug_nub_clr - 0.8, 2))/10,
+         " %  (PLA ok < ~3-4 one-shot)"));
 echo("--- XT60 ---------------------------------------------------------");
 if (xt60 && xt60_face!="none") {
   echo(str("  XT60 on ", xt60_face, " face; body reaches ", xt60_body_depth, " mm inward"));
@@ -321,9 +334,27 @@ module bnc_cut() {
   else if (bnc_face=="bottom") translate([bnc_x, D/2+bnc_y, -H/2-eps]) cylinder(h=wall+2*eps, d=hole_bnc);
   else if (bnc_face=="top")    translate([bnc_x, D/2+bnc_y, H/2-wall-eps]) cylinder(h=wall+2*eps, d=hole_bnc);
 }
+// Snap-in blanking plug: flange + slotted hollow stem.  The barb ring
+// sits just behind the wall's inner face; the slot interrupts it into
+// two catch nubs and lets the prongs squeeze together on insertion.
+// Insertion ramp is shallow (~16 deg), removal cam steep (~40 deg):
+// clicks in, holds, but a firm pull still gets it back out.
 module blank_plug() {
-  cylinder(h=2, d=hole_bnc+6);
-  translate([0,0,2-eps]) cylinder(h=wall+1.5, d=hole_bnc-0.3);
+  stem_d = hole_bnc - plug_clr;
+  nub_z  = plug_flange_t + wall + plug_nub_clr;   // barb crest = inner face + slack
+  difference() {
+    union() {
+      cylinder(h=plug_flange_t, d=hole_bnc+6);                    // flange disc
+      cylinder(h=nub_z+eps, d=stem_d);                            // stem through the bore
+      translate([0,0,nub_z-0.4])                                  // removal cam (catch)
+        cylinder(h=0.4, d1=stem_d, d2=stem_d+2*plug_nub);
+      translate([0,0,nub_z-eps])                                  // insertion ramp / tip
+        cylinder(h=1.2, d1=stem_d+2*plug_nub, d2=stem_d-0.6);
+    }
+    translate([0,0,0.8]) cylinder(h=nub_z+2, d=plug_bore);        // blind core
+    translate([-plug_slot/2, -hole_bnc/2-4, 0.8])                 // flex slot
+      cube([plug_slot, hole_bnc+8, nub_z+2]);
+  }
 }
 
 // =====================================================================
