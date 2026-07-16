@@ -344,12 +344,13 @@ echo(str("  ", len(lock_zs) + (n_locks>=2?1:0) + (n_locks>=3?1:0),
 if (step >= wall - 1.0)
   echo("  WARNING: step band leaves < 1 mm of wall behind the dents");
 echo(str("  hinge-side skirt: full ", ov_d, " deep, windowed z +/-", hinge_win_z,
-         " over the knuckles ; left clearance ", lid_clearance_left,
+         " over the knuckles (ends quarter-rounded, full depth resumes at +/-",
+         hinge_win_z + ov_d, ") ; left clearance ", lid_clearance_left,
          " ; guaranteed min swing gap = ", round(1000*swing_gap)/1000, " mm"));
 if (swing_gap < 0.1)
   echo("  WARNING: hinge-side skirt scrapes on the swing -- raise hinge_offset or lid_clearance_left");
-if (hinge_win_z >= H/2 - corner_r)
-  echo("  WARNING: knuckle window runs into the corner arcs (hinge_span too long)");
+if (hinge_win_z + ov_d >= H/2 - corner_r)
+  echo("  WARNING: knuckle window (incl. rounded ends) runs into the corner arcs (hinge_span too long)");
 echo("------------------------------------------------------------------");
 
 // =====================================================================
@@ -541,7 +542,9 @@ module lock_dents() {
 // door skirt: a plain full-depth ring wrapping the band, lock bumps on
 // its inner faces, inspo grip ridge on the right face; the only opening
 // is the window over the knuckle span, where the hinge leaf and barrels
-// live
+// live.  The window ends are quarter-rounded (r = ov_d): the skirt
+// sweeps from nothing at +/-hinge_win_z to full depth over ov_d of z,
+// tangent to the tip line -- no sharp notch corners
 module door_skirt() {
   difference() {
     union() {
@@ -558,8 +561,13 @@ module door_skirt() {
           prismoid(size1=[bump_l, 2], size2=[bump_l*0.75, 1], shift=[0, -0.5],
                    h=1.5, orient=RIGHT);
     }
-    translate([-W/2-1, -1, -hinge_win_z])
-      cube([1 + step_left, ov_d+2, 2*hinge_win_z]);
+    difference() {
+      translate([-W/2-1, -1, -(hinge_win_z + ov_d)])
+        cube([1 + step_left, ov_d+2, 2*(hinge_win_z + ov_d)]);
+      for (sz = [-1, 1])
+        translate([-W/2-1-eps, 0, sz*(hinge_win_z + ov_d)])
+          rotate([0, 90, 0]) cylinder(h=1 + step_left + 2*eps, r=ov_d);
+    }
   }
 }
 
