@@ -19,8 +19,11 @@
 //             outer walls (0.1 clearance/side), and little prismoid
 //             bumps on the skirt inner face click into 5 % oversized,
 //             0.1 deeper dents in the band.  Two locks on the long
-//             right edge plus one top and one bottom; plain butt
-//             joint on the hinge side.
+//             right edge plus one top and one bottom.  The hinge side
+//             overlaps too, via stubs above/below the knuckle stack
+//             whose inner face is a cylinder about the pin axis (the
+//             swing clears it by construction); only the knuckle span
+//             itself and the two left corners stay butt-jointed.
 //  Battery retention: printed snap features that grab the holder's side flaps.
 //
 //  Requires BOSL2 (../BOSL2).  Print PETG, no supports.
@@ -107,9 +110,11 @@ pin_clr      = 0.5;    // added to pin bore
 
 /* [Lid overlap + snap locks] -- the inspo closure with its tolerances:
    door skirt over a stepped housing band, bump-in-dent interlocks */
-ov_d          = 4.0;   // overlap depth: skirt/band engagement behind the door
-                       // plane; 4.0 doubles the bump lever arm so the PLA
-                       // skirt cams over at ~1/4 the bending strain
+ov_d          = 3.0;   // overlap depth: skirt/band engagement behind the door
+                       // plane (bump lever = ov_d-1; keep >= 3 so the PLA
+                       // skirt still cams over gently)
+ov_left       = 2.0;   // hinge-side stub overlap depth; the stub lip tapers
+                       // against the swing-clearance cylinder, so keep < 3
 skirt_t       = 1.1;   // door skirt thickness (inspo: wall_thickness - lid_clearance)
 lid_clearance = 0.1;   // per-side skirt-to-band clearance (inspo)
 lock_zs       = [24, -24];  // Z centers of the RIGHT-edge locks (the long free
@@ -190,6 +195,13 @@ pin_bore = pin_d + pin_clr;
 step      = skirt_t + lid_clearance;   // housing band inset from the outer walls
 skirt_end = -W/2 + corner_r + 2;       // top/bottom skirt legs stop here (hinge side)
 lock_y    = ov_d - 1.0;                // bump/dent center, 1 mm shy of the skirt rim (inspo)
+// hinge-side overlap stubs: on the left edge, above/below the knuckle stack.
+// Their inner face is a cylinder about the pin axis: everything inside it
+// swings freely, while the housing band (flat face, hinge_offset+step from
+// the axis) stays outside it -- constant lid_clearance at the rim.
+R_lip   = hinge_offset + skirt_t;      // stub inner surface radius about (Ax, 0)
+stub_z0 = hinge_span/2 + 1;            // stubs start past the knuckle stack
+stub_z1 = H/2 - corner_r - 1.5;        // and stop before the corner arcs
 
 lug_d  = lug_hole + 2*lug_web;
 lug_ex = W/2 + lug_out;
@@ -291,6 +303,14 @@ echo(str("  ", len(lock_zs) + (n_locks>=2?1:0) + (n_locks>=3?1:0),
          " ; dent 5 % oversize, ", bump_h + 0.1, " deep (inspo)"));
 if (step >= wall - 1.0)
   echo("  WARNING: step band leaves < 1 mm of wall behind the dents");
+echo(str("  hinge-side stubs z +/-[", stub_z0, ", ", stub_z1, "] x ", ov_left,
+         " deep ; lip tip thickness = ",
+         round(100*(sqrt(R_lip*R_lip - ov_left*ov_left) - hinge_offset))/100,
+         " mm  (swing-relief cylinder R = ", R_lip, ")"));
+if (sqrt(R_lip*R_lip - ov_left*ov_left) - hinge_offset < 0.45)
+  echo("  WARNING: stub lip tip too thin to print -- reduce ov_left");
+if (stub_z0 >= stub_z1)
+  echo("  WARNING: no room for hinge-side stubs (hinge_span too long)");
 echo("------------------------------------------------------------------");
 
 // =====================================================================
@@ -452,6 +472,11 @@ module front_step_cut() {
     }
     translate([skirt_end-0.5, -1, -H/2-6]) cube([W+10, ov_d+2, H+12]);
   }
+  // left-edge band recess for the hinge-side stubs: a simple box along the
+  // straight left wall (band face flat at -(W/2-step)); over the knuckle
+  // span it hides behind the hinge leaf
+  translate([-W/2-1, -eps, -(stub_z1+0.5)])
+    cube([1 + step, ov_d+0.3+eps, 2*(stub_z1+0.5)]);
 }
 module lock_wedge(o, dent=false) {   // inspo bump; dent -> 5 % oversize, 0.1 deeper
   s = dent ? 1.05 : 1;
@@ -478,6 +503,14 @@ module door_skirt() {
       if (n_locks >= 3) translate([0, lock_y, -(H/2-skirt_t)-eps]) lock_wedge(UP);
     }
     translate([skirt_end, -1, -H/2-1]) cube([W+10, ov_d+2, H+2]);      // open the hinge side
+  }
+  // hinge-side overlap stubs above/below the knuckle stack: inner face is
+  // the R_lip cylinder about the pin axis, so the closing arc clears by
+  // construction (the lip tapers with depth; see ov_left)
+  for (sz = [-1, 1]) intersection() {
+    translate([-W/2, 0, sz > 0 ? stub_z0 : -stub_z1])
+      cube([step + lid_clearance, ov_left, stub_z1 - stub_z0]);
+    translate([Ax, 0, -H/2]) cylinder(h=H, r=R_lip);
   }
   if (grip)
     translate([W/2-eps, ov_d/2-0.05, 0])
