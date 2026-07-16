@@ -20,13 +20,15 @@
 //             bumps on the skirt inner face click into 5 % oversized,
 //             0.1 deeper dents in the band.  Two locks on the long
 //             right edge plus one top and one bottom.  The hinge side
-//             overlaps too, via stubs above/below the knuckle stack
-//             whose inner face is a cylinder about the pin axis (the
-//             swing clears it by construction); only the knuckle span
-//             itself and the two left corners stay butt-jointed.
+//             overlaps too: above/below the knuckle stack and around
+//             both left corners the skirt becomes a shallow lip whose
+//             inner face is a swing-relief surface about the pin axis
+//             (cylinder on the straight edge, torus at the corners),
+//             so the closing arc clears it by construction; only the
+//             knuckle span itself stays butt-jointed.
 //  Battery retention: printed snap features that grab the holder's side flaps.
 //
-//  Requires BOSL2 (../BOSL2).  Print PETG, no supports.
+//  Requires BOSL2 (../BOSL2).  Print PLA, no supports.
 //  PARTS (part=): shell | lid(=door) | plug(BNC blank) | assembly(preview)
 //     shell : BACK face on the bed
 //     lid   : outer face down
@@ -103,8 +105,15 @@ hinge_gap    = 0.3;    // Z clearance between adjacent knuckles (rotation)
 knuckle_d    = 6;      // hinge barrel outer diameter
 hinge_offset = 4;      // pin axis standoff from the left wall face (>= knuckle_d/2)
 hinge_arm_h  = 1;      // housing-side straight arm height (inspo look)
-hinge_arm_ang = 60;    // housing leaf angle; 60 keeps the leaf's reach along
-                       // the wall under the XT60 plug envelope (y < ~10)
+hinge_round_bot = 0.5; // leaf-to-wall fillet (BOSL2 round_bot flare).  Its
+                       // thin tail hugs the wall for ~4.4x this length past
+                       // the leaf underside plane -- keep small so the leaf
+                       // stays clear of the XT60 flange seat
+hinge_arm_ang = 45;    // housing leaf angle; smaller = the leaf descends
+                       // farther along the wall = shallower print overhang.
+                       // 45 puts the underside at ~39 deg from vertical (60
+                       // gave ~50: too steep supportless); its longer reach
+                       // still clears the recentered XT60 flange (see echoes)
 pin_d        = 1.75;   // filament pin nominal
 pin_clr      = 0.5;    // added to pin bore
 
@@ -113,8 +122,9 @@ pin_clr      = 0.5;    // added to pin bore
 ov_d          = 3.0;   // overlap depth: skirt/band engagement behind the door
                        // plane (bump lever = ov_d-1; keep >= 3 so the PLA
                        // skirt still cams over gently)
-ov_left       = 2.0;   // hinge-side stub overlap depth; the stub lip tapers
-                       // against the swing-clearance cylinder, so keep < 3
+ov_left       = 2.0;   // hinge-side lip overlap depth (straight edge and
+                       // corners); the lip tapers against the swing-relief
+                       // surfaces, so keep < 3
 skirt_t       = 1.1;   // door skirt thickness (inspo: wall_thickness - lid_clearance)
 lid_clearance = 0.1;   // per-side skirt-to-band clearance (inspo)
 lock_zs       = [24, -24];  // Z centers of the RIGHT-edge locks (the long free
@@ -193,15 +203,23 @@ pin_bore = pin_d + pin_clr;
 
 // lid overlap derived values
 step      = skirt_t + lid_clearance;   // housing band inset from the outer walls
-skirt_end = -W/2 + corner_r + 2;       // top/bottom skirt legs stop here (hinge side)
 lock_y    = ov_d - 1.0;                // bump/dent center, 1 mm shy of the skirt rim (inspo)
-// hinge-side overlap stubs: on the left edge, above/below the knuckle stack.
-// Their inner face is a cylinder about the pin axis: everything inside it
-// swings freely, while the housing band (flat face, hinge_offset+step from
-// the axis) stays outside it -- constant lid_clearance at the rim.
-R_lip   = hinge_offset + skirt_t;      // stub inner surface radius about (Ax, 0)
-stub_z0 = hinge_span/2 + 1;            // stubs start past the knuckle stack
-stub_z1 = H/2 - corner_r - 1.5;        // and stop before the corner arcs
+corner_cz = H/2 - corner_r;            // corner arc center height; all corner
+                                       // arcs are concentric about
+                                       // (+/-(W/2-corner_r), +/-corner_cz):
+                                       // outer r5, band r3.8, skirt hollow r3.9
+// hinge-side overlap lip: runs the left edge and around both left corners,
+// interrupted only by the knuckle stack.  On the straight edge its inner
+// face is a cylinder about the pin axis: everything inside it swings
+// freely, while the housing band (flat face, hinge_offset+step from the
+// axis) stays outside it -- constant lid_clearance at the rim.  At the
+// corners the same trick against the band corner arc: the inner face is
+// the skirt's static clearance arc (r = corner_r-skirt_t, concentric with
+// the band corner) revolved about the pin axis -- a torus that coincides
+// with that arc at the rim, tapers the lip with depth, and meets the
+// R_lip cylinder exactly at the corner-center height.
+R_lip   = hinge_offset + skirt_t;      // lip inner surface radius about (Ax, 0)
+stub_z0 = hinge_span/2 + 1;            // left lip resumes past the knuckle stack
 
 lug_d  = lug_hole + 2*lug_web;
 lug_ex = W/2 + lug_out;
@@ -266,7 +284,8 @@ if (xt60 && xt60_face!="none") {
              "|  (Teensy X half-span ", teensy_len/2, ")"));
     echo(str("  side XT60 y-center = ", D/2 + xt60_y, " ; flange front edge y = ",
              D/2 + xt60_y - xt60_flange_h/2, "  (hinge leaf ends y = ", leaf_reach, ")"));
-    if (xt60_face=="left" && D/2 + xt60_y - xt60_flange_h/2 < leaf_reach + 1)
+    // 0.5 margin: leaf_reach's flare term is itself ~0.3 conservative
+    if (xt60_face=="left" && D/2 + xt60_y - xt60_flange_h/2 < leaf_reach + 0.5)
       echo("  WARNING: XT60 flange lands on the hinge leaf -- raise xt60_y");
     if (xt60_pos - xt60_body[1]/2 < battery_top_z)
       echo("  WARNING: side XT60 dips into the battery band -- raise xt60_pos");
@@ -286,12 +305,18 @@ echo(str("  barrel inner edge x = ", Ax + knuckle_d/2, "  (left wall ", -W/2,
          ", door edge ", -lid_w/2, ")"));
 if (hinge_offset < knuckle_d/2) echo("  ERROR: hinge_offset must be >= knuckle_d/2");
 leaf_reach = hinge_arm_h + hinge_offset/tan(hinge_arm_ang)
-           + knuckle_d/(2*sin(hinge_arm_ang)) + 1.0;   // + round_bot fillet
+           + knuckle_d/(2*sin(hinge_arm_ang))
+           + 4.5*hinge_round_bot;   // + fillet flare tail (measured ~4.4x cut)
 echo(str("  housing leaf reach along left wall y = ", leaf_reach,
          " mm ; knuckle stack z = +/-", hinge_span/2));
+echo(str("  housing leaf underside overhang = ",
+         round(10*atan(hinge_offset/(hinge_arm_h + hinge_offset/tan(hinge_arm_ang))))/10,
+         " deg from vertical (shell prints back face down; keep <= ~45)"));
+if (atan(hinge_offset/(hinge_arm_h + hinge_offset/tan(hinge_arm_ang))) > 45)
+  echo("  WARNING: hinge leaf underside too steep to print -- lower hinge_arm_ang");
 if (hinge_span/2 > bnc_z - 7.5 - 1)   // d15 BNC nut needs flat wall
   echo("  WARNING: hinge leaf runs into the left BNC nut zone -- shorten hinge_span");
-if (leaf_reach > D/2 + bnc_y - 10.5/2 - 1)   // XT60 plug housing envelope
+if (leaf_reach > D/2 + xt60_y - 10.5/2 - 1)   // XT60 plug housing envelope
   echo("  WARNING: hinge leaf reaches the XT60 plug envelope -- steepen hinge_arm_ang");
 echo("--- lid overlap + snap locks --------------------------------------");
 echo(str("  skirt ", skirt_t, " thick x ", ov_d, " deep over a ", step,
@@ -303,14 +328,15 @@ echo(str("  ", len(lock_zs) + (n_locks>=2?1:0) + (n_locks>=3?1:0),
          " ; dent 5 % oversize, ", bump_h + 0.1, " deep (inspo)"));
 if (step >= wall - 1.0)
   echo("  WARNING: step band leaves < 1 mm of wall behind the dents");
-echo(str("  hinge-side stubs z +/-[", stub_z0, ", ", stub_z1, "] x ", ov_left,
-         " deep ; lip tip thickness = ",
+echo(str("  hinge-side lip: straight z +/-[", stub_z0, ", ", corner_cz,
+         "] + both corner arcs, ", ov_left, " deep ; lip tip thickness = ",
          round(100*(sqrt(R_lip*R_lip - ov_left*ov_left) - hinge_offset))/100,
-         " mm  (swing-relief cylinder R = ", R_lip, ")"));
+         " mm  (relief cylinder R = ", R_lip, ", corner torus r = ",
+         corner_r - skirt_t, "; corner tip is never thinner)"));
 if (sqrt(R_lip*R_lip - ov_left*ov_left) - hinge_offset < 0.45)
-  echo("  WARNING: stub lip tip too thin to print -- reduce ov_left");
-if (stub_z0 >= stub_z1)
-  echo("  WARNING: no room for hinge-side stubs (hinge_span too long)");
+  echo("  WARNING: lip tip too thin to print -- reduce ov_left");
+if (stub_z0 >= corner_cz)
+  echo("  WARNING: hinge-side lip vanished (knuckle stack runs into the corner arcs)");
 echo("------------------------------------------------------------------");
 
 // =====================================================================
@@ -427,7 +453,7 @@ module hinge_housing() {
         knuckle_hinge(length=hinge_span, segs=hinge_segs, offset=hinge_offset,
                       arm_height=hinge_arm_h, arm_angle=hinge_arm_ang,
                       knuckle_diam=knuckle_d, gap=hinge_gap, pin_diam=pin_bore,
-                      teardrop=true, round_bot=1.0, clear_top=true);
+                      teardrop=true, round_bot=hinge_round_bot, clear_top=true);
 }
 module hinge_door() {
   // proxy strip coincident with the door's left edge band; the inner hinge
@@ -442,41 +468,35 @@ module hinge_door() {
 }
 
 // =====================================================================
-//  LID OVERLAP + SNAP LOCKS  (right/top/bottom edges)
+//  LID OVERLAP + SNAP LOCKS  (full perimeter)
 //  The inspo mechanism, tolerances included: the housing's front band
 //  steps in by `step` (the inspo's block standing proud of its outer
 //  shell); the door skirt wraps it flush with the outer walls at 0.1
 //  clearance per side.  Prismoid bumps on the skirt inner face, 1 mm
 //  shy of the rim, click into 5 % oversized / 0.1 deeper dents cut in
 //  the band; the skirt bows locally to cam over, like the inspo lid
-//  wall.  No step or skirt on the hinge side (the swing arc would
-//  bind); the door lands butt-flush there and the hinge aligns it.
+//  wall.  On the hinge side a straight-faced skirt would bind on the
+//  swing arc, so the left leg and both left corners become a shallower
+//  tapering lip bounded by the swing-relief surfaces about the pin
+//  axis (R_lip cylinder / corner torus, see the derived section); only
+//  the knuckle span itself stays open.
 // =====================================================================
-// rounded prism of the stepped front cross-section: right/top/bottom
-// inset by `inset`, left side bled out past the outline (open side)
-module stepped_profile(inset, l) {
-  r = corner_r - inset;
-  hull() for (sz=[-1,1]) {
-    translate([ W/2-inset-r, 0, sz*(H/2-inset-r)]) rotate([-90,0,0]) cylinder(h=l, r=r);
-    translate([-W/2-8,       0, sz*(H/2-inset-r)]) rotate([-90,0,0]) cylinder(h=l, r=r);
-  }
-}
 // cut: recess the housing's outer band behind the door plane so the
 // skirt sits flush (0.3 axial slack so the panel, not the skirt tip,
-// seats on the band rim -- like the inspo lid resting on the case rim)
+// seats on the band rim -- like the inspo lid resting on the case
+// rim).  Full perimeter; the left bound only keeps the cut off the
+// knuckle barrels (tangent at x = Ax + knuckle_d/2) -- over the
+// knuckle span the recess hides behind the hinge leaf, whose material
+// starts past the recess depth
 module front_step_cut() {
   intersection() {
     difference() {
       translate([-W/2-5, -eps, -H/2-5]) cube([W+10, ov_d+0.3+eps, H+10]);
-      translate([0, -2*eps, 0]) stepped_profile(step, ov_d+0.3+4*eps);
+      translate([0, -2*eps, 0])
+        rprism(W-2*step, H-2*step, ov_d+0.3+4*eps, corner_r-step);
     }
-    translate([skirt_end-0.5, -1, -H/2-6]) cube([W+10, ov_d+2, H+12]);
+    translate([-W/2-1, -1, -H/2-6]) cube([W+10, ov_d+2, H+12]);
   }
-  // left-edge band recess for the hinge-side stubs: a simple box along the
-  // straight left wall (band face flat at -(W/2-step)); over the knuckle
-  // span it hides behind the hinge leaf
-  translate([-W/2-1, -eps, -(stub_z1+0.5)])
-    cube([1 + step, ov_d+0.3+eps, 2*(stub_z1+0.5)]);
 }
 module lock_wedge(o, dent=false) {   // inspo bump; dent -> 5 % oversize, 0.1 deeper
   s = dent ? 1.05 : 1;
@@ -489,33 +509,51 @@ module lock_dents() {
   if (n_locks >= 2) translate([0, lock_y,  H/2-step+eps])  lock_wedge(DOWN, dent=true);
   if (n_locks >= 3) translate([0, lock_y, -(H/2-step)-eps]) lock_wedge(UP, dent=true);
 }
-// door skirt: C-shaped ring (open on the hinge side) wrapping the band,
-// lock bumps on its inner faces, inspo grip ridge on the right face
+// door skirt: a full ring wrapping the band, lock bumps on its inner
+// faces, inspo grip ridge on the right face.  On the hinge side the
+// ring is opened over the knuckle span and reduced elsewhere to the
+// shallower tapering lip by the swing-relief cuts.
 module door_skirt() {
-  intersection() {
+  difference() {
     union() {
       difference() {
-        rprism(W, H, ov_d, corner_r);                                  // outer = housing outline
-        translate([0, -eps, 0]) stepped_profile(skirt_t, ov_d+3*eps);  // inner = band + clearance
+        rprism(W, H, ov_d, corner_r);              // outer = housing outline
+        translate([0, -eps, 0])                    // inner = band + clearance
+          rprism(W-2*skirt_t, H-2*skirt_t, ov_d+3*eps, corner_r-skirt_t);
       }
       for (z = lock_zs) translate([W/2-skirt_t+eps, lock_y, z]) lock_wedge(LEFT);
       if (n_locks >= 2) translate([0, lock_y,  H/2-skirt_t+eps])  lock_wedge(DOWN);
       if (n_locks >= 3) translate([0, lock_y, -(H/2-skirt_t)-eps]) lock_wedge(UP);
+      if (grip)
+        translate([W/2-eps, ov_d/2-0.05, 0])
+          prismoid(size1=[bump_l, 2], size2=[bump_l*0.75, 1], shift=[0, -0.5],
+                   h=1.5, orient=RIGHT);
     }
-    translate([skirt_end, -1, -H/2-1]) cube([W+10, ov_d+2, H+2]);      // open the hinge side
+    // knuckle window: the shell's leaf and barrels occupy this span
+    translate([-W/2-1, -1, -stub_z0])
+      cube([1 + step + lid_clearance, ov_d+2, 2*stub_z0]);
+    // straight-edge swing relief: anything outside the R_lip cylinder
+    // about the pin axis would bind on the band during the swing
+    difference() {
+      translate([-W/2-1, -1, -corner_cz])
+        cube([1 + step + lid_clearance, ov_d+2, 2*corner_cz]);
+      translate([Ax, 0, -H/2]) cylinder(h=H, r=R_lip);
+    }
+    // corner swing relief: the skirt's static clearance arc revolved
+    // about the pin axis.  At the rim (y=0) the torus surface IS that
+    // arc, so the static 0.1 gap holds; with depth it tapers the lip
+    // just like the R_lip cylinder does on the straight edge
+    for (sz = [-1, 1]) translate([Ax, 0, 0]) rotate_extrude()
+      translate([corner_r + hinge_offset, sz*corner_cz])
+        circle(r=corner_r - skirt_t);
+    // the tapering lip tip turns razor-thin past ov_left: cap the left
+    // leg + corner lip depth there (the other three legs run ov_d)
+    translate([-W/2-1, ov_left, -corner_cz])
+      cube([1 + step + lid_clearance, ov_d, 2*corner_cz]);
+    for (sz = [-1, 1])
+      translate([-W/2-1, ov_left, sz > 0 ? corner_cz : -H/2-1])
+        cube([corner_r + 1, ov_d, H/2 - corner_cz + 1]);
   }
-  // hinge-side overlap stubs above/below the knuckle stack: inner face is
-  // the R_lip cylinder about the pin axis, so the closing arc clears by
-  // construction (the lip tapers with depth; see ov_left)
-  for (sz = [-1, 1]) intersection() {
-    translate([-W/2, 0, sz > 0 ? stub_z0 : -stub_z1])
-      cube([step + lid_clearance, ov_left, stub_z1 - stub_z0]);
-    translate([Ax, 0, -H/2]) cylinder(h=H, r=R_lip);
-  }
-  if (grip)
-    translate([W/2-eps, ov_d/2-0.05, 0])
-      prismoid(size1=[bump_l, 2], size2=[bump_l*0.75, 1], shift=[0, -0.5],
-               h=1.5, orient=RIGHT);
 }
 
 // =====================================================================
