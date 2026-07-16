@@ -9,10 +9,12 @@
 //     - bare Teensy 4.1 horizontal, directly ABOVE the battery
 //     - top cavity holds the button bodies (door) + power/LED (top)
 //  The ENTIRE FRONT PANEL is a hinged, latched door.
-//     HINGE : BOSL2 knuckle_hinge() on the LEFT edge, VERTICAL axis.
-//             Outer half on the HOUSING, inner half on the DOOR, teardrop
-//             pin bores. User threads a length of 1.75 mm filament as the
-//             pin. No print-in-place, no screws.
+//     HINGE : hand-rolled knuckle hinge on the LEFT edge, VERTICAL axis.
+//             Outer half on the HOUSING, inner half on the DOOR: per-
+//             segment barrels + leaf profiles extruded DIRECTLY at their
+//             final shape (no corrective cuts), teardrop pin bores.  User
+//             threads a length of 1.75 mm filament as the pin.  No
+//             print-in-place, no screws.
 //     LATCH : the battery-case inspo closure, verbatim: the housing's
 //             front band steps in (the inspo's proud inner block), the
 //             door carries a thin skirt that wraps it flush with the
@@ -23,10 +25,11 @@
 //             FULL DEPTH around the whole perimeter -- including across
 //             the knuckle span: the pin axis sits at mid-overlap depth
 //             (Ay = ov_d/2) and stands farther off the wall, the
-//             hinge-side band is cut a touch looser, and both hinge
-//             leaves' inner sides are cut back to smooth bevels about
-//             the pin axis, freeing the sector the skirt sweeps.
-//  Battery retention: printed snap features that grab the holder's side flaps.
+//             hinge-side band is cut a touch looser, the housing leaf's
+//             front face is a smooth bevel about the pin axis, and the
+//             door leaf rides below the pin plane, freeing the sector
+//             the skirt sweeps.
+//  Battery retention: none printed -- the holder is GLUED to the floor/backplate.
 //
 //  Requires BOSL2 (../BOSL2).  Print PLA, no supports.
 //  PARTS (part=): shell | lid(=door) | plug(BNC blank) | assembly(preview)
@@ -36,7 +39,6 @@
 // =====================================================================
 
 include <../BOSL2/std.scad>
-include <../BOSL2/hinges.scad>
 
 /* [What to render] */
 part = "lid";   // [assembly, shell, lid, plug]
@@ -50,7 +52,7 @@ eps  = 0.01;
 /* [Enclosure envelope] */
 inner_w  = 84;     // X interior  (holder is 81 long -> ~1.5 mm each side)
 inner_h  = 100;    // Z interior  (battery + Teensy stacked + top control band)
-inner_d  = 36;     // Y interior depth -- set by the 35 mm flap span (see echoes)
+inner_d  = 36;     // Y interior depth (holder needs >= 27 -- see echoes)
 wall     = 2.5;
 corner_r = 5;
 
@@ -97,7 +99,7 @@ lug_out   = 5;
 lug_t     = 8;
 lug_inset = 12;
 
-/* [Knuckle hinge] -- BOSL2, LEFT edge, vertical axis, 1.75 mm filament pin */
+/* [Knuckle hinge] -- hand-rolled, LEFT edge, vertical axis, 1.75 mm filament pin */
 hinge_segs   = 5;      // total knuckles (odd -> housing gets the two ends)
 hinge_span   = 56;     // Z span of the knuckle stack (ends 2.5 mm shy of the
                        // left BNC nut zone at z = bnc_z - 7.5)
@@ -108,18 +110,15 @@ hinge_offset = 7;      // pin axis standoff from the left wall face
                        // with the mid-depth pin (Ay = ov_d/2) it lets the
                        // full-depth door skirt swing past the hinge-side
                        // band -- see the swing-gap echo
-hinge_arm_h  = 1;      // housing-side straight arm height (inspo look)
-hinge_round_bot = 0.5; // leaf-to-wall fillet (BOSL2 round_bot flare).  Its
-                       // thin tail hugs the wall for ~4.4x this length past
-                       // the leaf underside plane -- keep small so the leaf
-                       // stays clear of the XT60 flange seat
-hinge_arm_ang = 35;    // housing leaf angle == underside print overhang from
-                       // vertical (BOSL2 keeps the underside parallel to the
-                       // arm skeleton).  Smaller = shallower but longer leaf;
-                       // 35 is comfortable supportless PLA, and below ~35 the
-                       // knuckle barrels dominate print quality anyway.  The
-                       // longer reach clears the XT60 flange because the port
-                       // moved toward the backplate (xt60_y, see echoes)
+hinge_fillet = 2;      // housing leaf-to-wall fillet radius: an exact arc
+                       // tangent to both the wall and the leaf underside,
+                       // so the leaf grows smoothly out of the wall and
+                       // leaf_reach is the computed tangent point --
+                       // nothing empirical
+hinge_arm_ang = 35;    // housing leaf underside angle from vertical == its
+                       // print overhang (the leaf profile is built at
+                       // exactly this angle).  Smaller = shallower but
+                       // longer leaf; 35 is comfortable supportless PLA
 pin_d        = 1.75;   // filament pin nominal
 pin_clr      = 0.5;    // added to pin bore
 
@@ -142,7 +141,7 @@ bump_l        = 16;    // lock bump length along the wall (inspo: case_length/3)
 bump_w        = 1.0;   // bump profile width (inspo)
 bump_h        = 0.25;  // bump proudness (inspo 0.3, softened for PLA);
                        // dent = 5 % wider, 0.1 deeper
-grip          = true;  // inspo-style thumb grip ridge on the right skirt face
+grip          = true;  // inspo-style thumb grip wedge on the door's right rim
 
 /* [Battery holder] -- single-cell 26650, horizontal, cell axis = X.
    Sits with its FLAT SIDE against the BACK (chest) wall, bottom on the floor,
@@ -165,12 +164,13 @@ xt60_screw_d  = 3.2;       // M3 clearance
 xt60_screw_sep= 25;        // XT60E-F current version (older version = 23.4)
 xt60_pos      = 10;        // position along the face (X on bottom/back, Z on a side)
 xt60_y        = 9;         // Y offset from mid-depth, toward the backplate; 9
-                           // keeps the flange seat clear of the 35-deg leaf,
-                           // which reaches farther now that the pin stands
-                           // hinge_offset = 7 off the wall (see echoes).
-                           // Budget runs to ~12 before the flange hits the
-                           // back edge (the BNC keeps its own bnc_y -- the
-                           // lanyard lug blocks moving it back)
+                           // keeps the flange seat well clear of the 35-deg
+                           // leaf (~3.9 mm margin with the exact-fillet leaf
+                           // reach -- could come back to ~6.5 if a more
+                           // central port is ever wanted).  Budget runs to
+                           // ~12 before the flange hits the back edge (the
+                           // BNC keeps its own bnc_y -- the lanyard lug
+                           // blocks moving it back)
 xt60_flange_h = 14;        // flange height across the screw axis (fit check)
 xt60_body_depth = 12;      // how far the connector body reaches inward (collision check)
 
@@ -215,6 +215,22 @@ Ay = ov_d/2;   // pin axis at MID-OVERLAP depth: with the axis centered in
                // (not ov_d) -- this is what makes a full-depth hinge-side
                // skirt swing clear at a modest hinge_offset
 pin_bore = pin_d + pin_clr;
+kr       = knuckle_d/2;
+
+// knuckle stack: hinge_segs segments over hinge_span, hinge_gap apart
+seg_h = (hinge_span - (hinge_segs-1)*hinge_gap)/hinge_segs;
+function seg_z(i) = -hinge_span/2 + i*(seg_h + hinge_gap);
+
+// housing leaf underside: the line at hinge_arm_ang from vertical, tangent
+// to the barrel at leaf_P and heading for the wall; an exact arc fillet of
+// radius hinge_fillet (tangent to both the line and the wall, centered at
+// leaf_F) lands the leaf on the wall at leaf_reach -- the tangent point,
+// computed, not fitted
+leaf_P  = [Ax - kr*cos(hinge_arm_ang), Ay + kr*sin(hinge_arm_ang)];
+leaf_T1 = leaf_P + ((-W/2 - hinge_fillet*(1 - cos(hinge_arm_ang)) - leaf_P.x)
+                    / sin(hinge_arm_ang)) * [sin(hinge_arm_ang), cos(hinge_arm_ang)];
+leaf_F  = leaf_T1 + hinge_fillet*[-cos(hinge_arm_ang), sin(hinge_arm_ang)];
+leaf_reach = leaf_F.y;   // leaf-wall contact ends here (fillet-wall tangent)
 
 // lid overlap derived values
 step      = skirt_t + lid_clearance;        // band inset, right/top/bottom
@@ -229,17 +245,15 @@ lock_y    = ov_d - 1.0;                // bump/dent center, 1 mm shy of the skir
 // corners on the straight left edge; the corner arcs are strictly better).
 swing_gap = hinge_offset + skirt_t + lid_clearance_left
           - sqrt(pow(hinge_offset + skirt_t, 2) + pow(ov_d/2, 2));
-// leaf swing bevels: both leaves' mount-side material is cut back to flat
-// bevel planes through the pin axis (smooth, swing-concentric) in place of
-// square shoulders.  The SHELL bevel frees the sector the closing skirt
-// sweeps and lands exactly on the recess floor edge at the wall -- it reads
-// as a continuation of the recess; the DOOR bevel keeps the swinging door
-// leaf clear of the shell's recess rim.  All rays measured about (Ax, Ay)
-// from the pin plane toward the wall.
+// leaf swing bevel: the housing leaf's front face is a flat plane through
+// the pin axis at shell_bevel (smooth, swing-concentric), landing exactly
+// on the recess floor edge at the wall -- it frees the sector the closing
+// skirt sweeps and reads as a continuation of the recess.  The door leaf
+// needs no bevel at all: its plate tops out ON the pin plane (swing ray 0),
+// a full shell_bevel below any housing material it passes.  Rays measured
+// about (Ax, Ay) from the pin plane toward the wall.
 skirt_max_ang  = atan((ov_d - Ay)/hinge_offset);        // skirt's highest seated ray
 shell_bevel    = atan((ov_d + 0.3 - Ay)/hinge_offset);  // lands on the recess floor edge
-recess_rim_ang = atan((ov_d + 0.3 - Ay)/(hinge_offset + skirt_t + lid_clearance_left));
-door_bevel     = 10.5;                                  // keep < recess_rim_ang
 
 lug_d  = lug_hole + 2*lug_web;
 lug_ex = W/2 + lug_out;
@@ -304,7 +318,7 @@ if (xt60 && xt60_face!="none") {
              "|  (Teensy X half-span ", teensy_len/2, ")"));
     echo(str("  side XT60 y-center = ", D/2 + xt60_y, " ; flange front edge y = ",
              D/2 + xt60_y - xt60_flange_h/2, "  (hinge leaf ends y = ", leaf_reach, ")"));
-    // 0.5 margin: leaf_reach's flare term is itself ~0.3 conservative
+    // 0.5 mm assembly margin on an exact leaf reach
     if (xt60_face=="left" && D/2 + xt60_y - xt60_flange_h/2 < leaf_reach + 0.5)
       echo("  WARNING: XT60 flange lands on the hinge leaf -- raise xt60_y");
     if (xt60_pos - xt60_body[1]/2 < battery_top_z)
@@ -318,23 +332,16 @@ if (xt60 && xt60_face!="none") {
     echo("  note: back face is the chest side -- awkward for plugging a charger");
   }
 }
-echo("--- knuckle hinge (BOSL2, left edge) ------------------------------");
+echo("--- knuckle hinge (hand-rolled, left edge) ------------------------");
 echo(str("  pin axis (x,y) = (", Ax, ", ", Ay, ") ; barrel d=", knuckle_d,
          " ; pin bore=", pin_bore, " (teardrop)"));
 echo(str("  barrel inner edge x = ", Ax + knuckle_d/2, "  (left wall ", -W/2,
          ", door edge ", -lid_w/2, ")"));
 if (hinge_offset < knuckle_d/2) echo("  ERROR: hinge_offset must be >= knuckle_d/2");
-leaf_reach = Ay + hinge_arm_h + hinge_offset/tan(hinge_arm_ang)
-           + knuckle_d/(2*sin(hinge_arm_ang))
-           + 1.7*hinge_round_bot/tan(hinge_arm_ang/2);
-           // Ay: the whole housing half mounts at the mid-depth pin plane.
-           // Last term: fillet flare tail along the wall, slightly
-           // conservative fit to STL measurements: 4.0x cut at 45 deg arm
-           // angle, 5.1x at 35
 echo(str("  housing leaf reach along left wall y = ", leaf_reach,
-         " mm ; knuckle stack z = +/-", hinge_span/2));
+         " mm (exact fillet tangent) ; knuckle stack z = +/-", hinge_span/2));
 echo(str("  housing leaf underside overhang = ", hinge_arm_ang,
-         " deg from vertical, STL-verified == arm_angle",
+         " deg from vertical by construction",
          " (shell prints back face down; keep <= ~45)"));
 if (hinge_arm_ang > 45)
   echo("  WARNING: hinge leaf underside too steep to print -- lower hinge_arm_ang");
@@ -357,18 +364,13 @@ echo(str("  hinge-side skirt: FULL unbroken ring, ", ov_d,
          " ; guaranteed min swing gap = ", round(1000*swing_gap)/1000, " mm"));
 if (swing_gap < 0.1)
   echo("  WARNING: hinge-side skirt scrapes on the swing -- raise hinge_offset or lid_clearance_left");
-echo(str("  leaf swing bevels: shell ", round(10*shell_bevel)/10,
+echo(str("  leaf swing bevel: shell ", round(10*shell_bevel)/10,
          " deg over skirt ray ", round(10*skirt_max_ang)/10, " deg (gap ",
          round(100*sqrt(pow(hinge_offset,2)+pow(ov_d-Ay,2))*sin(shell_bevel-skirt_max_ang))/100,
-         ") ; door ", door_bevel, " deg under recess rim ", round(10*recess_rim_ang)/10,
-         " deg (gap ",
-         round(100*sqrt(pow(hinge_offset+skirt_t+lid_clearance_left,2)+pow(ov_d+0.3-Ay,2))
-               *sin(recess_rim_ang-door_bevel))/100, ")"));
+         ") ; door leaf tops out on the pin plane (min gap ",
+         round(100*kr*sin(shell_bevel))/100, ")"));
 if (sqrt(pow(hinge_offset,2)+pow(ov_d-Ay,2))*sin(shell_bevel-skirt_max_ang) < 0.15)
   echo("  WARNING: shell leaf bevel too close to the swinging skirt");
-if (sqrt(pow(hinge_offset+skirt_t+lid_clearance_left,2)+pow(ov_d+0.3-Ay,2))
-    *sin(recess_rim_ang-door_bevel) < 0.15)
-  echo("  WARNING: door leaf bevel too close to the recess rim -- lower door_bevel");
 echo("------------------------------------------------------------------");
 
 // =====================================================================
@@ -470,68 +472,61 @@ module xt60_cut() {
 // =====================================================================
 
 // =====================================================================
-//  KNUCKLE HINGE  (BOSL2, left edge, vertical axis, filament pin)
-//  Mounted exactly like the inspo battery case: each half hangs off the
-//  wall next to the joint edge via position()+orient().  The housing gets
-//  the outer half (both end knuckles), the door the inner half.  Both
-//  halves put the pin axis at (Ax, Ay) so they interleave coaxially.
+//  KNUCKLE HINGE  (hand-rolled, left edge, vertical axis, filament pin)
+//  Both halves are modeled DIRECTLY as their final printed shape: each
+//  knuckle segment is one linear_extrude of a 2D profile in the x-y
+//  plane (barrel disc + leaf polygon), and one teardrop pin-bore prism
+//  is cut through the whole stack, apex toward print-up.  The housing
+//  gets segments 0,2,4 (both ends + middle), the door segments 1,3;
+//  adjacent segments interleave with hinge_gap of z clearance.
 // =====================================================================
-module hinge_housing() {
-  // proxy strip inside the left wall, its FRONT edge inset ov_d/2 from the
-  // wall front so the pin lands at (Ax, Ay) -- the mid-overlap-depth axis;
-  // the leaf hugs the wall exterior (+Y).  The square clear_top shoulder
-  // is replaced by the smooth shell_hinge_relief() bevel (cut in shell()).
-  translate([-W/2 + wall/2, D/2, 0])
-    cuboid([wall, D - ov_d, hinge_span + 4])
-      position(FRONT+LEFT) orient(anchor=LEFT, spin=180)
-        knuckle_hinge(length=hinge_span, segs=hinge_segs, offset=hinge_offset,
-                      arm_height=hinge_arm_h, arm_angle=hinge_arm_ang,
-                      knuckle_diam=knuckle_d, gap=hinge_gap, pin_diam=pin_bore,
-                      teardrop=true, round_bot=hinge_round_bot, clear_top=false);
+module hinge_segments(from)   // every second knuckle, starting at `from`
+  for (i = [from : 2 : hinge_segs-1])
+    translate([0, 0, seg_z(i)]) linear_extrude(seg_h) children();
+
+module pin_bore_cut(apex)     // teardrop prism through the stack; apex
+                              // (+/-1 in y) must point print-up
+  translate([Ax, Ay, -hinge_span/2 - 1]) linear_extrude(hinge_span + 2)
+    rotate(apex > 0 ? 0 : 180) teardrop2d(d=pin_bore, ang=45);
+
+// housing leaf profile: the barrel plus an arm whose faces are all final --
+//   front : the shell_bevel ray from the barrel surface to the recess
+//           floor edge at the wall (the swing relief, built in);
+//   under : the hinge_arm_ang tangent line (the print overhang);
+//   wall  : embedded 0.6 into the wall up to leaf_reach, where the exact
+//           hinge_fillet arc returns to the underside line.
+// The arm wraps the barrel's print-underside, so beyond the teardrop bore
+// nothing on the housing half overhangs past hinge_arm_ang.
+module housing_leaf_2d() {
+  translate([Ax, Ay]) circle(d=knuckle_d);
+  polygon(concat(
+    [[Ax + kr*cos(shell_bevel), Ay + kr*sin(shell_bevel)],  // barrel @ bevel ray
+     [-W/2, ov_d + 0.3],                                    // recess floor edge
+     [-W/2 + 0.6, ov_d + 0.3],
+     [-W/2 + 0.6, leaf_reach]],
+    arc(n=16, r=hinge_fillet, cp=leaf_F, angle=[0, -hinge_arm_ang]),
+    [leaf_P]));                                             // tangent on the barrel
 }
-// SHELL leaf swing relief: an annular wedge about the pin axis -- from a
-// 0.2 collar outside the barrels out to the band-face radius, below the
-// shell_bevel ray.  This is exactly the sector the closing skirt sweeps
-// (plus clearance), and the bevel face lands on the recess floor edge, so
-// the leaf's inner side reads as a smooth continuation of the recess.
-module shell_hinge_relief() {
-  translate([Ax, Ay, 0]) intersection() {
-    difference() {
-      cylinder(h=hinge_span+5, r=hinge_offset+skirt_t+lid_clearance_left, center=true);
-      cylinder(h=hinge_span+7, r=knuckle_d/2+0.2, center=true);
-    }
-    rotate([0, 0, shell_bevel]) translate([0, -14, 0])
-      cube([2*(hinge_offset+skirt_t+lid_clearance_left)+2, 28, hinge_span+7],
-           center=true);
+// door leaf profile: the barrel plus a plain plate from the barrel's far
+// side into the skirt wall, spanning door front face to pin plane.  The
+// plate top lies ON the pin plane (swing ray 0), so it needs no bevel,
+// and it wraps the barrel's print-underside (door face on the bed).
+module door_leaf_2d() {
+  translate([Ax, Ay]) circle(d=knuckle_d);
+  polygon([[Ax - kr, -lid_t], [-W/2 + 0.6, -lid_t],
+           [-W/2 + 0.6, Ay], [Ax - kr, Ay]]);
+}
+
+module hinge_housing() {  // outer half (external, left)
+  difference() {
+    hinge_segments(0) housing_leaf_2d();
+    pin_bore_cut(-1);     // shell prints back face down -> print-up = -y
   }
 }
-module hinge_door() {
-  // proxy strip on the door's left edge, extended past the door back face
-  // so its BACK edge carries the pin at (Ax, Ay = ov_d/2); the leaf clips
-  // flush with the door front (clip spans pin plane to door face).  Two
-  // smoothing cuts on the inner side: the box removes what the hinge adds
-  // behind the door plane inside the door outline (the full skirt lives
-  // there now), and the door_bevel wedge -- outside the door outline,
-  // beyond the wall-reach radius (r < hinge_offset can never cross the
-  // wall plane) -- keeps the swinging leaf clear of the recess rim.
+module hinge_door() {     // inner half (external, left)
   difference() {
-    translate([-lid_w/2 + 1.5, (ov_d/2 - lid_t)/2, 0])
-      cuboid([3, lid_t + ov_d/2, hinge_span + 4])
-        position(BACK+LEFT) orient(anchor=LEFT, spin=0)
-          knuckle_hinge(length=hinge_span, segs=hinge_segs,
-                        offset=hinge_offset, arm_height=0,
-                        knuckle_diam=knuckle_d, gap=hinge_gap, pin_diam=pin_bore,
-                        teardrop=true, inner=true, clip=lid_t + ov_d/2,
-                        clear_top=false);
-    translate([-W/2, 0, -H/2-1]) cube([W/2, ov_d + 2, H + 2]);
-    intersection() {
-      translate([Ax, Ay, 0]) difference() {
-        rotate([0, 0, door_bevel]) translate([0, 14, 0])
-          cube([40, 28, hinge_span+7], center=true);
-        cylinder(h=hinge_span+8, r=hinge_offset-0.1, center=true);
-      }
-      translate([-W/2-14, -14, -(hinge_span+7)/2]) cube([14, 28, hinge_span+7]);
-    }
+    hinge_segments(1) door_leaf_2d();
+    pin_bore_cut(+1);     // door prints front face down -> print-up = +y
   }
 }
 
@@ -585,9 +580,9 @@ module lock_dents() {
   if (n_locks >= 3) translate([0, lock_y, -(H/2-step)-eps]) lock_wedge(UP, dent=true);
 }
 // door skirt: a plain UNBROKEN full-depth ring wrapping the band, lock
-// bumps on its inner faces, inspo grip ridge on the right face.  It runs
-// across the knuckle span too: the hinge leaves' swing bevels free the
-// sector it sweeps (see the derived section).
+// bumps on its inner faces, inspo-style thumb grip on the right rim.  It
+// runs across the knuckle span too: the housing leaf's swing bevel frees
+// the sector it sweeps (see the derived section).
 module door_skirt() {
   difference() {
     rprism(W, H, ov_d, corner_r);                  // outer = housing outline
@@ -597,10 +592,12 @@ module door_skirt() {
   for (z = lock_zs) translate([W/2-skirt_t+eps, lock_y, z]) lock_wedge(LEFT);
   if (n_locks >= 2) translate([0, lock_y,  H/2-skirt_t+eps])  lock_wedge(DOWN);
   if (n_locks >= 3) translate([0, lock_y, -(H/2-skirt_t)-eps]) lock_wedge(UP);
-  if (grip)
-    translate([W/2-eps, ov_d/2-0.05, 0])
-      prismoid(size1=[bump_l, 2], size2=[bump_l*0.75, 1], shift=[0, -0.5],
-               h=1.5, orient=RIGHT);
+  if (grip)   // thumb-grip wedge on the door's right rim: its base sits on
+              // the front-face plane (the print bed) and it tapers away
+              // upward, so it prints without support
+    translate([lid_w/2, -lid_t, 0]) rotate([-90, 0, 0])
+      prismoid(size1=[3, bump_l], size2=[0.8, bump_l*0.75],
+               shift=[-1.1, 0], h=2);
 }
 
 // =====================================================================
@@ -627,7 +624,6 @@ module shell() {
     xt60_cut();
     front_step_cut();          // stepped band the door skirt wraps
     lock_dents();              // lock dents in the band faces
-    shell_hinge_relief();      // smooth swing bevel on the leaf's inner side
   }
   // (battery holder is glued in — no printed retention features)
 }
