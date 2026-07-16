@@ -18,8 +18,9 @@
 //             door carries a thin skirt that wraps it flush with the
 //             outer walls (0.1 clearance/side), and little prismoid
 //             bumps on the skirt inner face click into 5 % oversized,
-//             0.1 deeper dents in the band.  Locks on the right, top
-//             and bottom edges; plain butt joint on the hinge side.
+//             0.1 deeper dents in the band.  Two locks on the long
+//             right edge plus one top and one bottom; plain butt
+//             joint on the hinge side.
 //  Battery retention: printed snap features that grab the holder's side flaps.
 //
 //  Requires BOSL2 (../BOSL2).  Print PETG, no supports.
@@ -111,7 +112,9 @@ ov_d          = 4.0;   // overlap depth: skirt/band engagement behind the door
                        // skirt cams over at ~1/4 the bending strain
 skirt_t       = 1.1;   // door skirt thickness (inspo: wall_thickness - lid_clearance)
 lid_clearance = 0.1;   // per-side skirt-to-band clearance (inspo)
-n_locks       = 3;     // 1 = right edge, 2 = + top, 3 = + bottom
+lock_zs       = [24, -24];  // Z centers of the RIGHT-edge locks (the long free
+                            // edge fits 2-3; two for now)
+n_locks       = 3;     // 1 = right edge (lock_zs), 2 = + top, 3 = + bottom
 bump_l        = 16;    // lock bump length along the wall (inspo: case_length/3)
 bump_w        = 1.0;   // bump profile width (inspo)
 bump_h        = 0.25;  // bump proudness (inspo 0.3, softened for PLA);
@@ -138,6 +141,11 @@ xt60_body     = [16, 8.5]; // body cutout W x H  (XT60E-F ~15.6 x 8.1, +clearanc
 xt60_screw_d  = 3.2;       // M3 clearance
 xt60_screw_sep= 25;        // XT60E-F current version (older version = 23.4)
 xt60_pos      = 10;        // position along the face (X on bottom/back, Z on a side)
+xt60_y        = 0;         // Y offset from mid-depth; 0 centers the port between
+                           // backplate and door, keeping the flange off the hinge
+                           // leaf (the BNC keeps its own bnc_y -- the lanyard lug
+                           // blocks moving it back)
+xt60_flange_h = 14;        // flange height across the screw axis (fit check)
 xt60_body_depth = 12;      // how far the connector body reaches inward (collision check)
 
 /* [Wire routing] */
@@ -231,6 +239,10 @@ if (xt60 && xt60_face!="none") {
     inner_reach = W/2 - wall - xt60_body_depth;   // X the body reaches to (from the wall)
     echo(str("  side XT60 at z=", xt60_pos, "; body inner edge x=|", inner_reach,
              "|  (Teensy X half-span ", teensy_len/2, ")"));
+    echo(str("  side XT60 y-center = ", D/2 + xt60_y, " ; flange front edge y = ",
+             D/2 + xt60_y - xt60_flange_h/2, "  (hinge leaf ends y = ", leaf_reach, ")"));
+    if (xt60_face=="left" && D/2 + xt60_y - xt60_flange_h/2 < leaf_reach + 1)
+      echo("  WARNING: XT60 flange lands on the hinge leaf -- raise xt60_y");
     if (xt60_pos - xt60_body[1]/2 < battery_top_z)
       echo("  WARNING: side XT60 dips into the battery band -- raise xt60_pos");
     if (inner_reach < teensy_len/2 &&
@@ -259,7 +271,9 @@ if (leaf_reach > D/2 + bnc_y - 10.5/2 - 1)   // XT60 plug housing envelope
 echo("--- lid overlap + snap locks --------------------------------------");
 echo(str("  skirt ", skirt_t, " thick x ", ov_d, " deep over a ", step,
          " step band ; clearance ", lid_clearance, "/side (inspo)"));
-echo(str("  ", n_locks, " lock(s): bump ", bump_l, " x ", bump_w, " x ", bump_h,
+echo(str("  ", len(lock_zs) + (n_locks>=2?1:0) + (n_locks>=3?1:0),
+         " locks (right z=", lock_zs, (n_locks>=2?" + top":""), (n_locks>=3?" + bottom":""),
+         "): bump ", bump_l, " x ", bump_w, " x ", bump_h,
          " proud ; cam-over ", bump_h - lid_clearance,
          " ; dent 5 % oversize, ", bump_h + 0.1, " deep (inspo)"));
 if (step >= wall - 1.0)
@@ -319,14 +333,14 @@ module xt60_cut() {
   if (xt60 && xt60_face!="none") {
     bw = xt60_body[0]; bh = xt60_body[1];
     if (xt60_face=="bottom") {
-      translate([xt60_pos, D/2+bnc_y, -H/2-eps]) {
+      translate([xt60_pos, D/2+xt60_y, -H/2-eps]) {
         cube([bw, bh, wall+2*eps], center=true);
         for (s=[-1,1]) translate([s*xt60_screw_sep/2, 0, 0])
           cylinder(h=wall+2*eps, d=xt60_screw_d, center=true);
       }
     } else if (xt60_face=="left" || xt60_face=="right") {
       sx = (xt60_face=="right") ? 1 : -1;
-      translate([sx*(W/2-wall/2), D/2+bnc_y, xt60_pos]) rotate([0,sx*90,0]) {
+      translate([sx*(W/2-wall/2), D/2+xt60_y, xt60_pos]) rotate([0,sx*90,0]) {
         cube([bw, bh, wall+2*eps], center=true);
         for (s=[-1,1]) translate([s*xt60_screw_sep/2, 0, 0])
           cylinder(h=wall+2*eps, d=xt60_screw_d, center=true);
@@ -415,7 +429,7 @@ module lock_wedge(o, dent=false) {   // inspo bump; dent -> 5 % oversize, 0.1 de
 }
 // dents in the stepped band faces (cut from the shell), one per lock
 module lock_dents() {
-  translate([W/2-step+eps, lock_y, 0]) lock_wedge(LEFT, dent=true);
+  for (z = lock_zs) translate([W/2-step+eps, lock_y, z]) lock_wedge(LEFT, dent=true);
   if (n_locks >= 2) translate([0, lock_y,  H/2-step+eps])  lock_wedge(DOWN, dent=true);
   if (n_locks >= 3) translate([0, lock_y, -(H/2-step)-eps]) lock_wedge(UP, dent=true);
 }
@@ -428,7 +442,7 @@ module door_skirt() {
         rprism(W, H, ov_d, corner_r);                                  // outer = housing outline
         translate([0, -eps, 0]) stepped_profile(skirt_t, ov_d+3*eps);  // inner = band + clearance
       }
-      translate([W/2-skirt_t+eps, lock_y, 0]) lock_wedge(LEFT);
+      for (z = lock_zs) translate([W/2-skirt_t+eps, lock_y, z]) lock_wedge(LEFT);
       if (n_locks >= 2) translate([0, lock_y,  H/2-skirt_t+eps])  lock_wedge(DOWN);
       if (n_locks >= 3) translate([0, lock_y, -(H/2-skirt_t)-eps]) lock_wedge(UP);
     }
