@@ -20,12 +20,12 @@
 //             bumps on the skirt inner face click into 5 % oversized,
 //             0.1 deeper dents in the band.  Two locks on the long
 //             right edge plus one top and one bottom.  The skirt runs
-//             FULL DEPTH around the whole perimeter, hinge side and
-//             corners included: the pin axis sits at mid-overlap depth
-//             (Ay = ov_d/2) and stands farther off the wall, and the
-//             hinge-side band is cut a touch looser, so the closing
-//             arc clears without any relief carving; only the knuckle
-//             span itself is windowed out.
+//             FULL DEPTH around the whole perimeter -- including across
+//             the knuckle span: the pin axis sits at mid-overlap depth
+//             (Ay = ov_d/2) and stands farther off the wall, the
+//             hinge-side band is cut a touch looser, and both hinge
+//             leaves' inner sides are cut back to smooth bevels about
+//             the pin axis, freeing the sector the skirt sweeps.
 //  Battery retention: printed snap features that grab the holder's side flaps.
 //
 //  Requires BOSL2 (../BOSL2).  Print PLA, no supports.
@@ -220,17 +220,26 @@ pin_bore = pin_d + pin_clr;
 step      = skirt_t + lid_clearance;        // band inset, right/top/bottom
 step_left = skirt_t + lid_clearance_left;   // band inset, hinge side
 lock_y    = ov_d - 1.0;                // bump/dent center, 1 mm shy of the skirt rim (inspo)
-// hinge-side full overlap: the skirt is a plain full-depth ring all the way
-// around.  It swings clear of the band because (a) the pin axis sits at
-// mid-overlap depth (Ay), so the skirt face's worst radius is
-// sqrt(dx^2 + (ov_d/2)^2) instead of sqrt(dx^2 + ov_d^2), and (b) the left
-// band face gives lid_clearance_left.  swing_gap below is the guaranteed
-// minimum skirt-to-band gap at any point of the swing (worst at the skirt
-// tip corners on the straight left edge; the corner arcs are strictly
-// better).  Only the knuckle span itself is windowed out of the skirt.
-hinge_win_z = hinge_span/2 + 1;   // skirt window half-height over the knuckles
+// hinge-side full overlap: the skirt is a plain UNBROKEN full-depth ring.
+// It swings clear of the band because (a) the pin axis sits at mid-overlap
+// depth (Ay), so the skirt face's worst radius is sqrt(dx^2 + (ov_d/2)^2)
+// instead of sqrt(dx^2 + ov_d^2), and (b) the left band face gives
+// lid_clearance_left.  swing_gap below is the guaranteed minimum
+// skirt-to-band gap at any point of the swing (worst at the skirt tip
+// corners on the straight left edge; the corner arcs are strictly better).
 swing_gap = hinge_offset + skirt_t + lid_clearance_left
           - sqrt(pow(hinge_offset + skirt_t, 2) + pow(ov_d/2, 2));
+// leaf swing bevels: both leaves' mount-side material is cut back to flat
+// bevel planes through the pin axis (smooth, swing-concentric) in place of
+// square shoulders.  The SHELL bevel frees the sector the closing skirt
+// sweeps and lands exactly on the recess floor edge at the wall -- it reads
+// as a continuation of the recess; the DOOR bevel keeps the swinging door
+// leaf clear of the shell's recess rim.  All rays measured about (Ax, Ay)
+// from the pin plane toward the wall.
+skirt_max_ang  = atan((ov_d - Ay)/hinge_offset);        // skirt's highest seated ray
+shell_bevel    = atan((ov_d + 0.3 - Ay)/hinge_offset);  // lands on the recess floor edge
+recess_rim_ang = atan((ov_d + 0.3 - Ay)/(hinge_offset + skirt_t + lid_clearance_left));
+door_bevel     = 10.5;                                  // keep < recess_rim_ang
 
 lug_d  = lug_hole + 2*lug_web;
 lug_ex = W/2 + lug_out;
@@ -343,14 +352,23 @@ echo(str("  ", len(lock_zs) + (n_locks>=2?1:0) + (n_locks>=3?1:0),
          " ; dent 5 % oversize, ", bump_h + 0.1, " deep (inspo)"));
 if (step >= wall - 1.0)
   echo("  WARNING: step band leaves < 1 mm of wall behind the dents");
-echo(str("  hinge-side skirt: full ", ov_d, " deep, windowed z +/-", hinge_win_z,
-         " over the knuckles (ends quarter-rounded, full depth resumes at +/-",
-         hinge_win_z + ov_d, ") ; left clearance ", lid_clearance_left,
+echo(str("  hinge-side skirt: FULL unbroken ring, ", ov_d,
+         " deep incl. the knuckle span ; left clearance ", lid_clearance_left,
          " ; guaranteed min swing gap = ", round(1000*swing_gap)/1000, " mm"));
 if (swing_gap < 0.1)
   echo("  WARNING: hinge-side skirt scrapes on the swing -- raise hinge_offset or lid_clearance_left");
-if (hinge_win_z + ov_d >= H/2 - corner_r)
-  echo("  WARNING: knuckle window (incl. rounded ends) runs into the corner arcs (hinge_span too long)");
+echo(str("  leaf swing bevels: shell ", round(10*shell_bevel)/10,
+         " deg over skirt ray ", round(10*skirt_max_ang)/10, " deg (gap ",
+         round(100*sqrt(pow(hinge_offset,2)+pow(ov_d-Ay,2))*sin(shell_bevel-skirt_max_ang))/100,
+         ") ; door ", door_bevel, " deg under recess rim ", round(10*recess_rim_ang)/10,
+         " deg (gap ",
+         round(100*sqrt(pow(hinge_offset+skirt_t+lid_clearance_left,2)+pow(ov_d+0.3-Ay,2))
+               *sin(recess_rim_ang-door_bevel))/100, ")"));
+if (sqrt(pow(hinge_offset,2)+pow(ov_d-Ay,2))*sin(shell_bevel-skirt_max_ang) < 0.15)
+  echo("  WARNING: shell leaf bevel too close to the swinging skirt");
+if (sqrt(pow(hinge_offset+skirt_t+lid_clearance_left,2)+pow(ov_d+0.3-Ay,2))
+    *sin(recess_rim_ang-door_bevel) < 0.15)
+  echo("  WARNING: door leaf bevel too close to the recess rim -- lower door_bevel");
 echo("------------------------------------------------------------------");
 
 // =====================================================================
@@ -461,22 +479,41 @@ module xt60_cut() {
 module hinge_housing() {
   // proxy strip inside the left wall, its FRONT edge inset ov_d/2 from the
   // wall front so the pin lands at (Ax, Ay) -- the mid-overlap-depth axis;
-  // the leaf hugs the wall exterior (+Y)
+  // the leaf hugs the wall exterior (+Y).  The square clear_top shoulder
+  // is replaced by the smooth shell_hinge_relief() bevel (cut in shell()).
   translate([-W/2 + wall/2, D/2, 0])
     cuboid([wall, D - ov_d, hinge_span + 4])
       position(FRONT+LEFT) orient(anchor=LEFT, spin=180)
         knuckle_hinge(length=hinge_span, segs=hinge_segs, offset=hinge_offset,
                       arm_height=hinge_arm_h, arm_angle=hinge_arm_ang,
                       knuckle_diam=knuckle_d, gap=hinge_gap, pin_diam=pin_bore,
-                      teardrop=true, round_bot=hinge_round_bot, clear_top=true);
+                      teardrop=true, round_bot=hinge_round_bot, clear_top=false);
+}
+// SHELL leaf swing relief: an annular wedge about the pin axis -- from a
+// 0.2 collar outside the barrels out to the band-face radius, below the
+// shell_bevel ray.  This is exactly the sector the closing skirt sweeps
+// (plus clearance), and the bevel face lands on the recess floor edge, so
+// the leaf's inner side reads as a smooth continuation of the recess.
+module shell_hinge_relief() {
+  translate([Ax, Ay, 0]) intersection() {
+    difference() {
+      cylinder(h=hinge_span+5, r=hinge_offset+skirt_t+lid_clearance_left, center=true);
+      cylinder(h=hinge_span+7, r=knuckle_d/2+0.2, center=true);
+    }
+    rotate([0, 0, shell_bevel]) translate([0, -14, 0])
+      cube([2*(hinge_offset+skirt_t+lid_clearance_left)+2, 28, hinge_span+7],
+           center=true);
+  }
 }
 module hinge_door() {
   // proxy strip on the door's left edge, extended past the door back face
   // so its BACK edge carries the pin at (Ax, Ay = ov_d/2); the leaf clips
-  // flush with the door front (clip spans pin plane to door face).  The
-  // trim cut removes whatever the hinge adds behind the door plane inside
-  // the door outline -- that material would sweep into the housing band;
-  // the leaf keeps its full lid_t-thick bond to the door edge.
+  // flush with the door front (clip spans pin plane to door face).  Two
+  // smoothing cuts on the inner side: the box removes what the hinge adds
+  // behind the door plane inside the door outline (the full skirt lives
+  // there now), and the door_bevel wedge -- outside the door outline,
+  // beyond the wall-reach radius (r < hinge_offset can never cross the
+  // wall plane) -- keeps the swinging leaf clear of the recess rim.
   difference() {
     translate([-lid_w/2 + 1.5, (ov_d/2 - lid_t)/2, 0])
       cuboid([3, lid_t + ov_d/2, hinge_span + 4])
@@ -485,8 +522,16 @@ module hinge_door() {
                         offset=hinge_offset, arm_height=0,
                         knuckle_diam=knuckle_d, gap=hinge_gap, pin_diam=pin_bore,
                         teardrop=true, inner=true, clip=lid_t + ov_d/2,
-                        clear_top=true);
+                        clear_top=false);
     translate([-W/2, 0, -H/2-1]) cube([W/2, ov_d + 2, H + 2]);
+    intersection() {
+      translate([Ax, Ay, 0]) difference() {
+        rotate([0, 0, door_bevel]) translate([0, 14, 0])
+          cube([40, 28, hinge_span+7], center=true);
+        cylinder(h=hinge_span+8, r=hinge_offset-0.1, center=true);
+      }
+      translate([-W/2-14, -14, -(hinge_span+7)/2]) cube([14, 28, hinge_span+7]);
+    }
   }
 }
 
@@ -498,11 +543,11 @@ module hinge_door() {
 //  clearance per side.  Prismoid bumps on the skirt inner face, 1 mm
 //  shy of the rim, click into 5 % oversized / 0.1 deeper dents cut in
 //  the band; the skirt bows locally to cam over, like the inspo lid
-//  wall.  The skirt runs full depth around the whole perimeter, hinge
-//  side included; the swing clears because the pin axis sits at
-//  mid-overlap depth and the hinge-side band is lid_clearance_left
-//  loose (see the derived section and the swing-gap echo).  Only the
-//  knuckle span is windowed out of the skirt.
+//  wall.  The skirt runs full depth around the whole perimeter with no
+//  window at all; the swing clears because the pin axis sits at
+//  mid-overlap depth, the hinge-side band is lid_clearance_left loose,
+//  and the hinge leaves' inner sides are beveled about the pin axis
+//  (see the derived section and the swing-gap/bevel echoes).
 // =====================================================================
 // cut: recess the housing's outer band behind the door plane so the
 // skirt sits flush (0.3 axial slack so the panel, not the skirt tip,
@@ -539,36 +584,23 @@ module lock_dents() {
   if (n_locks >= 2) translate([0, lock_y,  H/2-step+eps])  lock_wedge(DOWN, dent=true);
   if (n_locks >= 3) translate([0, lock_y, -(H/2-step)-eps]) lock_wedge(UP, dent=true);
 }
-// door skirt: a plain full-depth ring wrapping the band, lock bumps on
-// its inner faces, inspo grip ridge on the right face; the only opening
-// is the window over the knuckle span, where the hinge leaf and barrels
-// live.  The window ends are quarter-rounded (r = ov_d): the skirt
-// sweeps from nothing at +/-hinge_win_z to full depth over ov_d of z,
-// tangent to the tip line -- no sharp notch corners
+// door skirt: a plain UNBROKEN full-depth ring wrapping the band, lock
+// bumps on its inner faces, inspo grip ridge on the right face.  It runs
+// across the knuckle span too: the hinge leaves' swing bevels free the
+// sector it sweeps (see the derived section).
 module door_skirt() {
   difference() {
-    union() {
-      difference() {
-        rprism(W, H, ov_d, corner_r);              // outer = housing outline
-        translate([0, -eps, 0])                    // inner = band + clearance
-          rprism(W-2*skirt_t, H-2*skirt_t, ov_d+3*eps, corner_r-skirt_t);
-      }
-      for (z = lock_zs) translate([W/2-skirt_t+eps, lock_y, z]) lock_wedge(LEFT);
-      if (n_locks >= 2) translate([0, lock_y,  H/2-skirt_t+eps])  lock_wedge(DOWN);
-      if (n_locks >= 3) translate([0, lock_y, -(H/2-skirt_t)-eps]) lock_wedge(UP);
-      if (grip)
-        translate([W/2-eps, ov_d/2-0.05, 0])
-          prismoid(size1=[bump_l, 2], size2=[bump_l*0.75, 1], shift=[0, -0.5],
-                   h=1.5, orient=RIGHT);
-    }
-    difference() {
-      translate([-W/2-1, -1, -(hinge_win_z + ov_d)])
-        cube([1 + step_left, ov_d+2, 2*(hinge_win_z + ov_d)]);
-      for (sz = [-1, 1])
-        translate([-W/2-1-eps, 0, sz*(hinge_win_z + ov_d)])
-          rotate([0, 90, 0]) cylinder(h=1 + step_left + 2*eps, r=ov_d);
-    }
+    rprism(W, H, ov_d, corner_r);                  // outer = housing outline
+    translate([0, -eps, 0])                        // inner = band + clearance
+      rprism(W-2*skirt_t, H-2*skirt_t, ov_d+3*eps, corner_r-skirt_t);
   }
+  for (z = lock_zs) translate([W/2-skirt_t+eps, lock_y, z]) lock_wedge(LEFT);
+  if (n_locks >= 2) translate([0, lock_y,  H/2-skirt_t+eps])  lock_wedge(DOWN);
+  if (n_locks >= 3) translate([0, lock_y, -(H/2-skirt_t)-eps]) lock_wedge(UP);
+  if (grip)
+    translate([W/2-eps, ov_d/2-0.05, 0])
+      prismoid(size1=[bump_l, 2], size2=[bump_l*0.75, 1], shift=[0, -0.5],
+               h=1.5, orient=RIGHT);
 }
 
 // =====================================================================
@@ -595,6 +627,7 @@ module shell() {
     xt60_cut();
     front_step_cut();          // stepped band the door skirt wraps
     lock_dents();              // lock dents in the band faces
+    shell_hinge_relief();      // smooth swing bevel on the leaf's inner side
   }
   // (battery holder is glued in — no printed retention features)
 }
