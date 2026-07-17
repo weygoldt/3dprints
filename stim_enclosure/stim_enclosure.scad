@@ -117,12 +117,15 @@ bnc_x       = 0;
 bnc_y       = -4;
 bnc_keepout = 14;
 
-/* [Panel engraving] -- one label above each playback button */
+/* [Panel engraving] -- one label per playback button, OUTBOARD of its row:
+   the top row's labels sit above its buttons, the bottom row's below, so the
+   band between the rows carries no text. */
 engrave    = true;
 engrave_d  = 0.6;
 label_size = 3.5;
 labels = [ for (r = [0:len(btn_names)-1], c = [0:btn_cols-1])
-             [btn_names[r][c], btn_x(c), btn_z(r) + btn_label_dz, 0] ];
+             [btn_names[r][c], btn_x(c),
+              btn_z(r) + (r == 0 ? btn_label_dz : -btn_label_dz), 0] ];
 
 /* [Front panel masthead] -- engraved title block, centered above the labels.
    One row per line: [text, size, z].  `size` is OpenSCAD's text ASCENT, not
