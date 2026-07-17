@@ -104,6 +104,20 @@ engrave_d  = 0.6;
 label_size = 3.5;
 labels = [ for (i = [0:3]) [btn_names[i], (i-1.5)*btn_pitch, btn_row_z+13, 0] ];
 
+/* [Front panel masthead] -- engraved title block, centered above the labels.
+   One row per line: [text, size, z].  `size` is OpenSCAD's text ASCENT, not
+   an em, and text() centers each line on its INK box -- so z IS the ink
+   center and a line stands text_ink_h*size tall (see that constant).
+   The tight direction is Z, not width: the door's top edge and the button
+   labels close in from both ends, and the echo reports what is left. */
+masthead = true;
+masthead_lines = [
+  //   text                          size    z
+  [   "TeensyStim",                   8,    44.3 ],
+  [   "Field EOD Playback System",    3.3,  35.0 ],
+  [   "by Thunderlab",                3.0,  29.5 ],
+];
+
 /* [Lanyard eyes] -- the rubber-band standoffs: 4 of them, on the BACK face's
    side edges (the chest side), VERTICAL 5 mm bores.  The shell prints back
    down, so the ear's two round features both lie as horizontal cylinders on
@@ -276,6 +290,18 @@ lug_apex_web = lug_apex_y - lug_front_y;         // PLA left between apex and ea
 lug_z0 = lug_ez - lug_t/2;
 lug_z1 = lug_ez + lug_t/2;
 
+// Liberation Sans ink extents, MEASURED off rendered text at size 10: a line
+// with a descender stands this * size tall, all-caps ~0.956 * size, and
+// text(valign="center") centers that ink box.  Used only to echo the masthead
+// stack -- OpenSCAD cannot measure text (textmetrics is experimental and off
+// by default), so the widths are checked by rendering, not asserted here.
+text_ink_h  = 1.294;
+text_caps_h = 0.956;
+mast_top    = masthead ? masthead_lines[0][2] + text_ink_h*masthead_lines[0][1]/2 : -H;
+mast_bot    = masthead ? masthead_lines[len(masthead_lines)-1][2]
+                         - text_ink_h*masthead_lines[len(masthead_lines)-1][1]/2 : H;
+label_top   = labels[0][2] + text_caps_h*label_size/2;     // labels are all-caps
+
 // on/off switch body: a column hanging off the top panel into the +x corner
 power_body_z0 = inner_h/2 - power_body_depth;    // its lowest point
 
@@ -388,6 +414,23 @@ if (hinge_span/2 > bnc_z - 7.5 - 1)   // d15 BNC nut needs flat wall
   echo("  WARNING: hinge leaf runs into the left BNC nut zone -- shorten hinge_span");
 if (leaf_reach > D/2 + xt60_y - 10.5/2 - 1)   // XT60 plug housing envelope
   echo("  WARNING: hinge leaf reaches the XT60 plug envelope -- steepen hinge_arm_ang");
+echo("--- front panel masthead (engraved) -------------------------------");
+if (masthead) {
+  for (m = masthead_lines)
+    echo(str("  \"", m[0], "\"  size ", m[1], " at z=", m[2], " -> ink z [",
+             round(100*(m[2] - text_ink_h*m[1]/2))/100, ", ",
+             round(100*(m[2] + text_ink_h*m[1]/2))/100, "]"));
+  echo(str("  stack z = [", round(100*mast_bot)/100, ", ", round(100*mast_top)/100,
+           "] ; clear of the door's top edge by ", round(100*(H/2 - mast_top))/100,
+           " , of the button labels by ", round(100*(mast_bot - label_top))/100));
+  if (mast_top > H/2 - 1)
+    echo("  WARNING: masthead runs off the top of the door");
+  if (mast_bot < label_top + 1)
+    echo("  WARNING: masthead crowds the button labels -- shrink it or lower btn_row_z");
+  // engraved into the face that prints ON the bed -- strokes must beat the nozzle
+  if (min([for (m=masthead_lines) m[1]]) < 2.5)
+    echo("  WARNING: a masthead line is small enough that 0.4 mm strokes will fill in");
+}
 echo("--- lanyard ears (rubber-band standoffs) -------------------------");
 echo(str("  eye boss: teardrop hat ", hinge_arm_ang,
          " deg from vertical (as the hinge leaf), truncated ON the back face",
@@ -689,6 +732,8 @@ module lid_body() {
       translate([(i-1.5)*btn_pitch, -lid_t-eps, btn_row_z]) rotate([-90,0,0])
         cylinder(h=lid_t+2*eps, d=btn_d);
     if (engrave) for (l=labels) face_text(l[0], l[1], l[2], label_size, len(l)>3 ? l[3] : 0);
+    // masthead: centered on the panel, each line at its own size
+    if (engrave && masthead) for (m=masthead_lines) face_text(m[0], 0, m[2], m[1]);
   }
 }
 module lid() {
