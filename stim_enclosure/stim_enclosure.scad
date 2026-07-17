@@ -76,21 +76,21 @@ hole_led     = 8;     // LED bore
    above and the battery holder below.  That leaves ~25 mm of center travel
    for both rows; the echo reports the window and what each row has left. */
 btn_d       = 12;     // panel bore, same as the old trigger (confirmed)
-btn_body_d  = 14;     // button body diameter (fit checks)
+btn_body_d  = 17.5;     // button body diameter (fit checks)
 btn_cols    = 3;
 btn_row_z   = 10;     // Z of the TOP row; the switch column caps this
-btn_row_pitch = 21;   // Z between the two rows
-btn_pitch   = 20;     // X spacing between columns
-btn_names   = [ ["CAL", "APT", "GYM"],
-                ["LOC", "VOL", "L+V"] ];
-btn_label_dz = 9;     // each label sits this far above its own button
+btn_row_pitch = 22;   // Z between the two rows
+btn_pitch   = 22;     // X spacing between columns
+btn_names   = [ ["A", "B", "C"],
+                ["C", "D", "E"] ];
+btn_label_dz = 14;     // each label sits this far above its own button
 panel_depth = 15;     // how far a button body reaches inward (for fit checks)
 
 /* [Eel group] -- the bottom row is all eel playback and the top row is not,
    so the bottom row gets an engraved tie: end ticks reach up at the three
    buttons it claims, joined by a rule that the group's name breaks.  It hangs
    below the row because the band between the rows is spoken for by labels. */
-eel_group    = true;
+eel_group    = false;
 eel_row      = 1;     // index into btn_names
 eel_name     = "EEL";
 eel_name_sz  = 3.2;
@@ -134,8 +134,8 @@ masthead = true;
 masthead_lines = [
   //   text                          size    z
   [   "TeensyStim",                   7,    44.5 ],
-  [   "Field EOD Playback System",    2.9,  36.5 ],
-  [   "by Thunderlab",                2.7,  31.5 ],
+  [   "EOD Playback System",    2.9,  36.5 ],
+  [   "by ThunderLab",                2.7,  31.5 ],
 ];
 
 /* [Lanyard eyes] -- the rubber-band standoffs: 4 of them, on the BACK face's
@@ -543,7 +543,7 @@ module face_cut() {
     linear_extrude(engrave_d+eps) children();
 }
 module panel_text_2d(t, size) {
-  text(t, size=size, halign="center", valign="center", font="Liberation Sans:style=Bold");
+  text(t, size=size, halign="center", valign="center", font="Inter:style=Bold");
 }
 module face_text(t, x, z, size, rot=0) {
   face_cut() translate([x, z]) rotate(-rot) panel_text_2d(t, size);
