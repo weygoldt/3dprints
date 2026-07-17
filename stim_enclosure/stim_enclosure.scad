@@ -1,13 +1,16 @@
 // =====================================================================
 //  Chest-mounted field-stimulator enclosure  (v0.9)
-//  Bare Teensy 4.1 | single KeePower 26650 cell in holder | 2x BNC
+//  Bare Teensy 4.1 | single KeePower 26650 cell in holder | 1x BNC
 //  | 4 playback buttons (CAL/LOC/VOL/L+V) | LED + on/off on top
 //  | XT60 charge port
 //
 //  INTERIOR (stacked, all long axes = X):
 //     - battery holder horizontal along the BOTTOM (cell axis = X)
 //     - bare Teensy 4.1 horizontal, directly ABOVE the battery
-//     - top cavity holds the button bodies (door) + power/LED (top)
+//     - power/LED hang off the TOP face; the on/off switch is deep
+//       (power_body_depth) and owns its corner down to mid-height
+//     - the button bodies (door) sit in the band that leaves, between
+//       the switch's bottom and the Teensy
 //  The ENTIRE FRONT PANEL is a hinged, latched door.
 //     HINGE : hand-rolled knuckle hinge on the LEFT edge, VERTICAL axis.
 //             Outer half on the HOUSING, inner half on the DOOR: per-
@@ -32,16 +35,15 @@
 //  Battery retention: none printed -- the holder is GLUED to the floor/backplate.
 //
 //  Requires BOSL2 (../BOSL2).  Print PLA, no supports.
-//  PARTS (part=): shell | lid(=door) | plug(BNC blank) | assembly(preview)
+//  PARTS (part=): shell | lid(=door) | assembly(preview)
 //     shell : BACK face on the bed
 //     lid   : outer face down
-//     plug  : flange down
 // =====================================================================
 
 include <../BOSL2/std.scad>
 
 /* [What to render] */
-part = "shell";   // [assembly, shell, lid, plug]
+part = "lid";   // [assembly, shell, lid]
 print_ready = true;
 door_open   = 0;     // assembly preview only: degrees the door is swung open
 show_ghosts = true;  // assembly preview: draw battery + Teensy phantoms
@@ -62,14 +64,19 @@ lid_t     = 3;     // door outline matches the housing exactly, like the inspo l
 /* [Panel cut-outs] -- measured bores */
 hole_bnc     = 9.5;   // BNC panel bore (confirmed)
 hole_power   = 12.2;  // on/off switch bore (confirmed)
-hole_led     = 9;     // LED bore (confirmed)
+hole_led     = 8;     // LED bore
 
 /* [Playback buttons] -- 4 momentary buttons in ONE ROW on the door:
    CAL | LOC | VOL | L+V.  Full sequence = L+V, deconstruction = LOC, VOL.
-   Bodies live in the top interior band, clear of the Teensy/battery. */
+   Bodies live in the mid interior band, clear of the switch/Teensy/battery. */
 btn_d       = 12;     // panel bore, same as the old trigger (confirmed)
 btn_body_d  = 14;     // button body diameter (fit checks)
-btn_row_z   = 20;     // Z of the button row (above the Teensy band)
+btn_row_z   = 8;      // Z of the button row.  The row is boxed in: the on/off
+                      // switch body hangs power_body_depth into the +x top
+                      // corner, right over the outer two buttons, and the
+                      // Teensy band is underneath.  The window that leaves is
+                      // narrow and echoed; 8 keeps most of the slack under the
+                      // switch, whose 32 mm is the softer (measured) number
 btn_pitch   = 20;     // X spacing between buttons
 btn_names   = ["CAL", "LOC", "VOL", "L+V"];
 panel_depth = 15;     // how far a button body reaches inward (for fit checks)
@@ -77,9 +84,15 @@ panel_depth = 15;     // how far a button body reaches inward (for fit checks)
 /* [Top controls] -- on/off switch and LED on the TOP face, one per side */
 power_top = [ 22, 0];  // [x, y-offset from the top-face center]
 led_top   = [-22, 0];
+power_body_d     = 14; // switch body envelope below the panel (fit checks)
+power_body_depth = 32; // MEASURED: the switch hangs this far into the housing.
+                       // It owns the whole +x top corner down to
+                       // power_body_z0, which is what caps the button row
 
-/* [BNC outputs] -- one per side wall */
-bnc_face    = "both";  // [both, left, right, bottom, top]
+/* [BNC output] -- ONE port, on the wall OPPOSITE the on/off switch, whose
+   body owns that top corner (see power_body_depth); one channel is all the
+   stimulator needs.  (bnc_face="left" is -x, the hinge/XT60/LED side.) */
+bnc_face    = "left";  // [left, right, both, bottom, top]
 bnc_z       = 38;
 bnc_x       = 0;
 bnc_y       = -4;
@@ -91,7 +104,11 @@ engrave_d  = 0.6;
 label_size = 3.5;
 labels = [ for (i = [0:3]) [btn_names[i], (i-1.5)*btn_pitch, btn_row_z+9.5, 0] ];
 
-/* [Lanyard eyes] -- 4 corners, VERTICAL 5 mm bores */
+/* [Lanyard eyes] -- the rubber-band standoffs: 4 of them, on the BACK face's
+   side edges (the chest side), VERTICAL 5 mm bores.  The shell prints back
+   down, so the ear's two round features both lie as horizontal cylinders on
+   the bed and neither may be left circular: they carry the hinge's profile
+   instead -- hinge_arm_ang hat on the boss, teardrop bore. */
 lanyard   = true;
 lug_hole  = 5;
 lug_web   = 3;
@@ -177,16 +194,6 @@ xt60_body_depth = 12;      // how far the connector body reaches inward (collisi
 /* [Wire routing] */
 loom_slot = [10, 8];   // W x H slot near the hinge for the control loom
 
-/* [BNC blank plug] -- snap-in: hollow slotted stem forms two sprung
-   prongs; a barb ring (interrupted by the slot -> two catch nubs)
-   clicks in behind the wall's inner face */
-plug_flange_t = 2;     // flange disc thickness
-plug_clr      = 0.3;   // stem-to-bore diametral clearance
-plug_nub      = 0.35;  // barb radial proudness (snap = 2*nub - clr per diameter)
-plug_nub_clr  = 0.15;  // axial slack behind the inner wall face
-plug_slot     = 1.4;   // flex slot width through the stem tip
-plug_bore     = 6.2;   // blind core diameter (thins the prongs so they flex)
-
 // =====================================================================
 //  DERIVED
 // =====================================================================
@@ -260,6 +267,24 @@ lug_ex = W/2 + lug_out;
 lug_ez = H/2 - lug_inset;
 lug_ey = D - lug_d/2;
 
+// lanyard ear, all in the PRINT frame (back face on the bed -> print-up = -y):
+lug_front_y = lug_ey - lug_d/2;                  // ear's front edge = its print top
+lug_bed_w   = 2*((lug_d/2)/sin(hinge_arm_ang) - (D - lug_ey))*tan(hinge_arm_ang);
+                                                 // boss's truncated hat = its bed flat
+lug_apex_y  = lug_ey - (lug_hole/2)/sin(45);     // teardrop bore's apex
+lug_apex_web = lug_apex_y - lug_front_y;         // PLA left between apex and ear top
+lug_z0 = lug_ez - lug_t/2;
+lug_z1 = lug_ez + lug_t/2;
+
+// on/off switch body: a column hanging off the top panel into the +x corner
+power_body_z0 = inner_h/2 - power_body_depth;    // its lowest point
+
+// BNC nut zone: the flat wall the d15 nut needs, around the bore
+bnc_nut_y1 = D/2 + bnc_y + bnc_keepout/2;        // its front edge (toward the door)
+bnc_nut_z0 = bnc_z - bnc_keepout/2;
+bnc_nut_z1 = bnc_z + bnc_keepout/2;
+bnc_wall_x = bnc_face=="right" ? 1 : bnc_face=="left" ? -1 : 0;   // 0 = not a side wall
+
 cs_depth = 1.6;
 
 // =====================================================================
@@ -284,8 +309,12 @@ echo("--- playback buttons (door) vs interior (need ", panel_depth, " mm) ----")
 for (i = [0:3]) {
   bx = (i-1.5)*btn_pitch;
   clash = btn_row_z - btn_body_d/2 < teensy_top_z;   // body lower edge in Teensy band?
+  // the switch body is a column, so only the buttons under it in x can hit it
+  hits_power = abs(bx - power_top[0]) < (btn_body_d + power_body_d)/2
+               && btn_row_z + btn_body_d/2 > power_body_z0;
   echo(str("  ", btn_names[i], " at [", bx, ", ", btn_row_z, "]",
-           clash ? "  << WARNING: body may reach the Teensy band" : "  (clear top band)"));
+           clash      ? "  << WARNING: body may reach the Teensy band" :
+           hits_power ? "  << WARNING: body hits the on/off switch body" : "  (clear)"));
 }
 if (btn_pitch < btn_body_d + 2)
   echo("  WARNING: button bodies closer than 2 mm -- widen btn_pitch");
@@ -293,19 +322,29 @@ if (btn_row_z + btn_body_d/2 > bnc_z - bnc_keepout/2)
   echo("  note: outer button bodies reach the side-wall BNC body band");
 echo(str("  row span x = [", -1.5*btn_pitch - btn_d/2, ", ", 1.5*btn_pitch + btn_d/2,
          "]  (cavity +/-", inner_w/2, ")"));
+// the row is boxed in: the switch column above, the Teensy band below
+echo(str("  btn_row_z window = [", teensy_top_z + btn_body_d/2, ", ",
+         power_body_z0 - btn_body_d/2, "] ; btn_row_z = ", btn_row_z,
+         "  (clear of the switch by ", power_body_z0 - (btn_row_z + btn_body_d/2),
+         ", of the Teensy band by ", (btn_row_z - btn_body_d/2) - teensy_top_z, ")"));
+if (power_body_z0 - btn_body_d/2 < teensy_top_z + btn_body_d/2)
+  echo("  WARNING: no z left for the button row between the switch and the Teensy");
 echo("--- top controls (power switch + LED) ------------------------------");
-echo(str("  power at x=", power_top[0], " (old trigger spot), LED at x=", led_top[0],
-         " ; bodies reach down to z~", inner_h/2 - panel_depth));
+echo(str("  power at x=", power_top[0], " (old trigger spot), LED at x=", led_top[0]));
+echo(str("  on/off body: ", power_body_depth, " mm measured -> reaches down to z = ",
+         power_body_z0, " ; LED body reaches z ~ ", inner_h/2 - panel_depth));
+if (power_body_z0 < teensy_top_z && abs(power_top[0]) < teensy_len/2 + power_body_d/2)
+  echo("  WARNING: on/off switch body reaches the Teensy band");
 if (abs(bnc_z - inner_h/2) < panel_depth + bnc_keepout/2)
   echo("  note: top-control bodies share the corner zone with the BNC bodies -- checked OK for the trigger before");
 echo("--- BNC ----------------------------------------------------------");
-echo(str("  BNC at z = ", bnc_z, "  (battery top ", battery_top_z, ", top wall ", inner_h/2, ")"));
+echo(str("  bnc_face = ", bnc_face, "  (", bnc_face=="both" ? 2 : 1,
+         " port) at z = ", bnc_z, "  (battery top ", battery_top_z,
+         ", top wall ", inner_h/2, ")"));
 if (bnc_z - bnc_keepout/2 < battery_top_z) echo("  note: BNC body dips toward the battery band");
-echo(str("  blank plug: snap interference ", 2*plug_nub - plug_clr,
-         " on the bore ; prong strain ~ ",
-         round(1000*1.5*((hole_bnc-plug_clr-plug_bore)/2)*(plug_nub-plug_clr/2)
-               / pow(plug_flange_t + wall + plug_nub_clr - 0.8, 2))/10,
-         " %  (PLA ok < ~3-4 one-shot)"));
+// the switch column owns its top corner all the way down to power_body_z0
+if ((bnc_face=="both" || bnc_wall_x*power_top[0] > 0) && power_body_z0 < bnc_nut_z1)
+  echo("  WARNING: a BNC shares its top corner with the on/off switch body");
 echo("--- XT60 ---------------------------------------------------------");
 if (xt60 && xt60_face!="none") {
   echo(str("  XT60 on ", xt60_face, " face; body reaches ", xt60_body_depth, " mm inward"));
@@ -349,6 +388,25 @@ if (hinge_span/2 > bnc_z - 7.5 - 1)   // d15 BNC nut needs flat wall
   echo("  WARNING: hinge leaf runs into the left BNC nut zone -- shorten hinge_span");
 if (leaf_reach > D/2 + xt60_y - 10.5/2 - 1)   // XT60 plug housing envelope
   echo("  WARNING: hinge leaf reaches the XT60 plug envelope -- steepen hinge_arm_ang");
+echo("--- lanyard ears (rubber-band standoffs) -------------------------");
+echo(str("  eye boss: teardrop hat ", hinge_arm_ang,
+         " deg from vertical (as the hinge leaf), truncated ON the back face",
+         " -> ", round(100*lug_bed_w)/100, " mm flat on the bed, no tangent circle"));
+echo(str("  eye bore: teardrop, apex print-up at y = ", lug_apex_y,
+         " ; web above it = ", round(100*lug_apex_web)/100,
+         " mm (the ", lug_web, " mm side web is untouched)"));
+if (lug_apex_web < 1.2)
+  echo("  WARNING: lanyard eye's teardrop apex leaves < 1.2 mm of web -- raise lug_web");
+// the ears sit at the BNC's z; only their y span keeps them out of its nut zone
+echo(str("  ear y span = [", lug_front_y, ", ", D, "] ; z = +/-[", lug_z0, ", ", lug_z1, "]"));
+if (lug_z0 < bnc_nut_z1 && lug_z1 > bnc_nut_z0) {
+  if (lug_front_y < bnc_nut_y1)
+    echo(str("  WARNING: lanyard ear obstructs the BNC nut zone -- keep its front edge behind y = ",
+             bnc_nut_y1));
+  else
+    echo(str("  ear shares the BNC's z band, clears its nut zone in y by ",
+             round(100*(lug_front_y - bnc_nut_y1))/100, " mm"));
+}
 echo("--- lid overlap + snap locks --------------------------------------");
 echo(str("  skirt ", skirt_t, " thick x ", ov_d, " deep over a ", step,
          " step band ; clearance ", lid_clearance, "/side (inspo)"));
@@ -388,20 +446,33 @@ module face_text(t, x, z, size, rot=0) {
 }
 
 // =====================================================================
-//  LANYARD
+//  LANYARD  (rubber-band standoffs on the back face's side edges)
+//  Modeled DIRECTLY at its final printed shape, like the hinge: the ear is one
+//  linear_extrude of an x-y profile whose every +y face -- the shell prints
+//  back down, so +y IS the print-underside -- is either the bed itself or a
+//  hinge_arm_ang wall.  A plain circular boss would sit TANGENT to the back
+//  face and so leave the bed horizontally; the teardrop's hat, truncated on
+//  that same plane (cap_h = D - lug_ey), gives it a flat to start from and a
+//  hinge_arm_ang climb off it.  The square root keeps the ear fused to the
+//  side wall and cannot reach the hat, which is the profile's only material
+//  outboard of it, so the hull is free to convexify.  The eye's own ceiling
+//  is a teardrop like the pin bores.  Nothing reaches toward the front, which
+//  is what keeps the BNC nut zone clear -- see the echo.
 // =====================================================================
 module lanyard_ear(sx, sz) {
   translate([0,0,sz*lug_ez - lug_t/2]) linear_extrude(lug_t) hull() {
     translate([sx*(W/2-3), lug_ey]) square([6, lug_d], center=true);
-    translate([sx*lug_ex,  lug_ey]) circle(d=lug_hole+2*lug_web);
+    translate([sx*lug_ex,  lug_ey])
+      teardrop2d(d=lug_d, ang=hinge_arm_ang, cap_h=D-lug_ey);
   }
 }
-module lanyard_bore(sx, sz) {
-  translate([sx*lug_ex, lug_ey, sz*lug_ez - lug_t/2 - eps]) cylinder(h=lug_t+2*eps, d=lug_hole);
+module lanyard_bore(sx, sz) {   // teardrop, apex print-up (-y), as the pin bores
+  translate([sx*lug_ex, lug_ey, sz*lug_ez - lug_t/2 - eps])
+    linear_extrude(lug_t + 2*eps) rotate(180) teardrop2d(d=lug_hole, ang=45);
 }
 
 // =====================================================================
-//  BNC + PLUG
+//  BNC
 // =====================================================================
 module bnc_side(sx) {
   translate([sx*(W/2-wall) - eps*sx, D/2+bnc_y, bnc_z]) rotate([0, sx*90, 0])
@@ -413,28 +484,6 @@ module bnc_cut() {
   else if (bnc_face=="right")  bnc_side(1);
   else if (bnc_face=="bottom") translate([bnc_x, D/2+bnc_y, -H/2-eps]) cylinder(h=wall+2*eps, d=hole_bnc);
   else if (bnc_face=="top")    translate([bnc_x, D/2+bnc_y, H/2-wall-eps]) cylinder(h=wall+2*eps, d=hole_bnc);
-}
-// Snap-in blanking plug: flange + slotted hollow stem.  The barb ring
-// sits just behind the wall's inner face; the slot interrupts it into
-// two catch nubs and lets the prongs squeeze together on insertion.
-// Insertion ramp is shallow (~16 deg), removal cam steep (~40 deg):
-// clicks in, holds, but a firm pull still gets it back out.
-module blank_plug() {
-  stem_d = hole_bnc - plug_clr;
-  nub_z  = plug_flange_t + wall + plug_nub_clr;   // barb crest = inner face + slack
-  difference() {
-    union() {
-      cylinder(h=plug_flange_t, d=hole_bnc+6);                    // flange disc
-      cylinder(h=nub_z+eps, d=stem_d);                            // stem through the bore
-      translate([0,0,nub_z-0.4])                                  // removal cam (catch)
-        cylinder(h=0.4, d1=stem_d, d2=stem_d+2*plug_nub);
-      translate([0,0,nub_z-eps])                                  // insertion ramp / tip
-        cylinder(h=1.2, d1=stem_d+2*plug_nub, d2=stem_d-0.6);
-    }
-    translate([0,0,0.8]) cylinder(h=nub_z+2, d=plug_bore);        // blind core
-    translate([-plug_slot/2, -hole_bnc/2-4, 0.8])                 // flex slot
-      cube([plug_slot, hole_bnc+8, nub_z+2]);
-  }
 }
 
 // =====================================================================
@@ -680,4 +729,3 @@ if (part=="assembly") {
 }
 else if (part=="shell") oriented("shell") shell();
 else if (part=="lid")   oriented("lid")   lid();
-else if (part=="plug")  blank_plug();
