@@ -1,7 +1,7 @@
 // =====================================================================
 //  Chest-mounted field-stimulator enclosure  (v0.9)
 //  Bare Teensy 4.1 | single KeePower 26650 cell in holder | 1x BNC
-//  | 4 playback buttons (CAL/LOC/VOL/L+V) | LED + on/off on top
+//  | 6 playback buttons, 3 across x 2 down | LED + on/off on top
 //  | XT60 charge port
 //
 //  INTERIOR (stacked, all long axes = X):
@@ -9,8 +9,9 @@
 //     - bare Teensy 4.1 horizontal, directly ABOVE the battery
 //     - power/LED hang off the TOP face; the on/off switch is deep
 //       (power_body_depth) and owns its corner down to mid-height
-//     - the button bodies (door) sit in the band that leaves, between
-//       the switch's bottom and the Teensy
+//     - the button bodies (door) ride in FRONT of the Teensy, not above
+//       it -- what boxes their two rows in is the switch above and the
+//       battery holder below, both of which they do meet in y
 //  The ENTIRE FRONT PANEL is a hinged, latched door.
 //     HINGE : hand-rolled knuckle hinge on the LEFT edge, VERTICAL axis.
 //             Outer half on the HOUSING, inner half on the DOOR: per-
@@ -66,20 +67,38 @@ hole_bnc     = 9.5;   // BNC panel bore (confirmed)
 hole_power   = 12.2;  // on/off switch bore (confirmed)
 hole_led     = 8;     // LED bore
 
-/* [Playback buttons] -- 4 momentary buttons in ONE ROW on the door:
-   CAL | LOC | VOL | L+V.  Full sequence = L+V, deconstruction = LOC, VOL.
-   Bodies live in the mid interior band, clear of the switch/Teensy/battery. */
+/* [Playback buttons] -- 6 momentary buttons, 3 across x 2 down, on the door:
+     top    CAL | APT | GYM   calibration, Apteronotus, Gymnotus
+     bottom LOC | VOL | L+V   all Electrophorus (eel) -- see [Eel group]
+   Full sequence = L+V, deconstruction = LOC, VOL.
+   The rows are boxed in tightly -- but NOT by the Teensy, which sits behind
+   them in y (see the btn_hits_* checks), only by the on/off switch column
+   above and the battery holder below.  That leaves ~25 mm of center travel
+   for both rows; the echo reports the window and what each row has left. */
 btn_d       = 12;     // panel bore, same as the old trigger (confirmed)
 btn_body_d  = 14;     // button body diameter (fit checks)
-btn_row_z   = 10;      // Z of the button row.  The row is boxed in: the on/off
-                      // switch body hangs power_body_depth into the +x top
-                      // corner, right over the outer two buttons, and the
-                      // Teensy band is underneath.  The window that leaves is
-                      // narrow and echoed; 8 keeps most of the slack under the
-                      // switch, whose 32 mm is the softer (measured) number
-btn_pitch   = 20;     // X spacing between buttons
-btn_names   = ["CAL", "LOC", "VOL", "L+V"];
+btn_cols    = 3;
+btn_row_z   = 10;     // Z of the TOP row; the switch column caps this
+btn_row_pitch = 21;   // Z between the two rows
+btn_pitch   = 20;     // X spacing between columns
+btn_names   = [ ["CAL", "APT", "GYM"],
+                ["LOC", "VOL", "L+V"] ];
+btn_label_dz = 9;     // each label sits this far above its own button
 panel_depth = 15;     // how far a button body reaches inward (for fit checks)
+
+/* [Eel group] -- the bottom row is all eel playback and the top row is not,
+   so the bottom row gets an engraved tie: end ticks reach up at the three
+   buttons it claims, joined by a rule that the group's name breaks.  It hangs
+   below the row because the band between the rows is spoken for by labels. */
+eel_group    = true;
+eel_row      = 1;     // index into btn_names
+eel_name     = "EEL";
+eel_name_sz  = 3.2;
+eel_tie_z    = -24;   // Z of the tie's rule
+eel_tick_gap = 1.5;   // tick tops stop this far under the row's bores
+eel_rule_t   = 0.9;   // engraved stroke width
+eel_pad      = 3;     // how far the tie overhangs the outer bores
+eel_name_clr = 1.2;   // clear space the name knocks out of the rule
 
 /* [Top controls] -- on/off switch and LED on the TOP face, one per side */
 power_top = [ 22, 0];  // [x, y-offset from the top-face center]
@@ -102,7 +121,22 @@ bnc_keepout = 14;
 engrave    = true;
 engrave_d  = 0.6;
 label_size = 3.5;
-labels = [ for (i = [0:3]) [btn_names[i], (i-1.5)*btn_pitch, btn_row_z+13, 0] ];
+labels = [ for (r = [0:len(btn_names)-1], c = [0:btn_cols-1])
+             [btn_names[r][c], btn_x(c), btn_z(r) + btn_label_dz, 0] ];
+
+/* [Front panel masthead] -- engraved title block, centered above the labels.
+   One row per line: [text, size, z].  `size` is OpenSCAD's text ASCENT, not
+   an em, and text() centers each line on its INK box -- so z IS the ink
+   center and a line stands text_ink_h*size tall (see that constant).
+   The tight direction is Z, not width: the door's top edge and the button
+   labels close in from both ends, and the echo reports what is left. */
+masthead = true;
+masthead_lines = [
+  //   text                          size    z
+  [   "TeensyStim",                   7,    44.5 ],
+  [   "Field EOD Playback System",    2.9,  36.5 ],
+  [   "by Thunderlab",                2.7,  31.5 ],
+];
 
 /* [Lanyard eyes] -- the rubber-band standoffs: 4 of them, on the BACK face's
    side edges (the chest side), VERTICAL 5 mm bores.  The shell prints back
@@ -276,8 +310,46 @@ lug_apex_web = lug_apex_y - lug_front_y;         // PLA left between apex and ea
 lug_z0 = lug_ez - lug_t/2;
 lug_z1 = lug_ez + lug_t/2;
 
+// Liberation Sans ink extents, MEASURED off rendered text at size 10: a line
+// with a descender stands this * size tall, all-caps ~0.956 * size, and
+// text(valign="center") centers that ink box.  Used only to echo the masthead
+// stack -- OpenSCAD cannot measure text (textmetrics is experimental and off
+// by default), so the widths are checked by rendering, not asserted here.
+text_ink_h  = 1.294;
+text_caps_h = 0.956;
+mast_top    = masthead ? masthead_lines[0][2] + text_ink_h*masthead_lines[0][1]/2 : -H;
+mast_bot    = masthead ? masthead_lines[len(masthead_lines)-1][2]
+                         - text_ink_h*masthead_lines[len(masthead_lines)-1][1]/2 : H;
+label_top   = labels[0][2] + text_caps_h*label_size/2;     // labels are all-caps
+
 // on/off switch body: a column hanging off the top panel into the +x corner
 power_body_z0 = inner_h/2 - power_body_depth;    // its lowest point
+
+// button grid: column 0 is -x, row 0 is the TOP row
+btn_rows = len(btn_names);
+function btn_x(c) = (c - (btn_cols-1)/2) * btn_pitch;
+function btn_z(r) = btn_row_z - r*btn_row_pitch;
+// what boxes the grid in.  NOT the Teensy: it sits behind the buttons in y
+// (its front face is hold_yc - teensy_stk/2, the bodies only reach
+// panel_depth), so its z band is irrelevant -- the two that bite are the
+// switch column above (only over the columns it overlaps in x) and the
+// battery holder below, which the bodies DO reach in y.
+btn_z_hi = power_body_z0 - btn_body_d/2;         // ceiling, switch columns only
+btn_z_lo = battery_top_z + btn_body_d/2;         // floor, every column
+function btn_over_power(c) =
+  abs(btn_x(c) - power_top[0]) < (btn_body_d + power_body_d)/2;
+function btn_hits_power(r, c) = btn_over_power(c) && btn_z(r) > btn_z_hi
+                                && panel_depth > D/2 + power_top[1] - power_body_d/2;
+function btn_hits_batt(r, c)  = btn_z(r) < btn_z_lo && panel_depth > body_front_y;
+function btn_hits_teensy(r, c) = btn_z(r) - btn_body_d/2 < teensy_top_z
+                                 && btn_z(r) + btn_body_d/2 > teensy_bot_z
+                                 && panel_depth > hold_yc - teensy_stk/2;
+
+// eel group tie: the rule's ticks are computed to stop just under the row's
+// bores, and it spans that row's outer bores plus eel_pad -- both follow the
+// grid, so moving a row or the pitch carries the tie with it
+eel_tick_h = (btn_z(eel_row) - btn_d/2 - eel_tick_gap) - eel_tie_z;
+eel_tie_w  = 2*(btn_x(btn_cols-1) + btn_d/2 + eel_pad);
 
 // BNC nut zone: the flat wall the d15 nut needs, around the bore
 bnc_nut_y1 = D/2 + bnc_y + bnc_keepout/2;        // its front edge (toward the door)
@@ -305,30 +377,38 @@ echo("--- Teensy (phantom, no mount) -----------------------------------");
 echo(str("  Teensy z span = [", teensy_bot_z, ", ", teensy_top_z, "]  (top wall ", inner_h/2, ")"));
 echo(str("  Teensy X span = [", -teensy_len/2, ", ", teensy_len/2, "]  (inner +/-", inner_w/2, ")"));
 if (teensy_top_z > inner_h/2) echo("  WARNING: Teensy runs past the top wall");
-echo("--- playback buttons (door) vs interior (need ", panel_depth, " mm) ----");
-for (i = [0:3]) {
-  bx = (i-1.5)*btn_pitch;
-  clash = btn_row_z - btn_body_d/2 < teensy_top_z;   // body lower edge in Teensy band?
-  // the switch body is a column, so only the buttons under it in x can hit it
-  hits_power = abs(bx - power_top[0]) < (btn_body_d + power_body_d)/2
-               && btn_row_z + btn_body_d/2 > power_body_z0;
-  echo(str("  ", btn_names[i], " at [", bx, ", ", btn_row_z, "]",
-           clash      ? "  << WARNING: body may reach the Teensy band" :
-           hits_power ? "  << WARNING: body hits the on/off switch body" : "  (clear)"));
-}
+echo(str("--- playback buttons: ", btn_cols, " across x ", btn_rows,
+         " down (bodies ", btn_body_d, " reaching ", panel_depth, " mm in) ----"));
+for (r = [0:btn_rows-1], c = [0:btn_cols-1])
+  echo(str("  ", btn_names[r][c], " at [", btn_x(c), ", ", btn_z(r), "]",
+           btn_hits_power(r,c)  ? "  << WARNING: body hits the on/off switch body" :
+           btn_hits_batt(r,c)   ? "  << WARNING: body hits the battery holder" :
+           btn_hits_teensy(r,c) ? "  << WARNING: body hits the Teensy" :
+           btn_over_power(c)    ? "  (clear, under the switch column)" : "  (clear)"));
 if (btn_pitch < btn_body_d + 2)
-  echo("  WARNING: button bodies closer than 2 mm -- widen btn_pitch");
-if (btn_row_z + btn_body_d/2 > bnc_z - bnc_keepout/2)
+  echo("  WARNING: button bodies closer than 2 mm in x -- widen btn_pitch");
+if (btn_row_pitch < btn_body_d + 2)
+  echo("  WARNING: button bodies closer than 2 mm in z -- widen btn_row_pitch");
+if (btn_z(0) + btn_body_d/2 > bnc_z - bnc_keepout/2)
   echo("  note: outer button bodies reach the side-wall BNC body band");
-echo(str("  row span x = [", -1.5*btn_pitch - btn_d/2, ", ", 1.5*btn_pitch + btn_d/2,
-         "]  (cavity +/-", inner_w/2, ")"));
-// the row is boxed in: the switch column above, the Teensy band below
-echo(str("  btn_row_z window = [", teensy_top_z + btn_body_d/2, ", ",
-         power_body_z0 - btn_body_d/2, "] ; btn_row_z = ", btn_row_z,
-         "  (clear of the switch by ", power_body_z0 - (btn_row_z + btn_body_d/2),
-         ", of the Teensy band by ", (btn_row_z - btn_body_d/2) - teensy_top_z, ")"));
-if (power_body_z0 - btn_body_d/2 < teensy_top_z + btn_body_d/2)
-  echo("  WARNING: no z left for the button row between the switch and the Teensy");
+echo(str("  grid span x = [", btn_x(0) - btn_d/2, ", ", btn_x(btn_cols-1) + btn_d/2,
+         "]  (cavity +/-", inner_w/2, ") ; z = [", btn_z(btn_rows-1), ", ", btn_z(0), "]"));
+// centers are boxed between the switch column above and the battery below --
+// the Teensy is behind them in y and does NOT enter into it
+echo(str("  center window = [", btn_z_lo, ", ", btn_z_hi, "] (battery floor, switch ceiling)",
+         " ; rows at ", [for (r=[0:btn_rows-1]) btn_z(r)],
+         " -> switch clr ", btn_z_hi - btn_z(0), ", battery clr ", btn_z(btn_rows-1) - btn_z_lo));
+if (btn_z_hi - (btn_rows-1)*btn_row_pitch < btn_z_lo)
+  echo("  WARNING: rows cannot fit between the battery and the switch -- tighten btn_row_pitch");
+if (eel_group) {
+  echo(str("  eel tie: rule z=", eel_tie_z, " w=", eel_tie_w, ", ticks ",
+           round(100*eel_tick_h)/100, " up to ", eel_tie_z + eel_tick_h,
+           " (", eel_tick_gap, " under the ", btn_names[eel_row][0], " row's bores)"));
+  if (eel_tick_h <= 0)
+    echo("  WARNING: eel tie sits above the row it claims -- lower eel_tie_z");
+  if (eel_tie_z - eel_name_sz/2 < -H/2 + 3)
+    echo("  WARNING: eel tie runs off the bottom of the door");
+}
 echo("--- top controls (power switch + LED) ------------------------------");
 echo(str("  power at x=", power_top[0], " (old trigger spot), LED at x=", led_top[0]));
 echo(str("  on/off body: ", power_body_depth, " mm measured -> reaches down to z = ",
@@ -388,6 +468,23 @@ if (hinge_span/2 > bnc_z - 7.5 - 1)   // d15 BNC nut needs flat wall
   echo("  WARNING: hinge leaf runs into the left BNC nut zone -- shorten hinge_span");
 if (leaf_reach > D/2 + xt60_y - 10.5/2 - 1)   // XT60 plug housing envelope
   echo("  WARNING: hinge leaf reaches the XT60 plug envelope -- steepen hinge_arm_ang");
+echo("--- front panel masthead (engraved) -------------------------------");
+if (masthead) {
+  for (m = masthead_lines)
+    echo(str("  \"", m[0], "\"  size ", m[1], " at z=", m[2], " -> ink z [",
+             round(100*(m[2] - text_ink_h*m[1]/2))/100, ", ",
+             round(100*(m[2] + text_ink_h*m[1]/2))/100, "]"));
+  echo(str("  stack z = [", round(100*mast_bot)/100, ", ", round(100*mast_top)/100,
+           "] ; clear of the door's top edge by ", round(100*(H/2 - mast_top))/100,
+           " , of the button labels by ", round(100*(mast_bot - label_top))/100));
+  if (mast_top > H/2 - 1)
+    echo("  WARNING: masthead runs off the top of the door");
+  if (mast_bot < label_top + 1)
+    echo("  WARNING: masthead crowds the button labels -- shrink it or lower btn_row_z");
+  // engraved into the face that prints ON the bed -- strokes must beat the nozzle
+  if (min([for (m=masthead_lines) m[1]]) < 2.5)
+    echo("  WARNING: a masthead line is small enough that 0.4 mm strokes will fill in");
+}
 echo("--- lanyard ears (rubber-band standoffs) -------------------------");
 echo(str("  eye boss: teardrop hat ", hinge_arm_ang,
          " deg from vertical (as the hinge leaf), truncated ON the back face",
@@ -439,10 +536,42 @@ module rprism(w, h, d, r) {
     rotate([-90,0,0]) cylinder(h=d, r=r);
 }
 module post(x, z, h, d) { translate([x, D-wall, z]) rotate([90,0,0]) cylinder(h=h, d=d); }
+// engrave 2D children into the door's front face, engrave_d deep.  The 2D
+// plane maps straight onto the panel: x -> x, y -> z.
+module face_cut() {
+  translate([0, -lid_t+engrave_d, 0]) rotate([90,0,0])
+    linear_extrude(engrave_d+eps) children();
+}
+module panel_text_2d(t, size) {
+  text(t, size=size, halign="center", valign="center", font="Liberation Sans:style=Bold");
+}
 module face_text(t, x, z, size, rot=0) {
-  translate([x, -lid_t+engrave_d, z]) rotate([90,0,0])
-    linear_extrude(engrave_d+eps) rotate(-rot)
-      text(t, size=size, halign="center", valign="center", font="Liberation Sans:style=Bold");
+  face_cut() translate([x, z]) rotate(-rot) panel_text_2d(t, size);
+}
+// Eel group tie: end ticks reaching up at the row's outer bores, joined by a
+// rule that the group's name breaks.  The name knocks its OWN gap, so no gap
+// width has to be kept in sync with the string -- but the cutter needs both
+// of these to come out clean, and each fixes a real artifact:
+//   hull()   : offsetting the raw glyphs gives a LETTER-shaped gap, so wherever
+//              a letter is thin at the rule's height (the stem of an L) the
+//              rule drives into it and leaves a notch.
+//   mirror() : the hull alone is only as square as the string's end letters --
+//              "EEL" has no top-right arm, so its hull slants and tapers that
+//              end of the rule to a wedge.  Hulling the string against its own
+//              mirror makes the gap symmetric whatever the letters are.
+module eel_tie_2d() {
+  difference() {
+    union() {
+      translate([0, eel_tie_z]) square([eel_tie_w, eel_rule_t], center=true);
+      for (s = [-1,1])
+        translate([s*(eel_tie_w - eel_rule_t)/2, eel_tie_z + eel_tick_h/2])
+          square([eel_rule_t, eel_tick_h], center=true);
+    }
+    translate([0, eel_tie_z]) offset(r=eel_name_clr) hull() {
+      panel_text_2d(eel_name, eel_name_sz);
+      mirror([1,0]) panel_text_2d(eel_name, eel_name_sz);
+    }
+  }
 }
 
 // =====================================================================
@@ -684,11 +813,18 @@ module lid_body() {
   // door panel sits PROUD in front of the opening: Y in [-lid_t, 0]
   difference() {
     translate([0,-lid_t,0]) rprism(lid_w, lid_h, lid_t, lid_r);
-    // playback button bores, one row (Y from -lid_t-eps to +eps)
-    for (i = [0:3])
-      translate([(i-1.5)*btn_pitch, -lid_t-eps, btn_row_z]) rotate([-90,0,0])
+    // playback button bores, 3 across x 2 down (Y from -lid_t-eps to +eps)
+    for (r = [0:btn_rows-1], c = [0:btn_cols-1])
+      translate([btn_x(c), -lid_t-eps, btn_z(r)]) rotate([-90,0,0])
         cylinder(h=lid_t+2*eps, d=btn_d);
     if (engrave) for (l=labels) face_text(l[0], l[1], l[2], label_size, len(l)>3 ? l[3] : 0);
+    // masthead: centered on the panel, each line at its own size
+    if (engrave && masthead) for (m=masthead_lines) face_text(m[0], 0, m[2], m[1]);
+    // eel group: the tie's rule and ticks, plus the name that breaks it
+    if (engrave && eel_group) {
+      face_cut() eel_tie_2d();
+      face_text(eel_name, 0, eel_tie_z, eel_name_sz);
+    }
   }
 }
 module lid() {
