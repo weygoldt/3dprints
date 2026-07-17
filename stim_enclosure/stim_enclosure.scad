@@ -43,10 +43,10 @@
 include <../BOSL2/std.scad>
 
 /* [What to render] */
-part = "lid";   // [assembly, shell, lid]
+part = "assembly";   // [assembly, shell, lid]
 print_ready = true;
 door_open   = 0;     // assembly preview only: degrees the door is swung open
-show_ghosts = true;  // assembly preview: draw battery + Teensy phantoms
+show_ghosts = false;  // assembly preview: draw battery + Teensy phantoms
 
 $fn  = 128;
 eps  = 0.01;
@@ -71,7 +71,7 @@ hole_led     = 8;     // LED bore
    Bodies live in the mid interior band, clear of the switch/Teensy/battery. */
 btn_d       = 12;     // panel bore, same as the old trigger (confirmed)
 btn_body_d  = 14;     // button body diameter (fit checks)
-btn_row_z   = 8;      // Z of the button row.  The row is boxed in: the on/off
+btn_row_z   = 10;      // Z of the button row.  The row is boxed in: the on/off
                       // switch body hangs power_body_depth into the +x top
                       // corner, right over the outer two buttons, and the
                       // Teensy band is underneath.  The window that leaves is
@@ -102,7 +102,7 @@ bnc_keepout = 14;
 engrave    = true;
 engrave_d  = 0.6;
 label_size = 3.5;
-labels = [ for (i = [0:3]) [btn_names[i], (i-1.5)*btn_pitch, btn_row_z+9.5, 0] ];
+labels = [ for (i = [0:3]) [btn_names[i], (i-1.5)*btn_pitch, btn_row_z+13, 0] ];
 
 /* [Lanyard eyes] -- the rubber-band standoffs: 4 of them, on the BACK face's
    side edges (the chest side), VERTICAL 5 mm bores.  The shell prints back
@@ -110,7 +110,7 @@ labels = [ for (i = [0:3]) [btn_names[i], (i-1.5)*btn_pitch, btn_row_z+9.5, 0] ]
    the bed and neither may be left circular: they carry the hinge's profile
    instead -- hinge_arm_ang hat on the boss, teardrop bore. */
 lanyard   = true;
-lug_hole  = 5;
+lug_hole  = 4.5;
 lug_web   = 3;
 lug_out   = 5;
 lug_t     = 8;
