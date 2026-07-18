@@ -44,7 +44,7 @@
 include <../BOSL2/std.scad>
 
 /* [What to render] */
-part = "assembly";   // [assembly, shell, lid]
+part = "lid";   // [assembly, shell, lid]
 print_ready = true;
 door_open   = 0;     // assembly preview only: degrees the door is swung open
 show_ghosts = false;  // assembly preview: draw battery + Teensy phantoms
@@ -82,7 +82,7 @@ btn_row_z   = 10;     // Z of the TOP row; the switch column caps this
 btn_row_pitch = 22;   // Z between the two rows
 btn_pitch   = 22;     // X spacing between columns
 btn_names   = [ ["A", "B", "C"],
-                ["C", "D", "E"] ];
+                ["D", "E", "F"] ];
 btn_label_dz = 14;     // each label sits this far above its own button
 panel_depth = 15;     // how far a button body reaches inward (for fit checks)
 
