@@ -210,22 +210,29 @@ teensy_wid = 17.8;   // Z
 teensy_stk = 6;      // Y stack height (board + tallest parts)
 teensy_gap = 2.5;    // Z gap above the battery
 
-/* [XT60 charge port] -- female XT60E-F panel mount. MEASURE the real part. */
+/* [XT60 charge port] -- female panel mount, MEASURED off the real part
+   2026-07-18.  Long axis (connector opening, flange length, screw line) runs
+   along the SCREW AXIS; on a side wall the cut's rotate() maps that to Z and
+   the short axis to Y (verified: body[0]->Z, body[1]->Y, screws sep in Z). */
 xt60          = true;
 xt60_face     = "left";    // [bottom, left, right, back, none]  on the hinge side, clear of the latch
-xt60_body     = [16, 8.5]; // body cutout W x H  (XT60E-F ~15.6 x 8.1, +clearance)
-xt60_screw_d  = 3.2;       // M3 clearance
-xt60_screw_sep= 25;        // XT60E-F current version (older version = 23.4)
+xt60_body     = [19, 11.5];// connector through-hole [long(screw axis), short] -- MEASURED
+xt60_screw_d  = 2.8;       // clearance hole for the MEASURED 2.4 mm screw: a
+                           // touch over, since a side-wall hole prints on its
+                           // side and comes out undersized.  Drop to ~2.2 only
+                           // if the screws self-tap the wall instead of taking
+                           // nuts / the flange's own threads
+xt60_screw_sep= 25;        // MEASURED (was right)
 xt60_pos      = 10;        // position along the face (X on bottom/back, Z on a side)
 xt60_y        = 9;         // Y offset from mid-depth, toward the backplate; 9
-                           // keeps the flange seat well clear of the 35-deg
-                           // leaf (~3.9 mm margin with the exact-fillet leaf
-                           // reach -- could come back to ~6.5 if a more
-                           // central port is ever wanted).  Budget runs to
-                           // ~12 before the flange hits the back edge (the
-                           // BNC keeps its own bnc_y -- the lanyard lug
-                           // blocks moving it back)
-xt60_flange_h = 14;        // flange height across the screw axis (fit check)
+                           // keeps the flange seat clear of the 35-deg leaf
+                           // (~2.9 mm margin now, with the taller 16 flange and
+                           // the exact-fillet leaf reach).  Budget runs to ~11
+                           // before the flange's back edge hits the wall's back
+                           // edge (the BNC keeps its own bnc_y -- the lanyard
+                           // lug blocks moving it back)
+xt60_flange_h = 16;        // flange SHORT axis (Y, across the screw line) -- MEASURED 35x16
+xt60_flange_len = 35;      // flange LONG axis (Z, along the screw line) -- MEASURED
 xt60_body_depth = 12;      // how far the connector body reaches inward (collision check)
 
 /* [Wire routing] */
@@ -435,21 +442,36 @@ if (xt60 && xt60_face!="none") {
     if (floor_z + xt60_body_depth > floor_z && battery_top_z > floor_z)
       echo("  WARNING: bottom XT60 collides with the battery holder (holder fills the floor)");
   } else if (xt60_face=="left" || xt60_face=="right") {
+    // on a side wall the cut maps body[0]->Z (vertical, screw axis) and
+    // body[1]->Y (depth); the flange follows suit, len along Z, h across Y
     inner_reach = W/2 - wall - xt60_body_depth;   // X the body reaches to (from the wall)
+    hole_z0 = xt60_pos - xt60_body[0]/2; hole_z1 = xt60_pos + xt60_body[0]/2;
+    flange_z0 = xt60_pos - xt60_flange_len/2; flange_z1 = xt60_pos + xt60_flange_len/2;
+    flange_y_front = D/2 + xt60_y - xt60_flange_h/2;
+    on_bnc_wall = (bnc_wall_x != 0) && (bnc_wall_x == (xt60_face=="right" ? 1 : -1));
     echo(str("  side XT60 at z=", xt60_pos, "; body inner edge x=|", inner_reach,
              "|  (Teensy X half-span ", teensy_len/2, ")"));
-    echo(str("  side XT60 y-center = ", D/2 + xt60_y, " ; flange front edge y = ",
-             D/2 + xt60_y - xt60_flange_h/2, "  (hinge leaf ends y = ", leaf_reach, ")"));
+    echo(str("  hole z span [", hole_z0, ", ", hole_z1, "] ; flange z span [",
+             flange_z0, ", ", flange_z1, "] , y front edge ", flange_y_front,
+             " (hinge leaf ends y=", round(1000*leaf_reach)/1000, ")"));
     // 0.5 mm assembly margin on an exact leaf reach
-    if (xt60_face=="left" && D/2 + xt60_y - xt60_flange_h/2 < leaf_reach + 0.5)
+    if (xt60_face=="left" && flange_y_front < leaf_reach + 0.5)
       echo("  WARNING: XT60 flange lands on the hinge leaf -- raise xt60_y");
-    if (xt60_pos - xt60_body[1]/2 < battery_top_z)
-      echo("  WARNING: side XT60 dips into the battery band -- raise xt60_pos");
-    if (inner_reach < teensy_len/2 &&
-        (xt60_pos - xt60_body[1]/2) < teensy_top_z && (xt60_pos + xt60_body[1]/2) > teensy_bot_z)
+    if (flange_y_front < corner_r)
+      echo("  note: XT60 flange front edge is inside the front corner_r -- may not seat flat");
+    if (D/2 + xt60_y + xt60_flange_h/2 > D - 0.5)
+      echo("  WARNING: XT60 flange back edge overruns the wall's back edge -- lower xt60_y");
+    if (hole_z0 < battery_top_z)
+      echo("  WARNING: side XT60 hole dips into the battery band -- raise xt60_pos");
+    if (inner_reach < teensy_len/2 && hole_z0 < teensy_top_z && hole_z1 > teensy_bot_z)
       echo("  WARNING: side XT60 body may hit the Teensy -- move xt60_pos above ", teensy_top_z);
-    if (abs(xt60_pos - bnc_z) < (xt60_body[1]/2 + hole_bnc/2 + 3))
-      echo("  note: side XT60 is close to the BNC at that z");
+    // XT60 and BNC now share the left wall -- the 35-long flange is the part
+    // most likely to foul the BNC nut, so check its z span, not the hole's
+    if (on_bnc_wall && flange_z1 > bnc_nut_z0 && flange_z0 < bnc_nut_z1)
+      echo("  WARNING: XT60 flange overlaps the BNC nut zone in z -- separate them");
+    else if (on_bnc_wall)
+      echo(str("  XT60 flange clears the BNC nut zone by ",
+               round(100*(bnc_nut_z0 - flange_z1))/100, " mm in z"));
   } else if (xt60_face=="back") {
     echo("  note: back face is the chest side -- awkward for plugging a charger");
   }
@@ -469,8 +491,8 @@ if (hinge_arm_ang > 45)
   echo("  WARNING: hinge leaf underside too steep to print -- lower hinge_arm_ang");
 if (hinge_span/2 > bnc_z - 7.5 - 1)   // d15 BNC nut needs flat wall
   echo("  WARNING: hinge leaf runs into the left BNC nut zone -- shorten hinge_span");
-if (leaf_reach > D/2 + xt60_y - 10.5/2 - 1)   // XT60 plug housing envelope
-  echo("  WARNING: hinge leaf reaches the XT60 plug envelope -- steepen hinge_arm_ang");
+if (leaf_reach > D/2 + xt60_y - xt60_flange_h/2 - 1)   // measured flange front edge
+  echo("  WARNING: hinge leaf reaches the XT60 flange envelope -- steepen hinge_arm_ang");
 echo("--- front panel masthead (engraved) -------------------------------");
 if (masthead) {
   for (m = masthead_lines)
