@@ -71,6 +71,55 @@ openscad -o pylon.stl    -D 'part="pylon"'                       -D '$fn=128' ma
 - Assembly preview **omitted the connecting rods** → added rod ghosts; fixed the ghost motor axis.
 - Dead vars removed; bed-fit echo now tests **true** extents; stack-height echo added.
 
+## Follow-up round — Patrick's review of v0.1 (items 2–6 done, item 1 pending)
+
+Six follow-ups from Patrick's review. Five are implemented and probe-verified; item 1
+(gusset flip) is **held for a decision** (see below).
+
+| # | Ask | What changed |
+|---|---|---|
+| 2 | Pad mounts the **X BasePlate**, not the motor directly | `pylon_cut` now cuts 4× **M3** on the plate's **outer "+"** pattern (`bp_bolt=32` across each axis, holes at ±16) + a **⌀11.5 teardrop** central clearance for the motor boss. Pad grew to `pad_h=42` (backs the 39.5 plate, ≥3 mm wall at the M3s). Holes open **both sides** (flat-head from the plate, nut behind). Real `BasePlate.stl`/`Motor.stl` `import()` phantoms added (`show_hardware`). The old direct-2212 cuts and `motor_bolt_*`/`motor_slot`/`motor_screw_d`/`motor_bore` params were removed. |
+| 3 | Route the local motor leads through a **lid gland**, drop the pylon groove | `lid_gland` hole (⌀12.5, at X=0 Z=−60) pierces the lid panel only, clear of hinge/skirt/locks (≥9.5 mm to the stern lock). The pylon cable-groove is **removed** — mast face is solid again. |
+| 4 | Cable ports = **plain holes** (no gland boss) | `cable_port_boss` deleted; ports are clean ⌀12.5 through-holes (gland body + nut form the seal). `port_boss_t` gone. |
+| 5 | **BOSL2 metric threads** | `include ../BOSL2/threading.scad`; `tapped_hole()` helper. **M4** tapped in the 4 stern-block pylon-attach holes (teardrop crest, `spin=180` → apex prints up); **M3** tapped in the rod-socket grub holes (vertical axis). `use_threads=false` falls back to thread-forming pilots. |
+| 6 | **Third inboard port** for the stim wires, one hull only | `stim_port` (default off, **independent of `side`** — set it on whichever hull you print as the stim box) adds a ⌀12.5 port at Z=0, amidships (clear of both rod sockets and the two other ports). |
+
+**Measured off the real `BasePlate.stl`** (exact cylinders): plate 39.49 sq × 2 mm; central bore ⌀10;
+outer "+" (plate→pylon) at (±16,0)/(0,±16) ⌀3 (M3), countersunk; inner 2212 (motor→plate) at
+(±9.5,0)/(0,±7.75) ⌀2 — *the plate's business, not the pylon's*.
+
+**Verification (all passing, house style):** all parts `NoError` and **1 shell** on both `side`, with
+`stim_port` and `use_threads` on/off; **no fastener breaches the cavity** (thread cuts ∩ cavity = 0 mm³,
+even with the bigger thread major dia); ports open into the cavity (through-holes); lid still seats at
+**0 interference**; M3 grub reaches the rod bore (107.8 mm³, locks the rod); bed nest still **242 ≤ 245**.
+Print-orientation checks: M4 block-thread teardrop apex verified **up**; pad central bore teardrop apex
+verified **up** (Z reach 8.13 vs round 5.75). A 5-lens adversarial review (brief/geometry/DFM/watertight/
+regression) surfaced exactly one real issue — the pad central bore was a plain horizontal cylinder that
+would droop — now teardropped.
+
+### Toggles added this round
+
+```
+stim_port = true      # print the stim hull (adds the 3rd inboard port)
+use_threads = false   # fall back to thread-forming pilots if BOSL2 threads print poorly
+show_hardware = false # hide the BasePlate/Motor import phantoms in the assembly preview
+```
+
+### Item 1 — gusset flip: HELD for Patrick
+
+Patrick asked to flip the mast gusset so the **sloped face points forward (bow)** instead of aft. Two
+findings argue against a literal flip, so it's parked pending his call:
+
+- **Structural:** the pusher prop's forward thrust puts the **aft** mast face in **tension** (where PLA is
+  weakest). The current aft gusset reinforces exactly that face — flipping moves the reinforcement to the
+  compression side.
+- **Geometric:** a forward gusset extends toward the stern block and **collides with it by ~3839 mm³** at
+  the root (probed) — it can't sit where it's most needed without also pocketing (weakening) the block.
+
+Options for Patrick: **keep aft** (recommended — structural + no collision) · flip forward *and* pocket the
+block · symmetric double gusset (also collides forward at the root). Awaiting his reason (structural vs
+aesthetic/clearance) before touching it.
+
 ## Prop clearance (parametric)
 
 ```
@@ -84,11 +133,16 @@ Change `prop_diameter` to 254 (1045) and the pylon grows to ~110 mm above the bo
 
 ## Open items to confirm before printing
 
-1. **A2212 bolt pattern** — the default is the standard 16×19 mm cross (holes at ±8, ±9.5),
-   M3.2 clearance, with ±1 mm radial **slots** so a slightly-off pattern still bolts up.
-   *Measure the real motor with calipers and set `motor_bolt_x` / `motor_bolt_y`.*
-2. **`beam_target`** (default 240 mm) sets the rod length (144 mm) and must exceed `prop_diameter`
+1. **Gusset flip (item 1)** — decision needed: keep the aft gusset (recommended) or flip it
+   forward. See "Item 1 — gusset flip: HELD for Patrick" above.
+2. **BasePlate holes** — the pad matches the plate's **outer "+"** (⌀3/M3 at ±16) measured off
+   `BasePlate.stl`. Confirm your plate matches (`bp_bolt`, `bp_size`, `bp_bore`).
+3. **Gland sizes** — every gland hole defaults to **⌀12.5 (PG7)**: `port_stern_d`, `port_bow_d`,
+   `port_stim_d`, `lid_gland_d`. Set them to your actual glands (PG9 = 15.2, M12 = 12).
+4. **Threads print quality** — `use_threads=true` models real BOSL2 M4/M3. If they print poorly on
+   the MK3S, set `use_threads=false` for thread-forming pilots (`mm_bolt_pilot` / `rod_grub_d`).
+5. **`beam_target`** (default 240 mm) sets the rod length (144 mm) and must exceed `prop_diameter`
    or the two stern props collide — echo-checked. Confirm the catamaran beam you want.
-3. **Float dimensions** — `float_thickness` (60) and `float_freeboard` (42) at ~2 kg all-up are
+6. **Float dimensions** — `float_thickness` (60) and `float_freeboard` (42) at ~2 kg all-up are
    assumptions; they set the prop clearance. Confirm against the real float at load.
-4. **Rod grub screws vs split clamp** — currently a cross-drilled M3 grub screw per socket.
+7. **Which hull is the stim hull** — set `stim_port=true` on that print (independent of `side`).

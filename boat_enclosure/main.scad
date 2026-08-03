@@ -44,6 +44,7 @@
 // =====================================================================
 
 include <../BOSL2/std.scad>
+include <../BOSL2/threading.scad>   // metric tapped holes (Task 5); std.scad omits it
 
 /* [What to render] */
 part = "assembly";   // [assembly, body, lid, pylon]
@@ -53,6 +54,7 @@ lid_open   = 0;      // assembly preview only: degrees the lid is swung open
 show_ghosts = true;  // assembly preview: draw components + float + prop discs
 show_both_hulls = true; // assembly preview: draw the mirror hull too
 preview_upright = false; // assembly preview: rotate so box HEIGHT is vertical (Z-up)
+show_hardware = true; // assembly preview: import the real BasePlate.stl + Motor.stl phantoms
 
 $fn  = 64;           // dev speed; bump to 128 for final STL export (-D '$fn=128')
 eps  = 0.01;
@@ -74,6 +76,16 @@ box_height = inner_d;    // floor -> lid
 
 /* [Lid] */
 lid_t     = 3;     // top-lid outline matches the body exactly (inspo lid == base)
+
+// Item 3 -- a gland hole through the LID for the LOCAL motor's 3 phase leads
+// (the motor sits on this hull's stern pylon; its leads drop into the box
+// through this sealed hole and are zip-tied to the pylon).  Placed over the
+// stern end, clear of the hinge (outboard), the perimeter skirt, and the snap
+// locks.  Replaces the pylon cable-groove as the routing solution (item 3).
+lid_gland   = true;
+lid_gland_d = 12.5;   // PG7 gland panel-mount hole (matches the port glands)
+lid_gland_x = 0;      // athwartship (X): 0 = centreline
+lid_gland_z = -60;    // fore-aft (Z): near the stern/pylon end, clear of locks & skirt
 
 /* [Side & boat] -- one body, two hulls */
 beam_target = 240;  // hull centreline-to-centreline spacing (mm).  Sets rod
@@ -133,6 +145,23 @@ xt60_flange_len = 35;      // flange LONG axis (screw line): X on bow/stern, Z o
 xt60_body_depth = 12;      // how far the connector body reaches inward
 
 // =====================================================================
+//  TASK 5 -- METRIC THREADS (BOSL2)
+//  Tapped holes so bolts/set-screws thread straight into the PLA:
+//    (a) the 4 stern-block pylon-attach holes -> M4  (see mm_bolt_* below)
+//    (b) the PVC rod-socket lock (grub) holes  -> M3  (see rod_grub_* below)
+//  use_threads=true models real BOSL2 internal threads.  If they print poorly
+//  at this scale on the MK3S, set use_threads=false to fall back to the
+//  thread-FORMING pilot holes (mm_bolt_pilot / rod_grub_d -- a bolt or set
+//  screw cuts its own thread in the PLA).  The block holes print with their
+//  axis HORIZONTAL, so they use BOSL2's teardrop thread crest (self-
+//  supporting); the rod grub holes print with a VERTICAL axis (self-support
+//  is automatic).  The pylon-foot holes and cable ports stay plain (bolt+nut
+//  / gland), so only these two families are threaded.
+// =====================================================================
+use_threads = true;
+thread_slop = 0.1;    // BOSL2 internal-thread clearance ($slop): adds ~4*slop to the bore
+
+// =====================================================================
 //  TASK 1 -- MOTOR MOUNT + PYLON (highest priority)
 // =====================================================================
 /* [Prop & clearance] -- the ONE knob the user asked for: set prop_diameter
@@ -144,17 +173,24 @@ float_freeboard      = 42;    // float top above the waterline at ~2 kg all-up
 prop_clearance_margin= 20;    // disc lowest point above the float top
 prop_z_offset        = 30;    // how far AFT of the stern wall the prop disc sweeps
 
-/* [Motor -- A2212-class 2212 outrunner] -- VERIFY the bolt pattern against
-   the real motor with calipers before printing; cheap A2212s vary.  The four
-   holes are short radial SLOTS (+/- motor_slot) so a slightly off pattern
-   still bolts up. */
-motor_bolt_x   = 16;    // one pair spacing  -> holes at (+/-8, 0)
-motor_bolt_y   = 19;    // other pair spacing -> holes at (0, +/-9.5)
-motor_screw_d  = 3.2;   // M3.2 clearance
-motor_slot     = 1.0;   // radial slot half-length (0 = plain round holes)
-motor_bore     = 10.5;  // central bore (>=10 to clear shaft boss + circlip)
-motor_pad_t    = 5;     // motor pad thickness (>=5)
-motor_body_d   = 28;    // motor body diameter (pad sizing)
+/* [Motor + BasePlate mount] -- item 2.  The real chain is
+   motor -> BasePlate.stl -> pylon pad.  The motor bolts to an X-shaped plate,
+   and THAT plate bolts to the pad, so the pad carries the plate's OUTER "+"
+   pattern, NOT the motor's own 2212 pattern.  Measured off BasePlate.stl
+   (39.49 sq x 2 mm), holes verified as exact cylinders:
+     outer "+" (plate -> pylon): (+/-16,0) and (0,+/-16) = 32 mm across each
+        axis, 3 mm (M3), countersunk on the plate for flat-heads  <-- OURS
+     central bore: 10 mm  (motor bell/boss clearance)
+     inner 2212 (motor -> plate): (+/-9.5,0),(0,+/-7.75), 2 mm    <-- the plate's job
+   The motor's own pattern is the plate's problem; the pad only matches the "+"
+   holes and clears the central boss.  Measure YOUR plate before printing. */
+bp_size        = 39.5;  // BasePlate square (MEASURED) -- the pad backs this
+bp_bolt        = 32;    // outer "+" hole spacing across each axis (holes at +/-16) -- MEASURED
+bp_bore        = 10;    // BasePlate central bore -- pad clears the motor boss poking through
+bp_screw_d     = 3.4;   // M3 clearance through the pad (flat-head from the plate, nut behind)
+bp_edge        = 5;     // pad material beyond the bolt centres (keeps >=3 mm wall at the M3s)
+motor_pad_t    = 5;     // pad thickness aft of the mast (>=5)
+motor_body_d   = 28;    // motor can diameter (MEASURED off Motor.stl; pad + ghost sizing)
 
 /* [Motor mount + pylon] -- SEPARATE printed pylon bolts to an aft-protruding
    BLOCK on the stern wall.  Every fastener stays inside that block, AFT of
@@ -190,14 +226,25 @@ rod_grub_d     = 2.5;   // cross-drilled grub-screw pilot: thread-forming for an
                         // screw in PLA (NOT the 3.2 clearance -- it must bite the rod)
 
 // =====================================================================
-//  TASK 3 -- CABLE PORTS (inboard wall, gland/barb shoulders)
+//  TASK 3 -- CABLE PORTS (inboard +X wall) -- PLAIN through-holes.
+//  The cable GLAND supplies its own shoulder/seal (threaded body seats in the
+//  hole, nut inside), so there is NO printed boss (Patrick, item 4).  Each
+//  diameter below is the gland's PANEL-MOUNT hole, not the cable bundle:
+//    PG7 = 12.5 (cable 3-6.5) | PG9 = 15.2 (4-8) | M12x1.5 = 12.  Confirm which
+//    gland you use and set these.  Default PG7 (fits the 3 motor phase leads).
 // =====================================================================
-port_stern_d   = 8;     // stern port: 3 motor phase leads bundled (user: one 8 mm)
-port_bow_d     = 6;     // bow port: opto->Teensy signal (2 signal + 1 gnd, thin)
+port_stern_d   = 12.5;  // stern port gland hole: 3 motor phase leads (RC box -> far motor)
+port_bow_d     = 12.5;  // bow   port gland hole: opto->Teensy signal (thin; a smaller gland is fine)
 port_stern_z   = -35;   // stern port position along the length (clear of the stern socket)
 port_bow_z     = 35;    // bow port position (clear of the bow socket)
 port_y         = 24;    // Y of the port centers (below the rod axis, near the floor)
-port_boss_t    = 3;     // external gland-shoulder boss thickness
+
+// Item 6 -- a THIRD inboard port for the stimulator's own wires, on the STIM
+// hull ONLY.  stim_port is INDEPENDENT of side (set it true on whichever hull
+// you print as the stim box), so either physical hull can be the stim hull.
+stim_port      = false; // set true when printing the stim hull
+port_stim_d    = 12.5;  // stim port gland hole (stimulator electrode/output leads)
+port_stim_z    = 0;     // amidships: clear of both rod sockets (+/-60) and the two ports (+/-35)
 
 // =====================================================================
 //  DERIVED
@@ -274,8 +321,10 @@ mm_pad_top = ov_d + 1;                                     // block top Y (clear
 mm_pad_h   = D - mm_pad_top;                               // block spans down to the FLOOR (Y=D)
 mm_pad_yc  = (mm_pad_top + D)/2;                           // block/foot/bolt center in Y
 foot_h     = mm_pad_h;                                     // pylon foot height matches the block
-pad_h      = motor_body_d + 8;                             // motor pad height on the pylon
+pad_h      = bp_bolt + 2*bp_edge;                          // pad backs the BasePlate: >=3 mm wall at the M3 "+" holes
 pad_aft    = pylon_root_t + motor_pad_t;                   // pylon pad aft (motor) face, fore-aft
+pad_bolt_wall_y = pad_h/2 - bp_bolt/2 - bp_screw_d/2;      // pad edge wall at the outer "+" bolts (Y)
+pad_bolt_wall_z = pylon_width/2 - bp_bolt/2 - bp_screw_d/2;// pad edge wall at the outer "+" bolts (Z/width)
 // overall stack height (waterline to prop top), for the hand-back report
 stack_height = float_freeboard + box_outer_height + hub_above_box_top + prop_radius;
 
@@ -309,10 +358,13 @@ echo(str("  hub above box top = ", hub_above_box_top,
          " ; pylon rise above floor = ", pylon_rise));
 echo(str("  prop disc lowest point clears the float top by ", disc_low_above_float,
          " mm ", disc_low_above_float >= 0 ? "OK" : "  << WARNING: prop dips below the float"));
-echo(str("  motor bolt pattern (", motor_bolt_x, " x ", motor_bolt_y,
-         "): holes at (+/-", motor_bolt_x/2, ", 0) and (0, +/-", motor_bolt_y/2,
-         ") ; slot +/-", motor_slot, " ; central bore ", motor_bore));
-if (motor_bore < 10) echo("  WARNING: central bore < 10 -- may bind on the shaft boss/circlip");
+echo(str("  pad mounts BasePlate (", bp_size, " sq): 4x M3 at the OUTER \"+\" (",
+         bp_bolt, " across each axis, holes +/-", bp_bolt/2,
+         ") ; central boss clearance ", bp_bore+1.5));
+echo(str("  pad face ", pad_h, "(Y) x ", pylon_width, "(Z) >= plate ", bp_size,
+         " ", (pad_h>=bp_size && pylon_width>=bp_size)?"OK":"  << WARNING: pad smaller than plate"));
+echo(str("  pad \"+\" bolt edge wall = ", round(10*min(pad_bolt_wall_y,pad_bolt_wall_z))/10,
+         " mm (need >= 3) ", min(pad_bolt_wall_y,pad_bolt_wall_z) >= 3 ? "OK" : "  << WARNING: grow pad_h/pylon_width"));
 if (motor_pad_t < 5) echo("  WARNING: motor pad < 5 mm");
 if (pylon_root_t < 4) echo("  WARNING: pylon root wall < 4 mm");
 echo(str("  stern block ", mm_pad_w, " x ", mm_pad_h, " x ", mm_block_depth,
@@ -342,12 +394,19 @@ if (beam_target <= prop_diameter)
 else
   echo(str("  stern-prop clearance across the beam = ", beam_target - prop_diameter, " mm OK"));
 
-echo("--- Task 3: cable ports (inboard +X wall, through) -------------");
+echo("--- Task 3: cable ports (inboard +X wall) -- PLAIN gland holes -");
 echo(str("  stern port ", port_stern_d, " mm at Z=", port_stern_z,
-         " (3 motor phases bundled) ; bow port ", port_bow_d, " mm at Z=", port_bow_z, " (signal)"));
-echo(str("  ports at Y=", port_y, " ; gland-shoulder boss ", port_boss_t + wall, " mm proud (through-bored)"));
-if (abs(port_stern_z - rod_z_stern) < (rod_boss_protrusion/2 + port_stern_d/2 + 4))
-  echo("  note: stern port is close to the stern socket boss in Z -- check clearance in render");
+         " (3 motor phases) ; bow port ", port_bow_d, " mm at Z=", port_bow_z, " (signal)",
+         stim_port ? str(" ; STIM port ", port_stim_d, " mm at Z=", port_stim_z) : " ; stim port OFF"));
+echo(str("  ports at Y=", port_y, " -- plain through-holes (gland provides the shoulder/seal, no boss)"));
+// smallest Z gap between any two inboard features (ports + rod-socket bosses); flag if tight
+port_zs = concat([[port_stern_z, port_stern_d/2], [port_bow_z, port_bow_d/2]],
+                 stim_port ? [[port_stim_z, port_stim_d/2]] : [],
+                 [[rod_z_bow, (rod_bore+9)/2], [rod_z_stern, (rod_bore+9)/2]]);
+min_port_gap = min([ for (i=[0:len(port_zs)-1], j=[i+1:len(port_zs)-1])
+                     abs(port_zs[i][0]-port_zs[j][0]) - port_zs[i][1] - port_zs[j][1] ]);
+echo(str("  min inboard-feature Z gap (ports + socket bosses) = ", round(10*min_port_gap)/10,
+         " mm ", min_port_gap >= 3 ? "OK" : "  << WARNING: features merge/crowd in Z"));
 
 echo("--- lid hinge (outboard -X edge, axis along the length) --------");
 echo(str("  pin axis (x,y)=(", Ax, ", ", Ay, ") ; barrel d=", knuckle_d,
@@ -363,6 +422,17 @@ echo(str("  skirt ", skirt_t, " x ", ov_d, " deep over a ", step, " band ; ",
 echo(str("  hinge-side swing gap = ", round(1000*swing_gap)/1000, " mm ",
          swing_gap >= 0.1 ? "OK" : "  << WARNING: skirt scrapes on the swing"));
 if (step >= wall - 1.0) echo("  WARNING: step band leaves < 1 mm of wall behind the dents");
+
+echo("--- lid gland (item 3: local motor leads route through the lid) -");
+if (lid_gland) {
+  g_edge = min(H/2 - abs(lid_gland_z), W/2 - abs(lid_gland_x)) - lid_gland_d/2;    // to nearest lid edge/skirt
+  g_lock = (n_locks>=3) ? abs(lid_gland_z + (H/2 - step)) - lid_gland_d/2 - bump_l/2 : 1e9; // to stern-end lock
+  echo(str("  gland ", lid_gland_d, " at (X=", lid_gland_x, ", Z=", lid_gland_z,
+           ") ; clear of lid edge/skirt by ", round(10*g_edge)/10, " mm ",
+           g_edge >= skirt_t+2 ? "OK" : "  << WARNING: too close to the skirt"));
+  echo(str("  clear of the stern-end snap lock by ", round(10*g_lock)/10, " mm ",
+           g_lock >= 2 ? "OK" : "  << WARNING: gland sits over a snap lock"));
+} else echo("  lid gland OFF");
 
 echo("--- lanyard / zip-tie ears ------------------------------------");
 echo(str("  4 teardrop ears at Z=+/-", lug_ez, ", protruding +/-X ; bore ", lug_hole,
@@ -386,6 +456,19 @@ echo("---------------------------------------------------------------");
 module rprism(w, h, d, r) {
   hull() for (sx=[-1,1], sz=[-1,1]) translate([sx*(w/2-r), 0, sz*(h/2-r)])
     rotate([-90,0,0]) cylinder(h=d, r=r);
+}
+
+// Task 5 tapped-hole cutter -- drop-in for `cylinder(h=l, d=..)` (axis +Z, base
+// at the origin).  use_threads -> a real BOSL2 internal metric thread; else a
+// thread-FORMING pilot (bolt/set-screw cuts its own thread in the PLA).  Set
+// td=true for holes whose axis prints HORIZONTAL (teardrop crest self-supports).
+module tapped_hole(major, pitch, l, pilot, td=false, spin=0) {
+  if (use_threads)
+    translate([0,0,l/2])
+      threaded_rod(d=major, pitch=pitch, l=l, internal=true, teardrop=td,
+                   blunt_start=true, bevel1=true, spin=spin, $slop=thread_slop);
+  else
+    cylinder(h=l, d=pilot);   // thread-forming pilot: bolt/screw cuts its own thread
 }
 
 // =====================================================================
@@ -536,22 +619,21 @@ module rod_socket_cut(z) {
   // bore axis along X, the unsupported ceiling self-supports on the bed.
   translate([rod_boss_tip_x + eps, rod_axis_y, z]) rotate([0, -90, 0])
     linear_extrude(socket_depth + eps) rotate(180) teardrop2d(d=rod_bore, ang=45);
-  // grub screw: M3 from the top (-y) down into the bore, near the boss root
+  // grub screw: TAPPED M3 from the top (-y) down into the bore, near the boss
+  // root.  Axis prints VERTICAL (opens at the top face), so no teardrop needed.
   translate([W/2 + rod_boss_protrusion*0.4, -eps, z]) rotate([-90,0,0])
-    cylinder(h=rod_axis_y + rod_bore, d=rod_grub_d);
+    tapped_hole(3, 0.5, rod_axis_y + rod_bore, rod_grub_d, td=false);
 }
 
 // =====================================================================
-//  TASK 3 -- CABLE PORTS  (inboard +X wall; through, gland shoulder)
+//  TASK 3 -- CABLE PORTS  (inboard +X wall; PLAIN through-holes, item 4)
+//  No external boss: the cable gland's own threaded body + nut form the
+//  shoulder and seal.  Just a clean hole through the 2.5 mm wall, sized for
+//  the gland's panel-mount diameter.
 // =====================================================================
-module cable_port_boss(z, dia) {   // external gland-shoulder boss
-  translate([W/2-eps, port_y, z]) rotate([0,90,0])
-    cylinder(h=port_boss_t+wall, d=dia+6);
-}
 module cable_port_cut(z, dia) {
-  // through the wall AND the full gland boss (tip at X = W/2 + port_boss_t + wall)
   translate([W/2-wall-eps, port_y, z]) rotate([0,90,0])
-    cylinder(h=2*wall+port_boss_t+2*eps, d=dia);
+    cylinder(h=2*wall+2*eps, d=dia);
 }
 
 // =====================================================================
@@ -573,10 +655,13 @@ module motor_mount_boss() {
   }
 }
 module motor_mount_cut() {
-  // 4 M4 blind THREAD-FORMING pilot holes into the aft face; end short of the cavity
+  // 4 TAPPED M4 blind holes into the aft face; end short of the cavity (item 5).
+  // Axis is model +Z (fore-aft) -> prints HORIZONTAL, so teardrop the crest.
+  // The body prints via rotate([-90,0,0]) (model -Y -> world +Z up); spin=180
+  // moves BOSL2's default +Y teardrop to model -Y so its apex ends up UP.
   for (sx=[-1,1], sy=[-1,1])
     translate([sx*mm_bolt_x/2, mm_pad_yc + sy*mm_bolt_y/2, mm_block_aft_z - eps])
-      cylinder(h=mm_bolt_depth + eps, d=mm_bolt_pilot);
+      tapped_hole(4, 0.7, mm_bolt_depth + eps, mm_bolt_pilot, td=true, spin=180);
 }
 
 // =====================================================================
@@ -599,24 +684,24 @@ module pylon_2d() {
 module pylon() color("Tan") linear_extrude(pylon_width) pylon_2d();
 module pylon_cut() {
   cz = pylon_width/2;
-  // motor central bore + 2212 bolt slots in the pad aft face (axis along X = fore-aft)
-  translate([pad_aft - motor_pad_t/2, pylon_rise, cz]) rotate([0,90,0]) {
-    cylinder(h=pad_aft+4, d=motor_bore, center=true);
-    for (p = [[motor_bolt_y/2,0],[-motor_bolt_y/2,0],[0,motor_bolt_x/2],[0,-motor_bolt_x/2]])
-      hull() for (s=[-1,1])
-        translate([p[0]+s*motor_slot*(p[0]==0?0:1), p[1]+s*motor_slot*(p[1]==0?0:1), 0])
-          cylinder(h=pad_aft+4, d=motor_screw_d, center=true);
-  }
+  // PAD mounts the X BasePlate (item 2): a central clearance for the motor boss
+  // that pokes through the plate's 10 mm bore, plus 4 M3 CLEARANCE holes on the
+  // plate's OUTER "+" pattern (32 mm across each axis).  Every hole runs along
+  // X through the whole pad -> open both sides (flat-head from the plate side,
+  // nut on the forward face).  The pad face is the aft plane X=pad_aft.
+  bp_hole_l = 2*(pad_aft + 2);   // spans the full pad depth, both sides open
+  // central boss clearance -- TEARDROP (apex toward +Z = pylon print-up) so the
+  // 11.5 mm horizontal bore self-supports instead of drooping onto the boss.
+  translate([0, pylon_rise, cz]) rotate([0,0,-90]) teardrop(h=bp_hole_l, d=bp_bore+1.5);
+  for (p = [[bp_bolt/2,0],[-bp_bolt/2,0],[0,bp_bolt/2],[0,-bp_bolt/2]])
+    translate([0, pylon_rise + p[0], cz + p[1]]) rotate([0,90,0])
+      cylinder(h=bp_hole_l, d=bp_screw_d, center=true);           // 4x M3 plate-mount
   // 4 M4 CLEARANCE holes through the foot (along X), matching the block
   for (sy=[-1,1], sz=[-1,1])
     translate([-eps, foot_h/2 + sy*mm_bolt_y/2, cz + sz*mm_bolt_x/2]) rotate([0,90,0])
       cylinder(h=pylon_root_t+2*eps, d=pylon_bolt_d);
-  // cable route: an OPEN half-groove DOWN the mast's FORWARD face (X=0, toward the
-  // box / cable port) for the 3 motor leads.  The forward face is flat and untapered
-  // the whole length, so the groove breaks the surface (not a sealed void like a
-  // groove on the slanted aft face would be).
-  translate([0, foot_h, cz]) rotate([-90,0,0])
-    cylinder(h=pylon_rise - foot_h - pad_h/2, d=7);
+  // (item 3) the pylon cable-groove is GONE: the local motor's leads route
+  // through the LID gland and zip-tie to the mast, so the mast face stays solid.
 }
 
 // =====================================================================
@@ -629,15 +714,14 @@ module body() {
       if (lanyard) for (sx=[-1,1], sz=[-1,1]) lanyard_ear(sx, sz);
       hinge_housing();                              // outboard lid hinge
       rod_boss(rod_z_bow); rod_boss(rod_z_stern);   // inboard rod-socket bosses
-      cable_port_boss(port_stern_z, port_stern_d);
-      cable_port_boss(port_bow_z, port_bow_d);
       motor_mount_boss();                           // stern motor pad
     }
     translate([0,-eps,0]) rprism(inner_w, inner_h, inner_d+eps, corner_r-wall); // cavity (top open)
     if (lanyard) for (sx=[-1,1], sz=[-1,1]) lanyard_bore(sx, sz);
     rod_socket_cut(rod_z_bow); rod_socket_cut(rod_z_stern);
-    cable_port_cut(port_stern_z, port_stern_d);
+    cable_port_cut(port_stern_z, port_stern_d);     // plain gland holes (item 4)
     cable_port_cut(port_bow_z, port_bow_d);
+    if (stim_port) cable_port_cut(port_stim_z, port_stim_d); // 3rd port, stim hull only (item 6)
     motor_mount_cut();
     xt60_cut();
     front_step_cut();                               // stepped band the lid skirt wraps
@@ -651,8 +735,13 @@ module body() {
 module lid_body() {
   translate([0,-lid_t,0]) rprism(lid_w, lid_h, lid_t, lid_r);
 }
+module lid_gland_cut() {   // item 3: through-hole for the local motor's phase leads
+  if (lid_gland)
+    translate([lid_gland_x, -lid_t-eps, lid_gland_z]) rotate([-90,0,0])
+      cylinder(h=lid_t+2*eps, d=lid_gland_d);
+}
 module lid() {
-  lid_body();
+  difference() { lid_body(); lid_gland_cut(); }   // gland pierces only the panel
   hinge_door();
   door_skirt();
 }
@@ -679,13 +768,25 @@ module ghost_float() {
     translate([-W/2-8, D, -H/2-aft]) cube([W+16, float_thickness, H+aft+15]);
 }
 module ghost_prop_and_motor() {
-  // motor + prop disc at TRUE diameter, aft of the stern, at hub height.
-  // motor can is COAXIAL with the prop-disc normal (both along fore-aft Z).
+  // prop disc at TRUE diameter, aft of the stern, at hub height (clearance check).
+  // The motor is drawn schematically here ONLY when the real Motor.stl phantom
+  // is off (show_hardware); the disc is always drawn.
   translate([0, D - pylon_rise, -H/2 - prop_z_offset]) {
-    color([0.2,0.2,0.2,0.9]) translate([0,0,12])
-      cylinder(h=22, d=motor_body_d, center=true);   // motor body, axis along Z (fore-aft)
+    if (!show_hardware) color([0.2,0.2,0.2,0.9]) translate([0,0,12])
+      cylinder(h=22, d=motor_body_d, center=true);   // schematic motor, axis along Z (fore-aft)
     color([0.85,0.2,0.2,0.30])
       cylinder(h=1.5, d=prop_diameter, center=true); // prop disc (X-Y plane, normal = Z)
+  }
+}
+// real BasePlate + motor STL phantoms on the pad (item 2 fit check).  Modelled
+// in pylon-LOCAL coords so pylon_at_stern's transform carries them into place.
+// The plate's OUTER "+" holes (+/-16) must land on the pad's 4 M3 holes.
+module ghost_hardware() {
+  if (show_hardware) {
+    color([0.72,0.73,0.75,0.9])   // BasePlate flat on the pad aft face (X=pad_aft)
+      translate([pad_aft, pylon_rise, pylon_width/2]) rotate([0,0,-90]) import("BasePlate.stl");
+    color([0.12,0.12,0.13,0.9])   // motor: mounting face on the plate, can aft (+X)
+      translate([pad_aft+2+1.6, pylon_rise, pylon_width/2]) rotate([0,0,90]) import("Motor.stl");
   }
 }
 // the two 12 mm PVC connecting rods, spanning the beam through the inboard sockets
@@ -701,7 +802,10 @@ module ghost_rods() {
 // stern pose; the pylon is width-symmetric so this rotation is exact.
 module pylon_at_stern() {
   translate([pylon_width/2, mm_pad_yc + foot_h/2, mm_block_aft_z])
-    rotate(a=180, v=[1,0,-1]) difference() { pylon(); pylon_cut(); }
+    rotate(a=180, v=[1,0,-1]) {
+      difference() { pylon(); pylon_cut(); }
+      ghost_hardware();
+    }
 }
 
 // =====================================================================
