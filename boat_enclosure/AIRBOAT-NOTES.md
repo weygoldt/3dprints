@@ -73,8 +73,8 @@ openscad -o pylon.stl    -D 'part="pylon"'                       -D '$fn=128' ma
 
 ## Follow-up round — Patrick's review of v0.1 (items 2–6 done, item 1 pending)
 
-Six follow-ups from Patrick's review. Five are implemented and probe-verified; item 1
-(gusset flip) is **held for a decision** (see below).
+Six follow-ups from Patrick's review — all implemented and probe-verified. Items 2–6 are in the
+table below; item 1 became a full pylon redesign (its own section, further down).
 
 | # | Ask | What changed |
 |---|---|---|
@@ -105,20 +105,29 @@ use_threads = false   # fall back to thread-forming pilots if BOSL2 threads prin
 show_hardware = false # hide the BasePlate/Motor import phantoms in the assembly preview
 ```
 
-### Item 1 — gusset flip: HELD for Patrick
+### Item 1 — pylon redesigned as a full-height buttress (v0.2)
 
-Patrick asked to flip the mast gusset so the **sloped face points forward (bow)** instead of aft. Two
-findings argue against a literal flip, so it's parked pending his call:
+Patrick originally asked to flip the gusset to the bow. Probing killed that idea — a forward gusset
+**collides with the stern block by ~3839 mm³** at the root and sits on the *compression* side. But the
+discussion surfaced the **real** problem: the old gusset was thickest at the **mast root** with only a
+thin foot below it, while a cantilever's bending moment is **maximum at the base**. So the reinforcement
+was in the wrong place. The fix (Patrick's call) keeps the gusset aft and rebuilds the pylon:
 
-- **Structural:** the pusher prop's forward thrust puts the **aft** mast face in **tension** (where PLA is
-  weakest). The current aft gusset reinforces exactly that face — flipping moves the reinforcement to the
-  compression side.
-- **Geometric:** a forward gusset extends toward the stern block and **collides with it by ~3839 mm³** at
-  the root (probed) — it can't sit where it's most needed without also pocketing (weakening) the block.
+- **Full-height triangular buttress** — forward face flat at X=0 (block-mating plane), aft face tapering
+  from `base_aft` (=`pylon_root_t`+`pylon_gusset`=24) at the **foam base** down to `pylon_root_t` (8) at
+  the tip. Deepest section where the moment peaks; the aft taper doubles as the streamlined trailing edge.
+- **Filleted transitions** — `offset(r=pylon_fillet) offset(delta=-pylon_fillet)` rounds the concave
+  junctions (pad↔mast, base); the register tongue is unioned after so it stays crisp.
+- **Trimmed width** — `pylon_width` 44 → **42** (the floor set by the motor "+" pattern at ±16 + ≥3 mm
+  walls). A true airfoil (narrow athwartship) was rejected: it can't be a single flat extrude without the
+  layers running *across* the bending load. `mm_bolt_x` 32 → 28 so the foot-bolt counterbores clear the
+  narrower edge (block tapped holes follow to ±14).
+- **Counterbored foot bolts** — each M4 gets a ⌀`foot_cbore_d` (7.5) counterbore cut ~`foot_cbore_h` (5)
+  mm in from the actual tapered surface, so the heads stay recessed/drivable through the thick base.
 
-Options for Patrick: **keep aft** (recommended — structural + no collision) · flip forward *and* pocket the
-block · symmetric double gusset (also collides forward at the root). Awaiting his reason (structural vs
-aesthetic/clearance) before touching it.
+Trade noted: the 4-bolt envelope drops to ~38 mm (from 41), but the full-height buttress + register tongue
+now carry the moment and the bolts mainly clamp. Still ONE `linear_extrude` → supportless, layers along
+the mast. Verified: 1 shell both sides, cavity-breach 0, all echo walls ≥3 mm.
 
 ## Prop clearance (parametric)
 
@@ -133,8 +142,9 @@ Change `prop_diameter` to 254 (1045) and the pylon grows to ~110 mm above the bo
 
 ## Open items to confirm before printing
 
-1. **Gusset flip (item 1)** — decision needed: keep the aft gusset (recommended) or flip it
-   forward. See "Item 1 — gusset flip: HELD for Patrick" above.
+1. **Pylon buttress (item 1)** — the mast is a full-height buttress (`base_aft`=24 → 8), width trimmed
+   to 42, foot bolts counterbored. Tune `pylon_gusset` (base thickness), `pylon_fillet`, and
+   `foot_cbore_*` to taste. See "Item 1 — pylon redesigned as a full-height buttress" above.
 2. **BasePlate holes** — the pad matches the plate's **outer "+"** (⌀3/M3 at ±16) measured off
    `BasePlate.stl`. Confirm your plate matches (`bp_bolt`, `bp_size`, `bp_bore`).
 3. **Gland sizes** — every gland hole defaults to **⌀12.5 (PG7)**: `port_stern_d`, `port_bow_d`,

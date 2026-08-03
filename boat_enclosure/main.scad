@@ -199,18 +199,27 @@ motor_body_d   = 28;    // motor can diameter (MEASURED off Motor.stl; pad + gho
    prints laid FLAT (layers along its length carry the bending load). */
 mm_block_depth = 14;    // stern block aft protrusion (bolt thread lives here)
 mm_pad_w       = 50;    // block width  (X)  -- extends DOWN to the floor (load spread, no overhang)
-mm_bolt_x      = 32;    // M4 spread across the width  (envelope sqrt(32^2+26^2)=41 >= 40)
+mm_bolt_x      = 28;    // M4 spread across the width (Z): pulled in so the foot bolt COUNTERBORES
+                        // (Task 1 redesign) clear the 42 mm pylon edge by >=3 mm
 mm_bolt_y      = 26;    // M4 spread across the height
 mm_bolt_depth  = 10;    // blind M4 thread depth into the block (< block_depth-2)
 mm_bolt_pilot  = 3.4;   // BLIND-hole pilot in the block: thread-forming for M4 in PLA
                         // (set ~5.6 instead if using M4 heat-set inserts)
 reg_depth      = 6;     // register tongue/slot depth (fore-aft) -- takes the shear/moment
 reg_h          = 14;    // register tongue/slot height
-pylon_width    = 44;    // pylon width (single supportless extrude): holds the 32 mm foot-bolt
-                        // spread with >=3 mm wall to each edge, plus the motor body
-pylon_root_t   = 8;     // mast fore-aft thickness at the top (>=4); root adds pylon_gusset
-pylon_gusset   = 16;    // extra fore-aft thickness at the mast root (bending)
-pylon_bolt_d   = 4.4;   // M4 CLEARANCE through the pylon foot (the block holes use mm_bolt_pilot)
+// -- Pylon: a SEPARATE flat-extruded part.  Patrick's v0.2 redesign makes the
+// reinforcement a FULL-HEIGHT triangular buttress (thick fore-aft at the foam
+// BASE, tapering to the mast tip -- the moment peaks at the base, so that is
+// where the section must be deep) with FILLETED transitions, and trims the
+// width to the motor-bolt floor.  Still ONE linear_extrude => supportless, with
+// the layers running along the mast (the bending load stays within the layers).
+pylon_width    = 42;    // (was 44) trimmed to the motor "+" pattern (+/-16) + >=3 mm walls
+pylon_root_t   = 8;     // mast fore-aft thickness at the TIP (>=4)
+pylon_gusset   = 16;    // extra fore-aft thickness added at the BASE (base_aft = root + gusset)
+pylon_bolt_d   = 4.4;   // M4 CLEARANCE through the foot (the block holes use mm_bolt_pilot/threads)
+pylon_fillet   = 4;     // smooth-transition fillet radius at the mast/pad/base junctions
+foot_cbore_d   = 7.5;   // M4 socket-head counterbore in the foot aft face (recesses the head)
+foot_cbore_h   = 5;     // counterbore depth
 
 // =====================================================================
 //  TASK 2 -- PVC ROD SOCKETS (inboard wall, blind, teardrop)
@@ -325,6 +334,8 @@ pad_h      = bp_bolt + 2*bp_edge;                          // pad backs the Base
 pad_aft    = pylon_root_t + motor_pad_t;                   // pylon pad aft (motor) face, fore-aft
 pad_bolt_wall_y = pad_h/2 - bp_bolt/2 - bp_screw_d/2;      // pad edge wall at the outer "+" bolts (Y)
 pad_bolt_wall_z = pylon_width/2 - bp_bolt/2 - bp_screw_d/2;// pad edge wall at the outer "+" bolts (Z/width)
+base_aft   = pylon_root_t + pylon_gusset;                  // buttress fore-aft thickness at the foam BASE
+foot_cbore_wall = pylon_width/2 - mm_bolt_x/2 - foot_cbore_d/2; // pylon edge wall at the foot-bolt counterbores
 // overall stack height (waterline to prop top), for the hand-back report
 stack_height = float_freeboard + box_outer_height + hub_above_box_top + prop_radius;
 
@@ -368,15 +379,15 @@ echo(str("  pad \"+\" bolt edge wall = ", round(10*min(pad_bolt_wall_y,pad_bolt_
 if (motor_pad_t < 5) echo("  WARNING: motor pad < 5 mm");
 if (pylon_root_t < 4) echo("  WARNING: pylon root wall < 4 mm");
 echo(str("  stern block ", mm_pad_w, " x ", mm_pad_h, " x ", mm_block_depth,
-         " aft ; M4 x4 depth ", mm_bolt_depth, " ; envelope ",
-         round(mm_bolt_envelope), " mm ", mm_bolt_envelope >= 40 ? "OK" : "  << WARNING: <40"));
+         " aft ; M4 x4 depth ", mm_bolt_depth, " ; bolt envelope ",
+         round(mm_bolt_envelope), " mm ", mm_bolt_envelope >= 36 ? "OK (buttress + tongue carry the moment; bolts clamp)" : "  << WARNING: bolt spread small"));
 echo(str("  motor-mount bolt cavity margin = ", mm_cavity_margin, " mm (need >= 3) ",
          mm_cavity_margin >= 3 ? "OK" : "  << WARNING: fastener enters the sealed cavity"));
-echo(str("  pylon: ONE extrude, ", pylon_width, " wide -> flat supportless face on the bed; ",
-         "prints ~", round(pylon_rise), " long x ", pad_h, " x ", pylon_width, " mm"));
-foot_bolt_wall = pylon_width/2 - mm_bolt_x/2 - pylon_bolt_d/2;   // edge wall at the foot bolts
-echo(str("  pylon foot bolt edge wall = ", round(10*foot_bolt_wall)/10, " mm (need >= 3) ",
-         foot_bolt_wall >= 3 ? "OK" : "  << WARNING: widen pylon_width or narrow mm_bolt_x"));
+echo(str("  pylon: ONE extrude, ", pylon_width, " wide -> flat supportless; FULL-HEIGHT buttress ",
+         base_aft, "->", pylon_root_t, " fore-aft (base->tip); prints ~", round(pylon_rise),
+         " long x ", pad_h, " x ", pylon_width, " mm"));
+echo(str("  pylon foot-bolt counterbore edge wall = ", round(10*foot_cbore_wall)/10,
+         " mm (need >= 3) ", foot_cbore_wall >= 3 ? "OK" : "  << WARNING: narrow mm_bolt_x or foot_cbore_d"));
 echo(str("  OVERALL STACK (waterline -> prop top) = ", round(stack_height), " mm"));
 
 echo("--- Task 2: PVC rod sockets (inboard +X wall, blind) -----------");
@@ -669,16 +680,25 @@ module motor_mount_cut() {
 //  bed, supportless).  Profile is in X = fore-aft (+aft), Y = up the mast;
 //  extruded along Z = width (0..pylon_width).  Printed AS MODELED (oriented()
 //  is identity): the flat Z=0 face is on the bed, the mast length lies along
-//  Y, and the layers (X-Y planes) run ALONG the mast -- the ~0.9 Nm root
-//  bending stress runs within the layers, not across them.
+//  Y, and the layers (X-Y planes) run ALONG the mast -- the bending stress
+//  runs within the layers, not across them.
+//
+//  v0.2 (Patrick): the reinforcement is a FULL-HEIGHT triangular buttress --
+//  forward face flat at X=0 (the block-mating plane), aft face tapering from
+//  base_aft at the foam BASE (Y=0) down to pylon_root_t at the mast tip.  The
+//  bending moment is MAXIMUM at the base, so the section is deepest there (the
+//  old design put the thick part at the mast root with only a thin foot below
+//  -- backwards).  Concave junctions are filleted (offset "closing") for a
+//  smooth load path; the aft taper doubles as the streamlined trailing edge.
+//  The register tongue is unioned AFTER the fillet so it stays crisp.
 // =====================================================================
 module pylon_2d() {
   union() {
-    square([pylon_root_t, foot_h]);                                  // foot plate (mating face X=0)
-    translate([-reg_depth, (foot_h-reg_h)/2]) square([reg_depth+eps, reg_h]); // register tongue
-    polygon([[0, foot_h-6], [pylon_root_t+pylon_gusset, foot_h-6],   // gusseted mast (tapered)
-             [pylon_root_t, pylon_rise], [0, pylon_rise]]);
-    translate([0, pylon_rise - pad_h/2]) square([pad_aft, pad_h]);   // motor pad (aft face X=pad_aft)
+    offset(r=pylon_fillet) offset(delta=-pylon_fillet) union() {
+      polygon([[0,0], [base_aft,0], [pylon_root_t, pylon_rise], [0, pylon_rise]]); // full-height buttress
+      translate([0, pylon_rise - pad_h/2]) square([pad_aft, pad_h]);               // motor pad
+    }
+    translate([-reg_depth, (foot_h-reg_h)/2]) square([reg_depth+eps, reg_h]);       // register tongue (crisp)
   }
 }
 module pylon() color("Tan") linear_extrude(pylon_width) pylon_2d();
@@ -696,10 +716,24 @@ module pylon_cut() {
   for (p = [[bp_bolt/2,0],[-bp_bolt/2,0],[0,bp_bolt/2],[0,-bp_bolt/2]])
     translate([0, pylon_rise + p[0], cz + p[1]]) rotate([0,90,0])
       cylinder(h=bp_hole_l, d=bp_screw_d, center=true);           // 4x M3 plate-mount
-  // 4 M4 CLEARANCE holes through the foot (along X), matching the block
-  for (sy=[-1,1], sz=[-1,1])
-    translate([-eps, foot_h/2 + sy*mm_bolt_y/2, cz + sz*mm_bolt_x/2]) rotate([0,90,0])
-      cylinder(h=pylon_root_t+2*eps, d=pylon_bolt_d);
+  // 4 foot bolts (item 1 redesign): M4 CLEARANCE all the way through the thick
+  // buttress into the block, plus a socket-head COUNTERBORE cut ~foot_cbore_h
+  // in from the ACTUAL (tapered) aft surface, so the heads stay recessed and
+  // drivable.  x_aft = the buttress fore-aft surface at each bolt's height.
+  // NOTE: the lower bolts sit foot_cbore_d/2 above the base (by=(foot_h-mm_bolt_y)/2),
+  // so their counterbore is TANGENT to the base face -- intended and non-functional
+  // (the base face stays intact, the head bears on the flat cbore floor, and in the
+  // flat print the base is a vertical wall).  Don't grow foot_cbore_d or shrink
+  // mm_bolt_y without rechecking -- it would notch the base face.
+  for (sy=[-1,1], sz=[-1,1]) {
+    by = foot_h/2 + sy*mm_bolt_y/2;
+    bz = cz + sz*mm_bolt_x/2;
+    x_aft = base_aft + (pylon_root_t - base_aft) * (by/pylon_rise);
+    translate([-eps, by, bz]) rotate([0,90,0])
+      cylinder(h=x_aft + 2, d=pylon_bolt_d);                          // clearance: mating face -> aft
+    translate([x_aft - foot_cbore_h, by, bz]) rotate([0,90,0])
+      cylinder(h=foot_cbore_h + 2, d=foot_cbore_d);                   // head counterbore from the aft surface
+  }
   // (item 3) the pylon cable-groove is GONE: the local motor's leads route
   // through the LID gland and zip-tie to the mast, so the mast face stays solid.
 }
