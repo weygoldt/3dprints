@@ -345,7 +345,7 @@ else
 echo("--- Task 3: cable ports (inboard +X wall, through) -------------");
 echo(str("  stern port ", port_stern_d, " mm at Z=", port_stern_z,
          " (3 motor phases bundled) ; bow port ", port_bow_d, " mm at Z=", port_bow_z, " (signal)"));
-echo(str("  ports at Y=", port_y, " ; gland-shoulder boss ", port_boss_t, " mm proud"));
+echo(str("  ports at Y=", port_y, " ; gland-shoulder boss ", port_boss_t + wall, " mm proud (through-bored)"));
 if (abs(port_stern_z - rod_z_stern) < (rod_boss_protrusion/2 + port_stern_d/2 + 4))
   echo("  note: stern port is close to the stern socket boss in Z -- check clearance in render");
 
@@ -370,9 +370,14 @@ echo(str("  4 teardrop ears at Z=+/-", lug_ez, ", protruding +/-X ; bore ", lug_
          lug_apex_web >= 1.2 ? "OK" : "  << WARNING: raise lug_web"));
 
 echo("--- XT60 charge port -------------------------------------------");
-if (xt60 && xt60_face != "none")
-  echo(str("  XT60 on ", xt60_face, " at Z=", xt60_pos, " ; flange ",
-           xt60_flange_len, " x ", xt60_flange_h, " ; body reaches ", xt60_body_depth, " mm in"));
+if (xt60 && xt60_face != "none") {
+  echo(str("  XT60 on ", xt60_face, " at ", xt60_face=="bow"||xt60_face=="stern"?"X=":"Z=",
+           xt60_pos, " ; flange ", xt60_flange_len, " x ", xt60_flange_h,
+           " ; body reaches ", xt60_body_depth, " mm in"));
+  if (xt60_face=="bow")
+    echo(str("  bow XT60 body reaches to Z=", inner_h/2 - xt60_body_depth,
+             " -- keep components aft of that (LiPo ghost aft face ~Z67.5)"));
+}
 echo("---------------------------------------------------------------");
 
 // =====================================================================
@@ -606,9 +611,12 @@ module pylon_cut() {
   for (sy=[-1,1], sz=[-1,1])
     translate([-eps, foot_h/2 + sy*mm_bolt_y/2, cz + sz*mm_bolt_x/2]) rotate([0,90,0])
       cylinder(h=pylon_root_t+2*eps, d=pylon_bolt_d);
-  // cable route: a longitudinal half-groove DOWN the mast's aft face for the 3 leads
-  translate([pylon_root_t, foot_h, cz]) rotate([-90,0,0])
-    cylinder(h=pylon_rise - foot_h - pad_h/2, d=6);
+  // cable route: an OPEN half-groove DOWN the mast's FORWARD face (X=0, toward the
+  // box / cable port) for the 3 motor leads.  The forward face is flat and untapered
+  // the whole length, so the groove breaks the surface (not a sealed void like a
+  // groove on the slanted aft face would be).
+  translate([0, foot_h, cz]) rotate([-90,0,0])
+    cylinder(h=pylon_rise - foot_h - pad_h/2, d=7);
 }
 
 // =====================================================================
