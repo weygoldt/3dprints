@@ -9,14 +9,14 @@
 //
 //  Reuses the field-stimulator enclosure's proven mechanisms VERBATIM --
 //  the hand-rolled knuckle hinge (1.75 mm filament pin), the inspo overlap
-//  skirt + bump/dent snap locks, the teardrop lanyard ears, and the echo
-//  fit-check harness -- by keeping that project's CODE FRAME and only
-//  remapping which physical axis each stands for:
+//  skirt + bump/dent snap locks, and the echo fit-check harness -- by keeping
+//  that project's CODE FRAME and only remapping which physical axis each
+//  stands for:
 //
 //  FRAME MAPPING (airboat box <- stim enclosure code frame):
 //    code X (inner_w, W)  = box WIDTH   (athwartship, ~90)
 //                           -X wall = OUTBOARD  -> lid hinge, XT60
-//                           +X wall = INBOARD   -> PVC rod sockets, cable ports
+//                           +X wall = INBOARD   -> cable ports (glands)
 //    code Z (inner_h, H)  = box LENGTH  (fore-aft, ~165)
 //                           +Z = BOW, -Z = STERN (motor pylon on the stern wall)
 //    code Y (inner_d, D)  = box HEIGHT  (floor->lid, ~35)
@@ -29,12 +29,15 @@
 //  parts.  A mirror about X leaves every +/-y overhang untouched, so both
 //  hulls print supportless equally well.
 //
-//  NEW for the airboat (Tasks 1-3): motor mount + a SEPARATE bolt-on pylon
-//  (printed flat), two blind teardrop PVC rod sockets, stern + bow cable
-//  ports.  DROPPED from the stim donor (they belong to the chest device and
-//  would foul the top lid): playback buttons, masthead, eel tie, top-face
-//  power switch / LED, BNC.  KEPT: the XT60 charge port and the lanyard/
-//  zip-tie ears (the user lashes the box to the foam with zip ties).
+//  NEW for the airboat: motor mount + a SEPARATE bolt-on pylon (printed flat),
+//  stern + bow cable ports, and a WATERTIGHT THROUGH-BOARD SCREW MOUNT -- the
+//  box is rigidly screwed DOWN onto its XPS float by screws that pass UP through
+//  the foam from below and thread into blind, sealed bosses on the floor
+//  underside (no hole ever breaches the sealed chamber).  DROPPED from the stim
+//  donor (they belong to the chest device and would foul the top lid): playback
+//  buttons, masthead, eel tie, top-face power switch / LED, BNC.  ALSO DROPPED:
+//  the PVC rod sockets and the lanyard/zip-tie ears -- the box is now screwed
+//  rigidly to the float, so neither is needed.  KEPT: the XT60 charge port.
 //
 //  Requires BOSL2 (../BOSL2).  Print PLA, no supports.
 //  PARTS (part=):  assembly(preview) | body | lid | pylon
@@ -83,14 +86,13 @@ lid_t     = 3;     // top-lid outline matches the body exactly (inspo lid == bas
 // stern end, clear of the hinge (outboard), the perimeter skirt, and the snap
 // locks.  Replaces the pylon cable-groove as the routing solution (item 3).
 lid_gland   = true;
-lid_gland_d = 12.5;   // PG7 gland panel-mount hole (matches the port glands)
+lid_gland_d = 12;     // gland panel-mount hole -- MEASURED (matches the port glands)
 lid_gland_x = 0;      // athwartship (X): 0 = centreline
 lid_gland_z = -60;    // fore-aft (Z): near the stern/pylon end, clear of locks & skirt
 
 /* [Side & boat] -- one body, two hulls */
-beam_target = 240;  // hull centreline-to-centreline spacing (mm).  Sets rod
-                    // length; MUST exceed prop_diameter or the two stern
-                    // props collide (echo-checked).
+beam_target = 240;  // hull centreline-to-centreline spacing (mm).  MUST exceed
+                    // prop_diameter or the two stern props collide (echo-checked).
 
 /* [Knuckle hinge] -- hand-rolled, OUTBOARD long edge (-X), axis along the
    length (code Z), 1.75 mm filament pin.  Ported verbatim from the stim
@@ -118,20 +120,42 @@ bump_w        = 1.0;   // bump profile width
 bump_h        = 0.25;  // bump proudness (dent = 5% wider, 0.1 deeper)
 grip          = true;  // thumb-grip wedge on the lid's inboard rim
 
-/* [Lanyard / zip-tie ears] -- KEPT from the stim donor: 4 teardrop-boss ears
-   on the floor's side edges.  The user lashes the box to the styrofoam float
-   with zip ties threaded through the foam and these ears. */
-lanyard   = true;
-lug_hole  = 4.5;
-lug_web   = 3;
-lug_out   = 5;
-lug_t     = 8;
-lug_inset = 22;     // Z inset from each end -> ears near the 4 floor corners
+/* [Through-board screw mount] -- REPLACES the lanyard ears AND the rod sockets.
+   The box is rigidly screwed DOWN onto its XPS float: screws pass UP through the
+   foam from below (wide fender washer / backing plate under the soft foam so the
+   head cannot pull through) and thread into BLIND, SEALED bosses on the floor
+   underside.  Each boss is a solid PLA cylinder unioned to the floor and rising
+   INTO the chamber; the screw bore is drilled from the BOTTOM (bed) face UPWARD
+   and stops a sealed cap short of the boss top -- so NO hole ever breaches the
+   sealed electronics chamber (the single most important property; echo + probe
+   checked).  Prints floor-DOWN: the bosses rise vertically off the bed, fully
+   supported -> the blind bores are self-supporting (no teardrop needed).  Bosses
+   sit in the free gaps between the floor components (echo-checked vs rc_parts).
+   Mirrors with `side` (symmetric X pattern -> port/starboard land identically). */
+screw_mount     = true;
+screw_method    = "insert";  // [insert(M4 heat-set brass), thread(BOSL2 modeled), selftap(pilot in PLA)]
+screw_size      = 4;         // M4 nominal (tension + shear hold-down; assembled/disassembled in the field)
+// 4 bosses as a symmetric rectangle inset from the corners, tucked in the gaps
+// between the RC components (see rc_parts) and merging into the bow/stern end
+// walls for stiffness.  [X athwartship, Z fore-aft], box model frame.
+screw_positions = [[-27, 79], [27, 79], [-27, -79], [27, -79]];
+boss_od         = 12;        // boss outer diameter (>= 2x the insert OD, CNC-Kitchen rule -> ~3.2 mm wall,
+                             // so a hot brass insert does not split the boss)
+boss_rise       = 12;        // how far the boss rises off the floor INTO the chamber
+boss_cap_min    = 3;         // min sealed PLA cap above the bore top (watertight bar; >=2.5)
+// -- (insert) M4 brass heat-set: plain bore, insert melts in from the bed face --
+insert_d        = 5.6;       // heat-set hole for M4 brass (MEASURE your inserts; ~5.6-5.7)
+insert_depth    = 9;         // bore depth up from the floor underside (insert ~8 + melt lead)
+// -- (thread / selftap) fallbacks, mirroring the use_threads pattern --
+screw_pitch     = 0.7;       // M4 coarse (BOSL2 modeled internal thread)
+thread_len      = 8;         // modeled-thread engagement depth up from the underside
+selftap_d       = 3.4;       // thread-forming pilot for M4 in PLA (~0.85 x major)
+selftap_depth   = 9;         // pilot depth up from the underside
 
 /* [XT60 charge port] -- KEPT (each hull has a cell to charge).  On the BOW end
    wall (+Z): the outboard wall is fully occupied by the lid hinge (the 35 mm
    flange cannot clear the +/-60 knuckle stack), and the inboard wall carries
-   the rod sockets + cable ports -- the bow end is the only clear face.
+   the cable ports -- the bow end is the only clear face.
    Measured off the real part (hole 19x11.5, screw 2.4->2.8, sep 25, flange 35x16). */
 xt60          = true;
 xt60_face     = "bow";     // [bow(+Z end), stern(-Z end), left(outboard), bottom(floor), none]
@@ -146,17 +170,18 @@ xt60_body_depth = 12;      // how far the connector body reaches inward
 
 // =====================================================================
 //  TASK 5 -- METRIC THREADS (BOSL2)
-//  Tapped holes so bolts/set-screws thread straight into the PLA:
+//  Tapped holes so bolts/set-screws thread straight into the PLA.  Two families
+//  use the tapped_hole() helper:
 //    (a) the 4 stern-block pylon-attach holes -> M4  (see mm_bolt_* below)
-//    (b) the PVC rod-socket lock (grub) holes  -> M3  (see rod_grub_* below)
+//    (b) the through-board screw-mount bosses  -> M4  (ONLY when screw_method
+//        ="thread"; the default "insert" and the "selftap" fallback bore plain)
 //  use_threads=true models real BOSL2 internal threads.  If they print poorly
 //  at this scale on the MK3S, set use_threads=false to fall back to the
-//  thread-FORMING pilot holes (mm_bolt_pilot / rod_grub_d -- a bolt or set
-//  screw cuts its own thread in the PLA).  The block holes print with their
-//  axis HORIZONTAL, so they use BOSL2's teardrop thread crest (self-
-//  supporting); the rod grub holes print with a VERTICAL axis (self-support
-//  is automatic).  The pylon-foot holes and cable ports stay plain (bolt+nut
-//  / gland), so only these two families are threaded.
+//  thread-FORMING pilot holes (a bolt cuts its own thread in the PLA).  The
+//  stern-block holes print with their axis HORIZONTAL, so they use BOSL2's
+//  teardrop thread crest (self-supporting); the screw-mount bores print with a
+//  VERTICAL axis (self-support is automatic).  The pylon-foot holes and cable
+//  ports stay plain (bolt+nut / gland).
 // =====================================================================
 use_threads = true;
 thread_slop = 0.1;    // BOSL2 internal-thread clearance ($slop): adds ~4*slop to the bore
@@ -222,38 +247,26 @@ foot_cbore_d   = 7.5;   // M4 socket-head counterbore in the foot aft face (rece
 foot_cbore_h   = 5;     // counterbore depth
 
 // =====================================================================
-//  TASK 2 -- PVC ROD SOCKETS (inboard wall, blind, teardrop)
-// =====================================================================
-rod_dia        = 12;    // nominal PVC rod
-rod_clearance  = 0.4;   // added to the bore
-socket_depth   = 25;    // rod insertion depth (>=25)
-socket_wall    = 3.0;   // solid PLA left at the blind bottom (>=3)
-rod_z_bow      = 60;    // bow socket position along the length (+Z)
-rod_z_stern    = -60;   // stern socket position along the length (-Z)
-rod_axis_y     = 18;    // Y of the rod axis (from the lid plane Y=0; mid-height)
-rod_grub_d     = 2.5;   // cross-drilled grub-screw pilot: thread-forming for an M3 set
-                        // screw in PLA (NOT the 3.2 clearance -- it must bite the rod)
-
-// =====================================================================
 //  TASK 3 -- CABLE PORTS (inboard +X wall) -- PLAIN through-holes.
 //  The cable GLAND supplies its own shoulder/seal (threaded body seats in the
-//  hole, nut inside), so there is NO printed boss (Patrick, item 4).  Each
-//  diameter below is the gland's PANEL-MOUNT hole, not the cable bundle:
-//    PG7 = 12.5 (cable 3-6.5) | PG9 = 15.2 (4-8) | M12x1.5 = 12.  Confirm which
-//    gland you use and set these.  Default PG7 (fits the 3 motor phase leads).
+//  hole, nut inside), so there is NO printed boss (Patrick, item 4).  port_*_d
+//  is the gland's PANEL-MOUNT hole; port_ftp is the installed gland's OUTER
+//  hex/dome footprint on the wall (this, NOT the hole, drives feature SPACING).
+//  Both MEASURED by Patrick (2026-08-04): hole = 12, installed footprint ~= 19.
 // =====================================================================
-port_stern_d   = 12.5;  // stern port gland hole: 3 motor phase leads (RC box -> far motor)
-port_bow_d     = 12.5;  // bow   port gland hole: opto->Teensy signal (thin; a smaller gland is fine)
-port_stern_z   = -35;   // stern port position along the length (clear of the stern socket)
-port_bow_z     = 35;    // bow port position (clear of the bow socket)
-port_y         = 24;    // Y of the port centers (below the rod axis, near the floor)
+port_stern_d   = 12;    // stern port gland hole: 3 motor phase leads (RC box -> far motor) -- MEASURED
+port_bow_d     = 12;    // bow   port gland hole: opto->Teensy signal -- MEASURED
+port_ftp       = 19;    // installed gland hex/dome OD on the wall (MEASURED) -- the spacing check uses THIS
+port_stern_z   = -35;   // stern port position along the length
+port_bow_z     = 35;    // bow port position along the length
+port_y         = 24;    // Y of the port centers (near the floor)
 
 // Item 6 -- a THIRD inboard port for the stimulator's own wires, on the STIM
 // hull ONLY.  stim_port is INDEPENDENT of side (set it true on whichever hull
 // you print as the stim box), so either physical hull can be the stim hull.
 stim_port      = false; // set true when printing the stim hull
-port_stim_d    = 12.5;  // stim port gland hole (stimulator electrode/output leads)
-port_stim_z    = 0;     // amidships: clear of both rod sockets (+/-60) and the two ports (+/-35)
+port_stim_d    = 12;    // stim port gland hole (stimulator electrode/output leads) -- MEASURED
+port_stim_z    = 0;     // amidships: clear of the two ports at +/-35
 
 // =====================================================================
 //  DERIVED
@@ -295,15 +308,6 @@ swing_gap = hinge_offset + skirt_t + lid_clearance_left
 skirt_max_ang  = atan((ov_d - Ay)/hinge_offset);
 shell_bevel    = atan((ov_d + 0.3 - Ay)/hinge_offset);
 
-// lanyard ears, in the print frame (floor down -> print-up = -y) -- ported
-lug_d  = lug_hole + 2*lug_web;
-lug_ex = W/2 + lug_out;
-lug_ez = H/2 - lug_inset;
-lug_ey = D - lug_d/2;
-lug_front_y = lug_ey - lug_d/2;
-lug_apex_y  = lug_ey - (lug_hole/2)/sin(45);
-lug_apex_web = lug_apex_y - lug_front_y;
-
 // --- Task 1 derived: prop clearance & pylon height ---
 prop_radius = prop_diameter/2;
 box_outer_height = D;                       // floor to body top, above the float
@@ -312,14 +316,38 @@ hub_above_box_top = hub_height_above_water - (float_freeboard + box_outer_height
 pylon_rise = hub_height_above_water - float_freeboard;   // hub above the box floor/mount
 disc_low_above_float = hub_height_above_water - prop_radius - float_freeboard; // >0 clears
 
-// --- Task 2 derived: rod boss protrusion & beam ---
-rod_bore = rod_dia + rod_clearance;
-rod_boss_protrusion = socket_depth + socket_wall - wall;   // inboard (+X) reach
-rod_boss_tip_x = W/2 + rod_boss_protrusion;
-rod_bore_inner_x = rod_boss_tip_x - socket_depth;          // deepest point of the bore
-rod_bottom_margin = rod_bore_inner_x - (inner_w/2);        // solid to the cavity (>=socket_wall)
-rod_gap = beam_target - W - 2*rod_boss_protrusion;
-rod_length = rod_gap + 2*socket_depth;
+// RC component footprints on the floor (the layout the bosses must avoid, and the
+// assembly-preview phantoms).  Defined here so the screw-mount clearance check below
+// can reference it.  [name, footprint[X,Z], height, center[X,Z]] -- box model frame.
+rc_parts = [
+  ["LiPo 3S",   [34, 75],  26.5, [ -25,  30]],
+  ["ESC1",      [25, 45],  15,   [  20,  45]],
+  ["ESC2",      [25, 45],  15,   [  20,  -5]],
+  ["FS-iA6B",   [27, 47],  12,   [ -25, -35]],
+  ["opto",      [30, 40],  10,   [  22, -50]],
+];
+
+// --- Through-board screw-mount derived (box model frame; floor underside = Y=D) ---
+// The bore is drilled from the bottom (bed) face Y=D UPWARD (toward -Y / the lid).
+// It must stop a sealed cap short of the boss top so it never reaches the chamber.
+screw_hole_depth = (screw_method=="insert") ? insert_depth
+                 : (screw_method=="thread") ? thread_len
+                 :                            selftap_depth;      // up from the underside
+screw_bore_d     = (screw_method=="insert") ? insert_d
+                 : (screw_method=="thread") ? screw_size + 4*thread_slop   // ~thread minor+slop
+                 :                            selftap_d;          // nominal bore (echo / wall check)
+boss_h        = boss_rise + wall;                 // total boss height: underside (Y=D) -> boss top
+boss_top_y    = D - boss_h;                       // = inner_d - boss_rise (chamber-facing top)
+screw_cap     = boss_h - screw_hole_depth;        // SEALED PLA between the bore top and the chamber
+boss_wall_min = (boss_od - screw_bore_d)/2;       // radial PLA wall around the bore
+screw_len_est = float_thickness + wall + screw_hole_depth;  // through foam + floor + engagement
+// plan-view gap from a boss (center [px,pz], radius boss_od/2) to a component rectangle
+function comp_gap(px, pz, cx, cz, sx, sz) =
+  let (dx = max(abs(px-cx) - sx/2, 0), dz = max(abs(pz-cz) - sz/2, 0))
+  sqrt(dx*dx + dz*dz) - boss_od/2;
+screw_comp_gap = screw_mount
+  ? min([ for (p = screw_positions) for (c = rc_parts)
+          comp_gap(p[0], p[1], c[3][0], c[3][1], c[1][0], c[1][1]) ]) : 1e9;
 
 // --- Task 1 derived: motor-mount block + fastener cavity margin ---
 mm_block_aft_z = -H/2 - mm_block_depth;                    // stern block aft face
@@ -353,7 +381,7 @@ echo(str("  body prints FLOOR down: bed ", round(body_x_ext), "(X) x ", body_len
          "(Y=length incl. stern block) x ~", D+ov_d, "(Z) ; fits 250x210x210 ",
          (body_x_ext<=250 && body_len_ext<=210 && D+ov_d<=210)?"OK":"  << CHECK"));
 // honest nesting footprint: full X extents incl. inboard boss, outboard hinge/ears, grip
-body_x_ext = rod_boss_tip_x - (Ax - kr);              // inboard boss tip -> outboard barrel
+body_x_ext = W/2 - (Ax - kr);                        // inboard wall -> outboard hinge barrel (screw bosses are internal)
 lid_x_ext  = (lid_w/2 + 1.5) - (Ax - kr);             // grip -> outboard barrel
 nest_x     = body_x_ext + lid_x_ext + 5;              // side by side, 5 mm gap
 echo(str("  bed nesting (measured extents): body ", round(body_x_ext),
@@ -390,34 +418,46 @@ echo(str("  pylon foot-bolt counterbore edge wall = ", round(10*foot_cbore_wall)
          " mm (need >= 3) ", foot_cbore_wall >= 3 ? "OK" : "  << WARNING: narrow mm_bolt_x or foot_cbore_d"));
 echo(str("  OVERALL STACK (waterline -> prop top) = ", round(stack_height), " mm"));
 
-echo("--- Task 2: PVC rod sockets (inboard +X wall, blind) -----------");
-echo(str("  bore ", rod_bore, " (rod ", rod_dia, " + ", rod_clearance,
-         ") ; depth ", socket_depth, " ; boss protrudes ", rod_boss_protrusion, " inboard"));
-echo(str("  blind-bottom solid to cavity = ", rod_bottom_margin, " mm (need >= ", socket_wall, ") ",
-         rod_bottom_margin >= socket_wall ? "OK" : "  << WARNING: socket breaks toward the cavity"));
-echo(str("  sockets at Z = ", rod_z_bow, " (bow), ", rod_z_stern,
-         " (stern) ; both at rod_axis_y = ", rod_axis_y, " (coaxial per hull)"));
-echo(str("  beam_target = ", beam_target, " -> rod_length = ", rod_length,
-         " (gap ", rod_gap, " + 2 x ", socket_depth, ")"));
+echo("--- through-board screw mount (watertight blind bosses) --------");
+if (screw_mount) {
+  echo(str("  ", len(screw_positions), " x M", screw_size, " bosses  OD ", boss_od,
+           "  method=", screw_method, "  bore ", round(10*screw_bore_d)/10, " x ",
+           screw_hole_depth, " deep from the floor underside"));
+  echo(str("  SEALED cap above each bore = ", round(10*screw_cap)/10,
+           " mm (need >= ", boss_cap_min, ") ",
+           screw_cap >= boss_cap_min ? "OK -- NO leak path into the chamber"
+                                     : "  << WARNING: bore breaches toward the sealed cavity"));
+  echo(str("  boss wall around the bore = ", round(10*boss_wall_min)/10, " mm ",
+           boss_wall_min >= 2 ? "OK" : "  << WARNING: thin boss wall around the bore"));
+  echo(str("  boss top at Y=", boss_top_y, " (rises ", boss_rise, " into the ", inner_d,
+           " chamber) ; positions [X,Z] = ", screw_positions));
+  echo(str("  min boss-to-component plan gap = ", round(10*screw_comp_gap)/10, " mm ",
+           screw_comp_gap >= 2 ? "OK (bosses sit in the free gaps)"
+                               : "  << WARNING: a boss fouls an RC component -- move it"));
+  echo(str("  screw length ~", screw_len_est, " mm (foam ", float_thickness,
+           " + floor ", wall, " + engage ", screw_hole_depth,
+           ") ; use a fender washer / backing plate under the soft foam"));
+} else echo("  screw mount OFF");
+
+echo("--- beam / stern-prop collision across the hulls ---------------");
 if (beam_target <= prop_diameter)
   echo(str("  WARNING: beam_target ", beam_target, " <= prop_diameter ", prop_diameter,
            " -- the two stern props collide.  Widen beam_target."));
 else
-  echo(str("  stern-prop clearance across the beam = ", beam_target - prop_diameter, " mm OK"));
+  echo(str("  beam_target = ", beam_target, " ; stern-prop clearance across the beam = ",
+           beam_target - prop_diameter, " mm OK"));
 
 echo("--- Task 3: cable ports (inboard +X wall) -- PLAIN gland holes -");
 echo(str("  stern port ", port_stern_d, " mm at Z=", port_stern_z,
          " (3 motor phases) ; bow port ", port_bow_d, " mm at Z=", port_bow_z, " (signal)",
          stim_port ? str(" ; STIM port ", port_stim_d, " mm at Z=", port_stim_z) : " ; stim port OFF"));
 echo(str("  ports at Y=", port_y, " -- plain through-holes (gland provides the shoulder/seal, no boss)"));
-// smallest Z gap between any two inboard features (ports + rod-socket bosses); flag if tight
-port_zs = concat([[port_stern_z, port_stern_d/2], [port_bow_z, port_bow_d/2]],
-                 stim_port ? [[port_stim_z, port_stim_d/2]] : [],
-                 [[rod_z_bow, (rod_bore+9)/2], [rod_z_stern, (rod_bore+9)/2]]);
+// smallest Z gap between installed gland FOOTPRINTS (port_ftp, NOT the 12 hole) on the inboard wall
+port_zs = concat([port_stern_z, port_bow_z], stim_port ? [port_stim_z] : []);
 min_port_gap = min([ for (i=[0:len(port_zs)-1], j=[i+1:len(port_zs)-1])
-                     abs(port_zs[i][0]-port_zs[j][0]) - port_zs[i][1] - port_zs[j][1] ]);
-echo(str("  min inboard-feature Z gap (ports + socket bosses) = ", round(10*min_port_gap)/10,
-         " mm ", min_port_gap >= 3 ? "OK" : "  << WARNING: features merge/crowd in Z"));
+                     abs(port_zs[i]-port_zs[j]) - port_ftp ]);
+echo(str("  min inboard gland-footprint (", port_ftp, " mm) Z gap = ", round(10*min_port_gap)/10,
+         " mm ", min_port_gap >= 3 ? "OK" : "  << WARNING: glands crowd in Z"));
 
 echo("--- lid hinge (outboard -X edge, axis along the length) --------");
 echo(str("  pin axis (x,y)=(", Ax, ", ", Ay, ") ; barrel d=", knuckle_d,
@@ -425,7 +465,6 @@ echo(str("  pin axis (x,y)=(", Ax, ", ", Ay, ") ; barrel d=", knuckle_d,
 echo(str("  housing leaf reach = ", round(1000*leaf_reach)/1000, " mm ; underside overhang ",
          hinge_arm_ang, " deg ", hinge_arm_ang <= 45 ? "OK" : " WARNING"));
 if (hinge_offset < knuckle_d/2) echo("  ERROR: hinge_offset must be >= knuckle_d/2");
-if (hinge_span/2 > H/2 - lug_inset) echo("  note: hinge stack runs near the lanyard-ear ends");
 
 echo("--- lid overlap + snap locks ----------------------------------");
 echo(str("  skirt ", skirt_t, " x ", ov_d, " deep over a ", step, " band ; ",
@@ -444,11 +483,6 @@ if (lid_gland) {
   echo(str("  clear of the stern-end snap lock by ", round(10*g_lock)/10, " mm ",
            g_lock >= 2 ? "OK" : "  << WARNING: gland sits over a snap lock"));
 } else echo("  lid gland OFF");
-
-echo("--- lanyard / zip-tie ears ------------------------------------");
-echo(str("  4 teardrop ears at Z=+/-", lug_ez, ", protruding +/-X ; bore ", lug_hole,
-         " ; teardrop apex web = ", round(100*lug_apex_web)/100, " mm ",
-         lug_apex_web >= 1.2 ? "OK" : "  << WARNING: raise lug_web"));
 
 echo("--- XT60 charge port -------------------------------------------");
 if (xt60 && xt60_face != "none") {
@@ -564,21 +598,6 @@ module door_skirt() {
 }
 
 // =====================================================================
-//  LANYARD / ZIP-TIE EARS  (ported verbatim)
-// =====================================================================
-module lanyard_ear(sx, sz) {
-  translate([0,0,sz*lug_ez - lug_t/2]) linear_extrude(lug_t) hull() {
-    translate([sx*(W/2-3), lug_ey]) square([6, lug_d], center=true);
-    translate([sx*lug_ex,  lug_ey])
-      teardrop2d(d=lug_d, ang=hinge_arm_ang, cap_h=D-lug_ey);
-  }
-}
-module lanyard_bore(sx, sz) {
-  translate([sx*lug_ex, lug_ey, sz*lug_ez - lug_t/2 - eps])
-    linear_extrude(lug_t + 2*eps) rotate(180) teardrop2d(d=lug_hole, ang=45);
-}
-
-// =====================================================================
 //  XT60 CHARGE PORT  (ported; outboard wall / floor / stern)
 // =====================================================================
 module xt60_cut() {
@@ -609,31 +628,27 @@ module xt60_cut() {
 }
 
 // =====================================================================
-//  TASK 2 -- PVC ROD SOCKETS  (inboard +X wall; blind, teardrop-relieved)
-//  A reinforcing boss protrudes inboard from the +X wall; a blind bore runs
-//  athwartship (along -X) from the boss tip, stopping socket_wall shy of the
-//  cavity.  Its ceiling is an unsupported horizontal overhang, so the bore is
-//  a teardrop (apex toward print-up = -y).  A cross-drilled grub-screw hole
-//  from the top locks the rod.
+//  THROUGH-BOARD SCREW MOUNT  (floor interior; blind, sealed, WATERTIGHT)
+//  Each boss is a solid PLA cylinder unioned to the floor, rising boss_rise
+//  INTO the chamber.  The screw bore is drilled from the BOTTOM (bed) face
+//  (Y=D) UPWARD (toward -Y / the lid) and stops screw_cap short of the boss
+//  top, so it NEVER reaches the chamber void -- the whole watertight guarantee.
+//  Because the box prints floor-DOWN, the boss stands vertically on the bed
+//  (fully supported) and the blind bore opens at the bed face and runs straight
+//  up -> self-supporting, NO teardrop needed (unlike the old horizontal sockets).
+//  The bosses are unioned AFTER the cavity is carved (see body()); otherwise the
+//  cavity cut would erase them.  The bore is then cut through the merged
+//  floor+boss, so the screw passes through the 2.5 mm floor and engages the boss.
 // =====================================================================
-module rod_boss(z) {   // solid reinforcing boss on the shell exterior
-  hull() {
-    translate([W/2-wall, rod_axis_y, z]) rotate([0,90,0])
-      cylinder(h=eps, d=rod_bore+9);                       // rooted on the wall
-    translate([rod_boss_tip_x, rod_axis_y, z]) rotate([0,90,0])
-      cylinder(h=eps, d=rod_bore+6);                       // tapered tip
-  }
+module screw_boss(p) {   // solid boss: underside (Y=D) up into the chamber to Y=boss_top_y
+  translate([p[0], D, p[1]]) rotate([90,0,0]) cylinder(h=boss_h, d=boss_od);
 }
-module rod_socket_cut(z) {
-  // blind teardrop bore along -X, apex toward -y (print-up).  teardrop2d apex
-  // is +y; rotate(180) flips it to -y so, after the -90 Y-rotation places the
-  // bore axis along X, the unsupported ceiling self-supports on the bed.
-  translate([rod_boss_tip_x + eps, rod_axis_y, z]) rotate([0, -90, 0])
-    linear_extrude(socket_depth + eps) rotate(180) teardrop2d(d=rod_bore, ang=45);
-  // grub screw: TAPPED M3 from the top (-y) down into the bore, near the boss
-  // root.  Axis prints VERTICAL (opens at the top face), so no teardrop needed.
-  translate([W/2 + rod_boss_protrusion*0.4, -eps, z]) rotate([-90,0,0])
-    tapped_hole(3, 0.5, rod_axis_y + rod_bore, rod_grub_d, td=false);
+module screw_boss_cut(p) {   // blind bore UP from the underside; method sets insert / thread / pilot
+  translate([p[0], D + eps, p[1]]) rotate([90,0,0]) {
+    if (screw_method=="insert")      cylinder(h=insert_depth + eps, d=insert_d);
+    else if (screw_method=="thread") tapped_hole(screw_size, screw_pitch, thread_len + eps, selftap_d, td=false);
+    else                             cylinder(h=selftap_depth + eps, d=selftap_d);
+  }
 }
 
 // =====================================================================
@@ -744,15 +759,21 @@ module pylon_cut() {
 module body() {
   difference() {
     union() {
-      rprism(W, H, D, corner_r);
-      if (lanyard) for (sx=[-1,1], sz=[-1,1]) lanyard_ear(sx, sz);
-      hinge_housing();                              // outboard lid hinge
-      rod_boss(rod_z_bow); rod_boss(rod_z_stern);   // inboard rod-socket bosses
-      motor_mount_boss();                           // stern motor pad
+      // shell hollowed FIRST, THEN the interior screw bosses are unioned on top
+      // (added after the cavity cut so the cavity does not erase them).
+      difference() {
+        union() {
+          rprism(W, H, D, corner_r);
+          hinge_housing();                          // outboard lid hinge
+          motor_mount_boss();                       // stern motor pad
+        }
+        translate([0,-eps,0]) rprism(inner_w, inner_h, inner_d+eps, corner_r-wall); // cavity (top open)
+      }
+      if (screw_mount) for (p=screw_positions) screw_boss(p);   // solid hold-down bosses on the floor
     }
-    translate([0,-eps,0]) rprism(inner_w, inner_h, inner_d+eps, corner_r-wall); // cavity (top open)
-    if (lanyard) for (sx=[-1,1], sz=[-1,1]) lanyard_bore(sx, sz);
-    rod_socket_cut(rod_z_bow); rod_socket_cut(rod_z_stern);
+    // through-features cut through the assembled solid: the screw bores pierce the
+    // floor AND the boss together, leaving the sealed cap between bore top and chamber.
+    if (screw_mount) for (p=screw_positions) screw_boss_cut(p);
     cable_port_cut(port_stern_z, port_stern_d);     // plain gland holes (item 4)
     cable_port_cut(port_bow_z, port_bow_d);
     if (stim_port) cable_port_cut(port_stim_z, port_stim_d); // 3rd port, stim hull only (item 6)
@@ -783,13 +804,8 @@ module lid() {
 // =====================================================================
 //  PHANTOMS  (assembly preview only)
 // =====================================================================
-rc_parts = [ //  name        footprint[X,Z]  height   center[X,Z]
-  ["LiPo 3S",   [34, 75],  26.5, [ -25,  30]],
-  ["ESC1",      [25, 45],  15,   [  20,  45]],
-  ["ESC2",      [25, 45],  15,   [  20,  -5]],
-  ["FS-iA6B",   [27, 47],  12,   [ -25, -35]],
-  ["opto",      [30, 40],  10,   [  22, -50]],
-];
+// rc_parts (the component footprints) is defined up in the DERIVED section so the
+// screw-mount clearance echo can use it; these phantoms draw the same list.
 module ghost_components() {
   for (p = rc_parts) color([0.3,0.6,0.9,0.35])
     translate([p[3][0]-p[1][0]/2, inner_d - p[2], p[3][1]-p[1][1]/2])
@@ -823,13 +839,15 @@ module ghost_hardware() {
       translate([pad_aft+2+1.6, pylon_rise, pylon_width/2]) rotate([0,0,90]) import("Motor.stl");
   }
 }
-// the two 12 mm PVC connecting rods, spanning the beam through the inboard sockets
-module ghost_rods() {
-  sgn = (side=="port") ? 1 : -1;
-  for (z = [rod_z_bow, rod_z_stern])
-    color([0.55,0.55,0.6,0.75])
-      translate([min(sgn*rod_bore_inner_x, sgn*(beam_target-rod_bore_inner_x)), rod_axis_y, z])
-        rotate([0,90,0]) cylinder(h=beam_target - 2*rod_bore_inner_x, d=rod_dia);
+// the 4 through-board hold-down screws: up through the foam into the blind bosses,
+// with a fender washer / head UNDER the soft foam (so the head cannot pull through)
+module ghost_screws() {
+  if (screw_mount) for (p = screw_positions) color([0.7,0.7,0.75,0.9]) {
+    translate([p[0], D - screw_hole_depth, p[1]]) rotate([-90,0,0])
+      cylinder(h=screw_hole_depth + float_thickness, d=screw_size);      // shaft: boss -> under the board
+    translate([p[0], D + float_thickness, p[1]]) rotate([-90,0,0])
+      cylinder(h=2.5, d=max(16, 3.5*screw_size));                        // fender washer + head under the foam
+  }
 }
 // pylon placed against the stern block aft face, mast up (assembly view).
 // 180deg about (1,0,-1) maps pylon-local (fore-aft X, up Y, width Z) to the
@@ -864,7 +882,7 @@ module hull_assembly() {
   translate([Ax, Ay, 0]) rotate([0, 0, -lid_open]) translate([-Ax, -Ay, 0])
     color("Gainsboro") lid();
   pylon_at_stern();
-  if (show_ghosts) { ghost_components(); ghost_float(); ghost_prop_and_motor(); }
+  if (show_ghosts) { ghost_components(); ghost_float(); ghost_prop_and_motor(); ghost_screws(); }
 }
 
 module assembly_scene() {
@@ -872,7 +890,6 @@ module assembly_scene() {
   if (show_both_hulls) {
     translate([ (side=="port"? 1:-1) * beam_target, 0, 0])
       mirror([1,0,0]) apply_side() hull_assembly();
-    if (show_ghosts) ghost_rods();   // the connecting rods span both hulls -- draw once
   }
 }
 if (part=="assembly") {
