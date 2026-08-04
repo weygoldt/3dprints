@@ -78,18 +78,37 @@ overhang untouched, so both hulls print supportless equally well.
 
 ## Parts and export
 
+The model is **split into one file per part** — open a file to render that part
+(the old `-D 'part='` selector is gone). All shared parameters, the DERIVED values,
+the ECHO fit-check, and the shared helper/mechanism modules live in `common.scad`,
+which every other file `include`s.
+
 ```
-openscad -o body.stl     -D 'part="body"'  -D 'side="port"'      -D '$fn=128' main.scad
-openscad -o lid.stl      -D 'part="lid"'   -D 'side="port"'      -D '$fn=128' main.scad
-openscad -o pylon.stl    -D 'part="pylon"'                       -D '$fn=128' main.scad
+openscad -o body.stl   -D 'side="port"' -D '$fn=128' body.scad
+openscad -o lid.stl    -D 'side="port"' -D '$fn=128' lid.scad
+openscad -o pylon.stl                   -D '$fn=128' pylon.scad
 # starboard hull: same, with -D 'side="starboard"'
-# assembly preview:  -D 'part="assembly"' -D 'preview_upright=true' -D 'lid_open=42'
+# assembly preview (both hulls, ghosts, hardware phantoms):
+openscad main.scad     # or add -D 'preview_upright=true' -D 'lid_open=42'
 ```
 
-- **body** — prints floor on the bed. **lid** — outer face down. **pylon** — laid flat, layers
-  along its length (the bending load runs along the layers, not across them).
-- The pylon is a **separate part bolted to the stern** — never to the lid, and no fastener
-  enters the sealed cavity.
+**File layout**
+
+- `common.scad` — all parameters, DERIVED values, the ECHO fit-check, the shared
+  helpers (`rprism`, `tapped_hole`), the shared hinge / snap-lock primitives, the
+  orientation helpers, and the two BOSL2 `include`s. Included by every other file.
+- `body.scad` — `body()` + its body-only submodules → **prints floor on the bed**.
+- `lid.scad` — `lid()` + its lid-only submodules → **outer face down**.
+- `pylon.scad` — `pylon()`/`pylon_cut()` → **laid flat**, layers along its length
+  (the bending load runs along the layers, not across them).
+- `main.scad` — the **assembly preview**: `include <common.scad>` + `use` of the
+  three part files, plus the motor / float / prop / screw phantoms and the scene.
+
+- The pylon is a **separate part bolted to the stern** — never to the lid, and no
+  fastener enters the sealed cavity.
+
+> This split is a pure, behaviour-preserving refactor: the exported STLs are
+> byte-for-byte identical to the pre-split monolith at the same `$fn`.
 
 ## Verification (all passing)
 

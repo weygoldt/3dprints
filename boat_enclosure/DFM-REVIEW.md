@@ -1,9 +1,11 @@
 # DFM / printability review — airboat enclosure on Prusa MK3S (PLA, supportless)
 
 **Date:** 2026-08-04 · reviewer: additive-engineering pass (real slicing + mesh analysis + intersection-
-volume probes). Covers the **current through-board screw-mount design** (`main.scad`). The body/lid/pylon
-findings carry over from the PR#5 review; the float-mount section is new (the bonded cradle and the
-lanyard ears it replaced, and the two PVC rod sockets, are all **removed**).
+volume probes). Covers the **current through-board screw-mount design** (now split into `common.scad` +
+`body.scad` / `lid.scad` / `pylon.scad`, with `main.scad` the assembly — the split is behaviour-preserving,
+so every finding and STL below is unchanged). The body/lid/pylon findings carry over from the PR#5 review;
+the float-mount section is new (the bonded cradle and the lanyard ears it replaced, and the two PVC rod
+sockets, are all **removed**).
 
 ## Verdict: **YES — producible on an MK3S in PLA with no supports.** All three parts slice manifold
 (1 shell) and generate **zero support material**. Two must-do print-setting calls, a few optional polish
