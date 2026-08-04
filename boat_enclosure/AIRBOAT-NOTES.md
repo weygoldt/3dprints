@@ -152,10 +152,15 @@ XPS; not solvent cement). The lanyard/zip-tie ears are **deleted**.
 - **Bungee anchors/hooks** (`n_bungee`=2 transverse runs at **Z=±18** — see the gland clearance below):
   - **Anchor tabs** (tie side) — a rounded post with a fore-aft **teardrop tie-hole** (⌀5.5 > 4 mm
     cord); the bungee's fixed end threads through and knots.
-  - **Bails** (quick-release side) — an **inverted-U staple** (two legs + a bridged top bar). Because
-    the bungee tension pulls **up-and-inboard**, the retainer must cap it from *above*; a bail is the
-    only clean **supportless** over-the-top retainer (the bar is a short bridge between two
-    bed-supported legs). Suits a hook-ended bungee (clip the bar) or a loop (thread under the bar).
+  - **Hooks** (quick-release side) — a fore-aft **rung held proud outboard** of the wall on two stout
+    gusseted bracket arms (`cradle_hook`). The bungee's end-hook (or a loop) drops over the rung from
+    the **outboard/water side** into the clear space around it — it opens *away from the foam board*
+    (the earlier inverted-U bail opened *downward into* the board, so nothing could be hooked into it),
+    and the up-and-inboard tension then seats it against the rung toward the wall. The **gussets** make
+    it stiff (the old thin staple legs looked flimsy); the rung is a short fore-aft **bridge** between
+    the two arms, and the arm hypotenuses are ≤45°, so it still prints **supportless** (0 support
+    material confirmed). *(Revised after Patrick's feedback that the bail didn't open accessibly and
+    looked weak.)*
 - **Inboard gland clearance (an adversarial review caught this).** The installed cable **glands** —
   the hex/dome that protrudes *inboard* from each port at Z=±35 (⌀~`cradle_gland_od`=18) — share the
   inboard space with the cradle's inboard wall + anchor tabs. A bare-hole clearance check missed it; a
@@ -166,9 +171,9 @@ XPS; not solvent cement). The lanyard/zip-tie ears are **deleted**.
   check now flags any fouling position, and reports the two clear windows: amidships |Z|<21 or the ends
   |Z|≥78); (b) the inboard wall is **scalloped** at each port so the gland *body* (not just the hole)
   clears; (c) the glands are now modeled (`ghost_glands`) in the preview + probes.
-- **Sides:** `hooks_outboard`=true (default) puts the **bails OUTBOARD** (easy field reach; clears the
+- **Sides:** `hooks_outboard`=true (default) puts the **hooks OUTBOARD** (easy field reach; clears the
   lid hinge + swing) and the **holes INBOARD**; flip it to swap. Mirrors with `side` via `apply_side`,
-  so holes/bails swap X-sign but stay physically inboard/outboard on both hulls (like the hinge).
+  so holes/hooks swap X-sign but stay physically inboard/outboard on both hulls (like the hinge).
 - **Recess:** `cradle_recess`=0 = **top-bonded v1** (box floor sits on the foam through the open
   pocket). `cradle_recess`>0 is a documented v2 hook (sink the box into a foam pocket) that would
   also need inboard foam relief for the ports — not built.
@@ -181,12 +186,13 @@ on the bed, walls up) → one flat bed face, **supportless**.
   × 16 mm** (fits 250×210×210).
 - **Box drops in, no interference (incl. installed glands):** `cradle ∩ (body ∪ lid ∪ ghost_glands)`
   seated = **0 mm³** (empty STL) on port + starboard **and** with `stim_port` on (3rd gland) — walls/
-  bails/tabs clear the cable ports+glands, rod bosses, XT60, hinge, motor block, and lid. (Positive
+  hooks/tabs clear the cable ports+glands, rod bosses, XT60, hinge, motor block, and lid. (Positive
   control: forcing `cradle_clear=-2` gives 5804 mm³, so the probe genuinely detects overlap.)
-- **Lid still opens:** `cradle ∩ swung lid` = **0 mm³** at lid_open 0–175° (the outboard bails never
-  foul the swing — the lid goes up-and-over, the bails stay low).
+- **Lid still opens:** `cradle ∩ swung lid` = **0 mm³** at lid_open 0–175° (the outboard hooks never
+  foul the swing — the lid goes up-and-over, the hooks stay low).
 - **Prints supportless:** PrusaSlicer (MK3S PLA profile, supports off) emits **0 support material**;
-  ~56 mm overhang perimeter (the bail bridges only — the pylon had 193 mm and passed). ~2h23m.
+  overhang perimeter is just the hook rungs (short fore-aft bridges — the pylon had 193 mm and
+  passed). ~2h22m.
 - **Watertight:** `cradle ∩ interior-cavity-void` = **0 mm³**; the cradle is entirely external and needs
   **no fastener** into the box (capture + bond only).
 - Assembly preview shows the box **seated in the cradle on the `ghost_float`**, both hulls, with the
@@ -203,10 +209,10 @@ on the bed, walls up) → one flat bed face, **supportless**.
    glands + rod bosses). Want more anti-pitch? Widen toward the ends — `bungee_z≈78–80` is the other
    clear window (the echo confirms the gap; note it lands near the corner). The bungee is elastic, so
    anti-lift (its main job) is position-insensitive.
-3. **Bungee ends** — the bails suit a **4 mm bungee with hook ends** (clip the bar) or a plain loop
-   (thread under the bar). If yours is bare cord, the anchor holes + bails still work; confirm the
+3. **Bungee ends** — the hooks suit a **4 mm bungee with hook ends** (clip over the rung) or a plain
+   loop (drop over the rung). If yours is bare cord, the anchor holes + hooks still work; confirm the
    end hardware so we can tune throat width (`hook_out`) if needed.
-4. **Hook side** — default `hooks_outboard=true` (bails outboard, easy reach, clears the hinge). Flip
+4. **Hook side** — default `hooks_outboard=true` (hooks outboard, easy reach, clears the hinge). Flip
    to `false` if you'd rather reach the inboard side.
 5. **Brim it, ≤8 mm** — the slicer flags *Low bed adhesion* (thin ring on a large footprint, like the
    lid); add a **~5 mm brim** (cap at ~8 mm — the 193 mm length leaves only ~8.8 mm/side on the 210 mm

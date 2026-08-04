@@ -12,13 +12,13 @@ polish items, one doc correction.
 | **body**  | GO (with tweaks) | clean, 0 support, 906 mm overhang-perimeter (localized) | **9h36m** | print `use_threads=false` |
 | **lid**   | GO (brim it)     | clean, 0 support, **0 overhang-perimeter** | **4h09m** | add a brim (warp) |
 | **pylon** | GO               | clean, 0 support, 193 mm overhang-perimeter | **3h15m** | none (ignore auto-support) |
-| **cradle**| GO (brim it, ≤8) | clean, 0 support, 56 mm overhang-perimeter (bail bridges) | **2h23m** | add a brim (*Low bed adhesion*) |
+| **cradle**| GO (brim it, ≤8) | clean, 0 support, overhang-perim = hook rungs (bridges) only | **2h22m** | add a brim (*Low bed adhesion*) |
 
 Per hull (all four parts): **~19.5 h machine time, ~235 g PLA** (~190 cm³). Two hulls ≈ 39 h, ~470 g.
 
 **Cradle (added after this review — the float-mount that replaces the lanyard ears):** a thin bonded
 collar the box drops into + a 4 mm over-top bungee. Slices **supportless** (0 support material); the
-only overhang perimeter is the bungee-bail top bars, which **bridge** between two bed-supported legs
+only overhang perimeter is the bungee-hook rungs, which **bridge** between two gusseted bracket arms
 (56 mm total — trivial). Like the lid it is a thin part on a large footprint, so the stability detector
 flags **Low bed adhesion → brim it** (~5 mm). Box-capture, lid-swing, and cavity-breach were probe-
 verified at 0 mm³. See `AIRBOAT-NOTES.md` › "Float-mount cradle".

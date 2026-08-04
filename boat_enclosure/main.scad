@@ -149,17 +149,20 @@ cradle_gland_od = 18;     // gland hex/body OD that protrudes inboard (PG7 ~15-1
 cradle_gland_len= 22;     // how far the gland+cable reaches inboard (assembly ghost + probe)
 
 /* [Cradle bungee anchors + hooks] -- one long side gets tie-HOLES (permanent
-   anchor), the other gets HOOKS (quick-release BAILS/staples the stretched
-   bungee catches).  Because the bungee tension pulls UP-and-inboard, the hook is
-   an inverted-U BAIL (two legs + a bridged top bar): it prints supportless (the
-   bar is a short bridge) and retains the upward pull (bungee seats up under the
-   bar, or a hook-ended bungee clips the bar).  hooks_outboard=true (default)
-   puts the BAILS on the OUTBOARD long side (easy field reach; clears the lid
-   hinge + swing -- probe-verified) and the tie-HOLES on the INBOARD side; flip
-   it to swap.  n_bungee transverse runs, each a bail opposite an anchor at +/-Z. */
-hooks_outboard  = true;   // true: bails OUTBOARD (-X port frame), holes INBOARD (+X)
+   anchor), the other gets HOOKS (quick-release).  The HOOK is a fore-aft RUNG
+   held PROUD OUTBOARD of the wall by two stout gusseted bracket arms: the
+   bungee's end-hook (or a loop) drops over the rung from the OUTBOARD/water side
+   into the clear space around it -- it opens AWAY from the foam board (not down
+   into it), and the up-and-inboard tension then seats it against the rung toward
+   the wall.  The gussets make it stiff (not a flimsy staple); the rung is a
+   short fore-aft BRIDGE between the two arms, so it still prints supportless.
+   hooks_outboard=true (default) puts the HOOKS on the OUTBOARD long side (easy
+   field reach; clears the lid hinge + swing -- probe-verified) and the tie-HOLES
+   on the INBOARD side; flip it to swap.  n_bungee runs, a hook opposite an
+   anchor at +/-Z. */
+hooks_outboard  = true;   // true: hooks OUTBOARD (-X port frame), holes INBOARD (+X)
 n_bungee        = 2;      // transverse bungee runs (2 or 3); 3 adds one amidships (Z=0)
-bungee_z        = 18;     // |Z| of the paired anchor/bail lines.  MUST clear the INBOARD gland
+bungee_z        = 18;     // |Z| of the paired anchor/hook lines.  MUST clear the INBOARD gland
                           // hardware (ports at +/-35, dia ~cradle_gland_od) and the rod bosses
                           // (+/-60): the clear windows are amidships |Z|<~21 (default) or the
                           // ends |Z|~76-80.  The echo flags fouling (gland/boss-aware).  The
@@ -171,11 +174,11 @@ anchor_hole_d   = 5.5;    // tie-hole through the anchor tab (> bungee_d, smooth
 anchor_tab_h    = 14;     // anchor-tab height from the foam plane (hole sits clear above the wall)
 anchor_tab_w    = 10;     // anchor-tab size along Z (fore-aft)
 anchor_tab_out  = 7;      // how far the anchor tab reaches out past the wall (X)
-hook_h          = 16;     // bail height from the foam plane (keeps the bar below the hinge leaf)
-hook_w          = 8;      // bail width along Z (fore-aft)
-hook_out        = 12;     // bail u-span out from the wall (leg-to-leg + throat)
-hook_leg        = 3.5;    // bail leg thickness (each of the two uprights)
-hook_bar        = 4;      // bail top-bar thickness (the bridged rung the bungee catches)
+hook_h          = 14;     // rung height above the foam (kept below the hinge leaf -- probe-checked)
+hook_w          = 14;     // hook total width along Z (fore-aft): two arms + the clear access gap
+hook_reach      = 10;     // how far the rung stands PROUD outboard of the wall (clear space to hook on)
+hook_arm_t      = 3.5;    // gusset-arm thickness, each of the two brackets (stout, not flimsy)
+hook_rung_d     = 5;      // fore-aft rung diameter -- the bar the bungee end-hook / loop catches over
 
 /* [XT60 charge port] -- KEPT (each hull has a cell to charge).  On the BOW end
    wall (+Z): the outboard wall is fully occupied by the lid hinge (the 35 mm
@@ -381,7 +384,7 @@ cr_gland_bot_y = port_y + cradle_gland_od/2;              // gland body reaches 
 cr_relief_top_y = cr_gland_bot_y + 0.5;                   // scallop the wall top down to here at each port
 // print-orientation extents (bonding-face down = same transform as body): X across
 // the beam (hook tip -> anchor tab), Z fore-aft, height = wall/tab/hook stack
-cr_hook_tip_x   = cr_out_x + hook_out;                       // hook reaches this far out
+cr_hook_tip_x   = cr_out_x + hook_reach + hook_rung_d/2;      // rung reaches this far out
 cr_anchor_tip_x = cr_out_x + anchor_tab_out;                 // anchor tab reaches this far out
 cr_x_ext   = max(cr_flange_x, cr_hook_tip_x, cr_anchor_tip_x) * 2;  // symmetric worst case
 cr_z_ext   = cr_flange_z * 2;                                // fore-aft (motor relief is an open gap)
@@ -678,7 +681,7 @@ module door_skirt() {
 //  plane is Y=cr_foam_y (=D at recess 0) and the walls rise toward -Y (the lid).
 //  A rounded-rect capture-wall RING (open pocket = box + clearance) + an outward
 //  glue-foot FLANGE, with a central STERN relief for the motor block.  One long
-//  side carries tie-HOLE anchor tabs, the other inverted-U bungee BAILS.  Prints
+//  side carries tie-HOLE anchor tabs, the other gusseted-rung bungee HOOKS.  Prints
 //  bonding-face DOWN (same transform as the body: floor plane on the bed) -> one
 //  flat bed face, supportless.  Mirrors with `side` via apply_side.
 // =====================================================================
@@ -726,30 +729,34 @@ module cradle_anchor(sign, z) {
   }
 }
 
-// quick-release bungee BAIL (inverted-U staple): two legs bridged by a top bar.
-// The bar (Y=yt..yt+hook_bar) is a short BRIDGE -> supportless; the bungee seats
-// UP under the bar (or a hook-ended bungee clips it).  Throat opens at the foam.
-module cradle_bail(sign, z) {
-  x0 = sign*cr_out_x;                         // inner leg at the wall outer face
-  x1 = sign*(cr_out_x + hook_out);            // outer leg tip
-  yt = cr_foam_y - hook_h;                    // bar top
-  throat_top = yt + hook_bar;
-  throat_bot = cr_foam_y + 2;                 // open past the foam plane
-  translate([0,0,z]) linear_extrude(hook_w, center=true) difference() {
-    hull() {   // outer inverted-U silhouette (rounded top corners)
-      translate([x0 + sign*0.6, cr_foam_y - 0.6]) circle(0.6);
-      translate([x1 - sign*0.6, cr_foam_y - 0.6]) circle(0.6);
-      translate([x0 + sign*3,   yt + 3]) circle(3);
-      translate([x1 - sign*3,   yt + 3]) circle(3);
-    }
-    translate([sign*(cr_out_x + hook_out/2), (throat_top + throat_bot)/2])
-      square([hook_out - 2*hook_leg, throat_bot - throat_top], center=true);   // throat
-  }
+// quick-release bungee HOOK: a fore-aft RUNG held PROUD outboard of the wall by
+// two stout gusseted bracket arms.  The bungee end-hook / loop drops over the
+// rung from the OUTBOARD/water side (clear space around it -- it opens AWAY from
+// the board, not down into it); the up-and-inboard tension seats it against the
+// rung toward the wall.  The arm gussets are self-supporting solids (their
+// down-outboard hypotenuse is <=45 deg); the rung is a short fore-aft BRIDGE
+// between the two arm tops -> supportless.
+module cradle_hook(sign, z) {
+  s    = sign;
+  yr   = cr_foam_y - hook_h;                  // rung height (up from the foam)
+  rx   = s*(cr_out_x + hook_reach);           // rung outboard X (stands proud of the wall)
+  xr   = s*(cr_out_x - 1);                    // arm root (1 mm into the wall -> solid merge)
+  a_dz = hook_w/2 - hook_arm_t/2;             // arm centre offset (arms sit at the rung ends)
+  // two gusset arms: solid triangles rising from the foam+wall out-and-up to the rung
+  for (dz = [-a_dz, a_dz])
+    translate([0, 0, z + dz]) linear_extrude(hook_arm_t, center=true)
+      hull() {
+        translate([xr, cr_foam_y - 0.6]) circle(0.6);            // inboard-bottom (wall+foam)
+        translate([xr, yr]) circle(0.6);                         // inboard-top (up the back)
+        translate([rx, yr]) circle(hook_rung_d/2 + 0.5);         // outboard-top (holds the rung)
+      }
+  // rung: fore-aft bar bridging the two arm tops -- the bungee catches over this
+  translate([rx, yr, z]) cylinder(h=hook_w, d=hook_rung_d, center=true);
 }
 
 module cradle() color("DarkKhaki") union() {
   cradle_frame();
-  for (z = bungee_zs) { cradle_anchor(anchor_sign, z); cradle_bail(hook_sign, z); }
+  for (z = bungee_zs) { cradle_anchor(anchor_sign, z); cradle_hook(hook_sign, z); }
 }
 
 // =====================================================================
@@ -974,6 +981,20 @@ module ghost_glands() {
     translate([W/2 - wall, port_y, pz]) rotate([0,90,0])
       cylinder(h=cradle_gland_len, d=cradle_gland_od);
 }
+// the 4 mm bungee(s): tied at the inboard anchor tab, stretched athwartship OVER the
+// top of the lid, and caught over the outboard hook rung.  Preview only -- shows the
+// mount working (each transverse run at +/-bungee_z).
+module ghost_bungee() {
+  for (z = bungee_zs) {
+    a  = [anchor_sign*(cr_out_x + anchor_tab_out*0.5), cr_foam_y - anchor_tab_h*0.55, z];
+    hk = [hook_sign*(cr_out_x + hook_reach),           cr_foam_y - hook_h,           z];
+    pk = [0, -lid_t - 4, z];   // arcs just over the closed lid
+    color([0.1,0.1,0.1,0.9]) {
+      hull() { translate(a)  sphere(bungee_d/2); translate(pk) sphere(bungee_d/2); }
+      hull() { translate(pk) sphere(bungee_d/2); translate(hk) sphere(bungee_d/2); }
+    }
+  }
+}
 module ghost_float() {
   // extends aft under the prop so the disc is seen sweeping OVER the float; wide
   // enough that the cradle glue-foot flange sits fully on it (foam top at cr_foam_y)
@@ -1048,7 +1069,7 @@ module hull_assembly() {
   pylon_at_stern();
   if (cradle) cradle();   // the box drops into this foam-bonded collar
   if (show_ghosts) { ghost_components(); ghost_float(); ghost_prop_and_motor();
-                     if (cradle) ghost_glands(); }
+                     if (cradle) { ghost_glands(); if (lid_open == 0) ghost_bungee(); } }
 }
 
 module assembly_scene() {
