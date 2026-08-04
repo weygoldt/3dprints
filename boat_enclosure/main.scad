@@ -133,7 +133,12 @@ grip          = true;  // thumb-grip wedge on the lid's inboard rim
    sit in the free gaps between the floor components (echo-checked vs rc_parts).
    Mirrors with `side` (symmetric X pattern -> port/starboard land identically). */
 screw_mount     = true;
-screw_method    = "insert";  // [insert(M4 heat-set brass), thread(BOSL2 modeled), selftap(pilot in PLA)]
+screw_method    = "thread";  // [thread(BOSL2 modeled M4 -> screw straight into the PLA, DEFAULT),
+                             //  insert(M4 heat-set brass), selftap(thread-forming pilot)]
+// "thread" prints a real internal M4 thread (needs use_threads=true, the default) so an M4 machine
+// screw threads straight into the floor boss -- no heat-set inserts to install.  Note: M4x0.7 printed
+// threads on a 0.4 mm nozzle are a touch coarse (see DFM-REVIEW) and can wear if you mount/unmount a
+// LOT; if they strip, "selftap" (or thread + use_threads=false) forms a stronger thread in solid PLA.
 screw_size      = 4;         // M4 nominal (tension + shear hold-down; assembled/disassembled in the field)
 // 4 bosses as a symmetric rectangle inset from the corners, tucked in the gaps
 // between the RC components (see rc_parts) and merging into the bow/stern end
@@ -146,10 +151,12 @@ boss_cap_min    = 3;         // min sealed PLA cap above the bore top (watertigh
 // -- (insert) M4 brass heat-set: plain bore, insert melts in from the bed face --
 insert_d        = 5.6;       // heat-set hole for M4 brass (MEASURE your inserts; ~5.6-5.7)
 insert_depth    = 9;         // bore depth up from the floor underside (insert ~8 + melt lead)
-// -- (thread / selftap) fallbacks, mirroring the use_threads pattern --
-screw_pitch     = 0.7;       // M4 coarse (BOSL2 modeled internal thread)
-thread_len      = 8;         // modeled-thread engagement depth up from the underside
-selftap_d       = 3.4;       // thread-forming pilot for M4 in PLA (~0.85 x major)
+// -- (thread) BOSL2 modeled internal M4 thread -- the screw threads straight into the PLA --
+screw_pitch     = 0.7;       // M4 coarse
+thread_len      = 10;        // modeled-thread engagement up from the underside (>=2x dia; deeper = more
+                             // thread shear area, which helps the coarse printed thread in soft PLA)
+// -- (selftap) thread-forming pilot: a plain undersized hole, the screw cuts its own (stronger) thread --
+selftap_d       = 3.4;       // ~0.85 x major (M4)
 selftap_depth   = 9;         // pilot depth up from the underside
 
 /* [XT60 charge port] -- KEPT (each hull has a cell to charge).  On the BOW end
@@ -340,7 +347,10 @@ boss_h        = boss_rise + wall;                 // total boss height: undersid
 boss_top_y    = D - boss_h;                       // = inner_d - boss_rise (chamber-facing top)
 screw_cap     = boss_h - screw_hole_depth;        // SEALED PLA between the bore top and the chamber
 boss_wall_min = (boss_od - screw_bore_d)/2;       // radial PLA wall around the bore
-screw_len_est = float_thickness + wall + screw_hole_depth;  // through foam + floor + engagement
+// MAX screw length from the washer face: through the foam + the bore.  The bore (screw_hole_depth)
+// is measured from the floor UNDERSIDE, so it ALREADY spans the 2.5 mm floor -- do NOT add `wall`
+// again.  Shorter is safer: the cap is blind, so a too-long screw drives toward it instead of clamping.
+screw_len_est = float_thickness + screw_hole_depth;
 // plan-view gap from a boss (center [px,pz], radius boss_od/2) to a component rectangle
 function comp_gap(px, pz, cx, cz, sx, sz) =
   let (dx = max(abs(px-cx) - sx/2, 0), dz = max(abs(pz-cz) - sz/2, 0))
@@ -434,9 +444,9 @@ if (screw_mount) {
   echo(str("  min boss-to-component plan gap = ", round(10*screw_comp_gap)/10, " mm ",
            screw_comp_gap >= 2 ? "OK (bosses sit in the free gaps)"
                                : "  << WARNING: a boss fouls an RC component -- move it"));
-  echo(str("  screw length ~", screw_len_est, " mm (foam ", float_thickness,
-           " + floor ", wall, " + engage ", screw_hole_depth,
-           ") ; use a fender washer / backing plate under the soft foam"));
+  echo(str("  screw length <= ", screw_len_est, " mm (foam ", float_thickness,
+           " + bore ", screw_hole_depth, "; the bore already includes the ", wall,
+           " mm floor) -- shorter is safer (blind cap) ; fender washer / backing plate under the soft foam"));
 } else echo("  screw mount OFF");
 
 echo("--- beam / stern-prop collision across the hulls ---------------");
