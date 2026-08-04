@@ -9,9 +9,9 @@
 //
 //  Reuses the field-stimulator enclosure's proven mechanisms VERBATIM --
 //  the hand-rolled knuckle hinge (1.75 mm filament pin), the inspo overlap
-//  skirt + bump/dent snap locks, the teardrop lanyard ears, and the echo
-//  fit-check harness -- by keeping that project's CODE FRAME and only
-//  remapping which physical axis each stands for:
+//  skirt + bump/dent snap locks, and the echo fit-check harness -- by keeping
+//  that project's CODE FRAME and only remapping which physical axis each
+//  stands for:
 //
 //  FRAME MAPPING (airboat box <- stim enclosure code frame):
 //    code X (inner_w, W)  = box WIDTH   (athwartship, ~90)
@@ -29,25 +29,28 @@
 //  parts.  A mirror about X leaves every +/-y overhang untouched, so both
 //  hulls print supportless equally well.
 //
-//  NEW for the airboat (Tasks 1-3): motor mount + a SEPARATE bolt-on pylon
-//  (printed flat), two blind teardrop PVC rod sockets, stern + bow cable
-//  ports.  DROPPED from the stim donor (they belong to the chest device and
-//  would foul the top lid): playback buttons, masthead, eel tie, top-face
-//  power switch / LED, BNC.  KEPT: the XT60 charge port and the lanyard/
-//  zip-tie ears (the user lashes the box to the foam with zip ties).
+//  NEW for the airboat: motor mount + a SEPARATE bolt-on pylon (printed flat),
+//  two blind teardrop PVC rod sockets, stern + bow cable ports, and a SEPARATE
+//  bonded float-mount CRADLE (the box drops into a foam-bonded collar + a 4 mm
+//  bungee clamps over the top).  DROPPED from the stim donor (they belong to the
+//  chest device and would foul the top lid): playback buttons, masthead, eel
+//  tie, top-face power switch / LED, BNC.  ALSO DROPPED: the lanyard/zip-tie
+//  ears -- superseded by the bonded cradle (no hardware through the foam).
+//  KEPT: the XT60 charge port.
 //
 //  Requires BOSL2 (../BOSL2).  Print PLA, no supports.
-//  PARTS (part=):  assembly(preview) | body | lid | pylon
-//     body  : FLOOR on the bed
-//     lid   : outer face down
-//     pylon : laid flat (layers along its length -- bending load along layers)
+//  PARTS (part=):  assembly(preview) | body | lid | pylon | cradle
+//     body   : FLOOR on the bed
+//     lid    : outer face down
+//     pylon  : laid flat (layers along its length -- bending load along layers)
+//     cradle : bonding-face DOWN on the bed (foam-bond plane on the bed, walls up)
 // =====================================================================
 
 include <../BOSL2/std.scad>
 include <../BOSL2/threading.scad>   // metric tapped holes (Task 5); std.scad omits it
 
 /* [What to render] */
-part = "assembly";   // [assembly, body, lid, pylon]
+part = "assembly";   // [assembly, body, lid, pylon, cradle]
 side = "port";       // [port, starboard]
 print_ready = true;
 lid_open   = 0;      // assembly preview only: degrees the lid is swung open
@@ -118,15 +121,61 @@ bump_w        = 1.0;   // bump profile width
 bump_h        = 0.25;  // bump proudness (dent = 5% wider, 0.1 deeper)
 grip          = true;  // thumb-grip wedge on the lid's inboard rim
 
-/* [Lanyard / zip-tie ears] -- KEPT from the stim donor: 4 teardrop-boss ears
-   on the floor's side edges.  The user lashes the box to the styrofoam float
-   with zip ties threaded through the foam and these ears. */
-lanyard   = true;
-lug_hole  = 4.5;
-lug_web   = 3;
-lug_out   = 5;
-lug_t     = 8;
-lug_inset = 22;     // Z inset from each end -> ears near the 4 floor corners
+/* [Float-mount cradle] -- REPLACES the lanyard ears.  A SEPARATE printed collar
+   bonded to the XPS foam float: the box DROPS IN (walls key to the box floor
+   footprint -> take all slide + yaw) and a 4 mm elastic bungee runs athwartship
+   OVER the top (takes only the lift/pitch preload; elastic holds tension as the
+   foam compresses, and hooks on/off in a second for a field mount/unmount).
+   NO fastener touches the sealed box -- pure capture + bungee.  Bonds to XPS
+   with PU / epoxy / low-temp hot-melt (NOT solvent cement).  Mirrors with
+   `side` exactly like the box (the holes/hooks swap sides).  Prints
+   bonding-face DOWN (the foam-bond plane on the bed, walls up) -> one flat face,
+   supportless.  Keyed to the box floor: outer 95 (W) x 170 (H), corner_r 5, with
+   the stern motor block (50 wide) protruding 14 aft. */
+cradle          = true;   // build the cradle (assembly preview + part="cradle")
+cradle_clear    = 0.4;    // gap box-outer -> wall-inner (drop-in fit + print slop)
+cradle_wall_t   = 3;      // capture-wall thickness
+cradle_wall_h   = 6;      // capture-wall height (<=~7 clears the low inboard cable ports;
+                          // clears the high hinge leaf/XT60 on the other faces with margin)
+cradle_flange_w = 8;      // outward glue-foot flange width (bonds flat to the foam)
+cradle_flange_t = 3;      // glue-foot flange thickness (rises from the foam plane)
+cradle_stern_relief = 54; // width (X) of the stern-wall gap for the motor block (>= mm_pad_w + slop)
+cradle_recess   = 0;      // v2 hook: box sinks this far into a foam pocket (mm); 0 = top-bonded (v1)
+// INSTALLED cable-gland hardware protrudes INBOARD from the inboard wall at each port
+// (the box's OUTSIDE hex/dome, where the cable exits).  The cradle's inboard wall +
+// anchor tabs share that space, so these drive the port-relief + anchor-Z clearances.
+// (A bare-hole clearance check misses this -- an adversarial review caught it.)
+cradle_gland_od = 18;     // gland hex/body OD that protrudes inboard (PG7 ~15-18 A/F; MEASURE yours)
+cradle_gland_len= 22;     // how far the gland+cable reaches inboard (assembly ghost + probe)
+
+/* [Cradle bungee anchors + hooks] -- one long side gets tie-HOLES (permanent
+   anchor), the other gets HOOKS (quick-release BAILS/staples the stretched
+   bungee catches).  Because the bungee tension pulls UP-and-inboard, the hook is
+   an inverted-U BAIL (two legs + a bridged top bar): it prints supportless (the
+   bar is a short bridge) and retains the upward pull (bungee seats up under the
+   bar, or a hook-ended bungee clips the bar).  hooks_outboard=true (default)
+   puts the BAILS on the OUTBOARD long side (easy field reach; clears the lid
+   hinge + swing -- probe-verified) and the tie-HOLES on the INBOARD side; flip
+   it to swap.  n_bungee transverse runs, each a bail opposite an anchor at +/-Z. */
+hooks_outboard  = true;   // true: bails OUTBOARD (-X port frame), holes INBOARD (+X)
+n_bungee        = 2;      // transverse bungee runs (2 or 3); 3 adds one amidships (Z=0)
+bungee_z        = 18;     // |Z| of the paired anchor/bail lines.  MUST clear the INBOARD gland
+                          // hardware (ports at +/-35, dia ~cradle_gland_od) and the rod bosses
+                          // (+/-60): the clear windows are amidships |Z|<~21 (default) or the
+                          // ends |Z|~76-80.  The echo flags fouling (gland/boss-aware).  The
+                          // bungee is elastic + does anti-LIFT (position-insensitive); the walls
+                          // take yaw/slide, so the amidships pair is fine.  Widen toward the ends
+                          // if you want more anti-pitch (it lands near the corner -- see notes).
+bungee_d        = 4;      // bungee cord diameter
+anchor_hole_d   = 5.5;    // tie-hole through the anchor tab (> bungee_d, smooth entry)
+anchor_tab_h    = 14;     // anchor-tab height from the foam plane (hole sits clear above the wall)
+anchor_tab_w    = 10;     // anchor-tab size along Z (fore-aft)
+anchor_tab_out  = 7;      // how far the anchor tab reaches out past the wall (X)
+hook_h          = 16;     // bail height from the foam plane (keeps the bar below the hinge leaf)
+hook_w          = 8;      // bail width along Z (fore-aft)
+hook_out        = 12;     // bail u-span out from the wall (leg-to-leg + throat)
+hook_leg        = 3.5;    // bail leg thickness (each of the two uprights)
+hook_bar        = 4;      // bail top-bar thickness (the bridged rung the bungee catches)
 
 /* [XT60 charge port] -- KEPT (each hull has a cell to charge).  On the BOW end
    wall (+Z): the outboard wall is fully occupied by the lid hinge (the 35 mm
@@ -295,14 +344,48 @@ swing_gap = hinge_offset + skirt_t + lid_clearance_left
 skirt_max_ang  = atan((ov_d - Ay)/hinge_offset);
 shell_bevel    = atan((ov_d + 0.3 - Ay)/hinge_offset);
 
-// lanyard ears, in the print frame (floor down -> print-up = -y) -- ported
-lug_d  = lug_hole + 2*lug_web;
-lug_ex = W/2 + lug_out;
-lug_ez = H/2 - lug_inset;
-lug_ey = D - lug_d/2;
-lug_front_y = lug_ey - lug_d/2;
-lug_apex_y  = lug_ey - (lug_hole/2)/sin(45);
-lug_apex_web = lug_apex_y - lug_front_y;
+// --- Cradle derived (box model frame; the floor plane Y=D is the foam-bond face) ---
+cr_foam_y = D + cradle_recess;               // foam-bond plane (v1 recess=0 -> Y=D=floor)
+cr_in_x   = W/2 + cradle_clear;              // wall inner face, athwartship (box +/-47.5 + clr)
+cr_in_z   = H/2 + cradle_clear;              // wall inner face, fore-aft
+cr_out_x  = cr_in_x + cradle_wall_t;         // wall outer face, athwartship
+cr_out_z  = cr_in_z + cradle_wall_t;         // wall outer face, fore-aft
+cr_top_y  = cr_foam_y - cradle_wall_h;       // wall top Y (smaller Y = up toward the lid)
+cr_flange_x = cr_out_x + cradle_flange_w;    // flange outer edge, athwartship
+cr_flange_z = cr_out_z + cradle_flange_w;    // flange outer edge, fore-aft
+// corner radii: pocket = box corner + clearance (clears the box corners); wall &
+// flange outers keep a uniform wall thickness at the corners
+cr_pocket_r = corner_r + cradle_clear;       // 5.4 -- inner pocket the box drops into
+cr_outer_r  = cr_pocket_r + cradle_wall_t;   // 8.4 -- wall outer corner
+cr_flange_r = cr_outer_r + cradle_flange_w;  // flange outer corner
+// low-feature clearances (mm the wall top clears each low box feature)
+port_bot_above_floor   = D - (port_y + max(port_stern_d,port_bow_d,stim_port?port_stim_d:0)/2);
+xt60_flange_bot_above  = (xt60 && xt60_face=="bow") ? D - (D/2 + xt60_flange_h/2) : 1e9;
+cradle_port_gap = port_bot_above_floor - cradle_wall_h;   // >0: inboard wall clears the ports
+cradle_xt60_gap = xt60_flange_bot_above - cradle_wall_h;  // >0: bow wall clears the XT60 flange
+// bungee anchor/hook X sides (port frame: hooks_outboard -> hooks on -X, holes on +X)
+hook_sign   = hooks_outboard ? -1 :  1;      // wall the hooks grow from
+anchor_sign = hooks_outboard ?  1 : -1;      // wall the holes grow from
+bungee_zs   = (n_bungee>=3) ? [bungee_z, 0, -bungee_z] : [bungee_z, -bungee_z];
+// inboard obstacle map (only matters on the ANCHOR/hole side, which shares the
+// inboard space with the cable glands + rod bosses): each obstacle is [Z, half-width-in-Z].
+cr_port_zs   = concat([port_stern_z, port_bow_z], stim_port ? [port_stim_z] : []);
+// (rod_bore is a Task-2 derived defined later in the file; use its parts to avoid a fwd-ref)
+cr_obstacles = concat([ for (pz = cr_port_zs)              [pz, cradle_gland_od/2] ],
+                      [ for (rz = [rod_z_bow, rod_z_stern]) [rz, (rod_dia+rod_clearance+9)/2] ]);
+// smallest Z-gap between any anchor tab (width anchor_tab_w) and an inboard obstacle
+function anchor_gap(z) = min([ for (o = cr_obstacles) abs(z - o[0]) - anchor_tab_w/2 - o[1] ]);
+cr_min_anchor_gap = min([ for (z = bungee_zs) anchor_gap(z) ]);
+// inboard wall must clear the gland BODY (not just the hole): gland bottom Y vs wall top Y
+cr_gland_bot_y = port_y + cradle_gland_od/2;              // gland body reaches here (toward the foam)
+cr_relief_top_y = cr_gland_bot_y + 0.5;                   // scallop the wall top down to here at each port
+// print-orientation extents (bonding-face down = same transform as body): X across
+// the beam (hook tip -> anchor tab), Z fore-aft, height = wall/tab/hook stack
+cr_hook_tip_x   = cr_out_x + hook_out;                       // hook reaches this far out
+cr_anchor_tip_x = cr_out_x + anchor_tab_out;                 // anchor tab reaches this far out
+cr_x_ext   = max(cr_flange_x, cr_hook_tip_x, cr_anchor_tip_x) * 2;  // symmetric worst case
+cr_z_ext   = cr_flange_z * 2;                                // fore-aft (motor relief is an open gap)
+cr_h_ext   = max(cradle_wall_h, anchor_tab_h, hook_h) + cradle_recess; // build height
 
 // --- Task 1 derived: prop clearance & pylon height ---
 prop_radius = prop_diameter/2;
@@ -425,7 +508,6 @@ echo(str("  pin axis (x,y)=(", Ax, ", ", Ay, ") ; barrel d=", knuckle_d,
 echo(str("  housing leaf reach = ", round(1000*leaf_reach)/1000, " mm ; underside overhang ",
          hinge_arm_ang, " deg ", hinge_arm_ang <= 45 ? "OK" : " WARNING"));
 if (hinge_offset < knuckle_d/2) echo("  ERROR: hinge_offset must be >= knuckle_d/2");
-if (hinge_span/2 > H/2 - lug_inset) echo("  note: hinge stack runs near the lanyard-ear ends");
 
 echo("--- lid overlap + snap locks ----------------------------------");
 echo(str("  skirt ", skirt_t, " x ", ov_d, " deep over a ", step, " band ; ",
@@ -445,10 +527,37 @@ if (lid_gland) {
            g_lock >= 2 ? "OK" : "  << WARNING: gland sits over a snap lock"));
 } else echo("  lid gland OFF");
 
-echo("--- lanyard / zip-tie ears ------------------------------------");
-echo(str("  4 teardrop ears at Z=+/-", lug_ez, ", protruding +/-X ; bore ", lug_hole,
-         " ; teardrop apex web = ", round(100*lug_apex_web)/100, " mm ",
-         lug_apex_web >= 1.2 ? "OK" : "  << WARNING: raise lug_web"));
+echo("--- float-mount cradle (SEPARATE, bonded to the foam) ----------");
+if (cradle) {
+  echo(str("  keys off the box floor ", W, " x ", H, " (corner_r ", corner_r,
+           ") ; drop-in clearance ", cradle_clear, " ; wall ", cradle_wall_t,
+           " x ", cradle_wall_h, " high ; glue-foot flange ", cradle_flange_w, " wide"));
+  echo(str("  INBOARD wall clears the cable ports by ", round(10*cradle_port_gap)/10,
+           " mm ", cradle_port_gap >= 1 ? "OK" : "  << WARNING: wall hits the ports, lower cradle_wall_h"));
+  echo(str("  BOW wall clears the XT60 flange by ", round(10*cradle_xt60_gap)/10,
+           " mm ", cradle_xt60_gap >= 1 ? "OK" : "  << WARNING: wall hits the XT60, lower cradle_wall_h"));
+  echo(str("  OUTBOARD wall top at Y=", cr_top_y, " vs hinge-leaf reach Y=",
+           round(1000*leaf_reach)/1000, " (wall stays ", round(10*(cr_top_y-leaf_reach))/10,
+           " mm below the leaf) ", cr_top_y - leaf_reach >= 1 ? "OK" : "  << WARNING: wall fouls the hinge leaf"));
+  echo(str("  STERN motor-block relief gap ", cradle_stern_relief, " (>= block ", mm_pad_w,
+           ") ", cradle_stern_relief >= mm_pad_w + 2 ? "OK" : "  << WARNING: relief narrower than the motor block"));
+  echo(str("  bungee: ", n_bungee, " transverse runs at Z=", bungee_zs,
+           " ; cord ", bungee_d, " ; ", hooks_outboard ? "HOOKS OUTBOARD, HOLES INBOARD" : "HOOKS INBOARD, HOLES OUTBOARD"));
+  echo(str("  anchor tie-hole ", anchor_hole_d, " (> cord ", bungee_d, ") ",
+           anchor_hole_d > bungee_d ? "OK" : "  << WARNING: hole smaller than the cord"));
+  // GLAND-AWARE (the bare-hole check missed installed hardware): the inboard anchor tabs
+  // share the inboard space with the cable glands (Z=+/-35, dia cradle_gland_od) + rod bosses (+/-60)
+  echo(str("  anchor-tab Z-gap to nearest inboard obstacle (gland dia ", cradle_gland_od,
+           " / rod boss) = ", round(10*cr_min_anchor_gap)/10, " mm ",
+           cr_min_anchor_gap >= 1.5 ? "OK" : "  << WARNING: anchor tab fouls a gland/boss -- move bungee_z (amidships |Z|<21 or ends ~77)"));
+  echo(str("  inboard wall relieved at the ", len(cr_port_zs), " ports so the gland body (bottom Y=",
+           cr_gland_bot_y, ") clears the wall (top Y=", cr_top_y, ")",
+           cr_top_y < cr_gland_bot_y ? str(" -> scalloped to Y=", cr_relief_top_y) : " (no relief needed)"));
+  // print orientation: bonding-face down (same transform as the body)
+  echo(str("  prints bond-face DOWN: bed ", round(cr_x_ext), "(X) x ", round(cr_z_ext),
+           "(Y=length) x ", round(cr_h_ext), "(Z=height) ; fits 250x210x210 ",
+           (cr_x_ext<=250 && cr_z_ext<=210 && cr_h_ext<=210) ? "OK" : "  << CHECK"));
+} else echo("  cradle OFF");
 
 echo("--- XT60 charge port -------------------------------------------");
 if (xt60 && xt60_face != "none") {
@@ -564,18 +673,83 @@ module door_skirt() {
 }
 
 // =====================================================================
-//  LANYARD / ZIP-TIE EARS  (ported verbatim)
+//  FLOAT-MOUNT CRADLE  (SEPARATE part; bonded to the foam, box drops in)
+//  Built in the box model frame keyed to the floor footprint: the foam-bond
+//  plane is Y=cr_foam_y (=D at recess 0) and the walls rise toward -Y (the lid).
+//  A rounded-rect capture-wall RING (open pocket = box + clearance) + an outward
+//  glue-foot FLANGE, with a central STERN relief for the motor block.  One long
+//  side carries tie-HOLE anchor tabs, the other inverted-U bungee BAILS.  Prints
+//  bonding-face DOWN (same transform as the body: floor plane on the bed) -> one
+//  flat bed face, supportless.  Mirrors with `side` via apply_side.
 // =====================================================================
-module lanyard_ear(sx, sz) {
-  translate([0,0,sz*lug_ez - lug_t/2]) linear_extrude(lug_t) hull() {
-    translate([sx*(W/2-3), lug_ey]) square([6, lug_d], center=true);
-    translate([sx*lug_ex,  lug_ey])
-      teardrop2d(d=lug_d, ang=hinge_arm_ang, cap_h=D-lug_ey);
+module cradle_frame() {
+  difference() {
+    union() {
+      // capture walls: Y = cr_top_y (top) .. cr_foam_y (foam), out to cr_out
+      translate([0, cr_top_y, 0]) rprism(2*cr_out_x, 2*cr_out_z, cradle_wall_h, cr_outer_r);
+      // glue-foot flange: Y = cr_foam_y - flange_t .. cr_foam_y, out to cr_flange
+      translate([0, cr_foam_y - cradle_flange_t, 0])
+        rprism(2*cr_flange_x, 2*cr_flange_z, cradle_flange_t, cr_flange_r);
+    }
+    // open pocket the box drops through (open top and bottom)
+    translate([0, cr_top_y - eps, 0])
+      rprism(2*cr_in_x, 2*cr_in_z, cradle_wall_h + cradle_flange_t + 2*eps, cr_pocket_r);
+    // STERN motor-block relief: clear the wall+flange central band at -Z
+    translate([0, (cr_top_y + cr_foam_y)/2, -(cr_flange_z + cr_in_z)/2])
+      cube([cradle_stern_relief, cradle_wall_h + 4, (cr_flange_z - cr_in_z) + 2], center=true);
+    // PORT scallops: relieve the INBOARD (+X) wall top so the installed cable-gland BODY
+    // clears (a bare-hole clearance is not enough -- the hex/dome reaches deeper).
+    if (cr_top_y < cr_gland_bot_y)
+      for (pz = cr_port_zs)
+        translate([(cr_in_x + cr_out_x)/2, (cr_top_y - 1 + cr_relief_top_y)/2, pz])
+          cube([cradle_wall_t + 2, cr_relief_top_y - cr_top_y + 1, cradle_gland_od + 4], center=true);
   }
 }
-module lanyard_bore(sx, sz) {
-  translate([sx*lug_ex, lug_ey, sz*lug_ez - lug_t/2 - eps])
-    linear_extrude(lug_t + 2*eps) rotate(180) teardrop2d(d=lug_hole, ang=45);
+
+// tie-hole anchor tab (permanent bungee end): a rounded post on the anchor-side
+// wall with a FORE-AFT teardrop through-hole (prints horizontal -> apex up = -Y).
+module cradle_anchor(sign, z) {
+  x0 = sign*cr_in_x;                          // inner edge (merges into the wall)
+  x1 = sign*cr_anchor_tip_x;                  // outer tip
+  yt = cr_foam_y - anchor_tab_h;              // top
+  hx = sign*(cr_out_x + anchor_tab_out*0.5);  // tie-hole X (mid the protrusion)
+  hy = cr_foam_y - anchor_tab_h*0.6;          // tie-hole Y (upper-middle)
+  translate([0,0,z]) difference() {
+    linear_extrude(anchor_tab_w, center=true) hull() {
+      translate([x0 + sign*0.6, cr_foam_y - 0.6]) circle(0.6);   // inner-bottom
+      translate([x1 - sign*0.6, cr_foam_y - 0.6]) circle(0.6);   // outer-bottom
+      translate([x0 + sign*3,   yt + 3]) circle(3);              // inner-top (round)
+      translate([x1 - sign*3,   yt + 3]) circle(3);              // outer-top (round)
+    }
+    translate([hx, hy, -anchor_tab_w/2 - eps])
+      linear_extrude(anchor_tab_w + 2*eps) rotate(180) teardrop2d(d=anchor_hole_d, ang=45);
+  }
+}
+
+// quick-release bungee BAIL (inverted-U staple): two legs bridged by a top bar.
+// The bar (Y=yt..yt+hook_bar) is a short BRIDGE -> supportless; the bungee seats
+// UP under the bar (or a hook-ended bungee clips it).  Throat opens at the foam.
+module cradle_bail(sign, z) {
+  x0 = sign*cr_out_x;                         // inner leg at the wall outer face
+  x1 = sign*(cr_out_x + hook_out);            // outer leg tip
+  yt = cr_foam_y - hook_h;                    // bar top
+  throat_top = yt + hook_bar;
+  throat_bot = cr_foam_y + 2;                 // open past the foam plane
+  translate([0,0,z]) linear_extrude(hook_w, center=true) difference() {
+    hull() {   // outer inverted-U silhouette (rounded top corners)
+      translate([x0 + sign*0.6, cr_foam_y - 0.6]) circle(0.6);
+      translate([x1 - sign*0.6, cr_foam_y - 0.6]) circle(0.6);
+      translate([x0 + sign*3,   yt + 3]) circle(3);
+      translate([x1 - sign*3,   yt + 3]) circle(3);
+    }
+    translate([sign*(cr_out_x + hook_out/2), (throat_top + throat_bot)/2])
+      square([hook_out - 2*hook_leg, throat_bot - throat_top], center=true);   // throat
+  }
+}
+
+module cradle() color("DarkKhaki") union() {
+  cradle_frame();
+  for (z = bungee_zs) { cradle_anchor(anchor_sign, z); cradle_bail(hook_sign, z); }
 }
 
 // =====================================================================
@@ -745,13 +919,11 @@ module body() {
   difference() {
     union() {
       rprism(W, H, D, corner_r);
-      if (lanyard) for (sx=[-1,1], sz=[-1,1]) lanyard_ear(sx, sz);
       hinge_housing();                              // outboard lid hinge
       rod_boss(rod_z_bow); rod_boss(rod_z_stern);   // inboard rod-socket bosses
       motor_mount_boss();                           // stern motor pad
     }
     translate([0,-eps,0]) rprism(inner_w, inner_h, inner_d+eps, corner_r-wall); // cavity (top open)
-    if (lanyard) for (sx=[-1,1], sz=[-1,1]) lanyard_bore(sx, sz);
     rod_socket_cut(rod_z_bow); rod_socket_cut(rod_z_stern);
     cable_port_cut(port_stern_z, port_stern_d);     // plain gland holes (item 4)
     cable_port_cut(port_bow_z, port_bow_d);
@@ -795,11 +967,20 @@ module ghost_components() {
     translate([p[3][0]-p[1][0]/2, inner_d - p[2], p[3][1]-p[1][1]/2])
       cube([p[1][0], p[2], p[1][1]]);
 }
+// INSTALLED cable glands -- the hex/dome that protrudes INBOARD (+X) from each port.
+// Modeled so the assembly preview + probes see the real hardware the cradle must clear.
+module ghost_glands() {
+  for (pz = cr_port_zs) color([0.15,0.15,0.15,0.6])
+    translate([W/2 - wall, port_y, pz]) rotate([0,90,0])
+      cylinder(h=cradle_gland_len, d=cradle_gland_od);
+}
 module ghost_float() {
-  // extends aft under the prop so the disc is seen sweeping OVER the float
+  // extends aft under the prop so the disc is seen sweeping OVER the float; wide
+  // enough that the cradle glue-foot flange sits fully on it (foam top at cr_foam_y)
   aft = prop_z_offset + 25;
+  fx  = cradle ? cr_flange_x + 4 : W/2 + 8;
   color([0.95,0.95,0.85,0.3])
-    translate([-W/2-8, D, -H/2-aft]) cube([W+16, float_thickness, H+aft+15]);
+    translate([-fx, cr_foam_y, -H/2-aft]) cube([2*fx, float_thickness, H+aft+15]);
 }
 module ghost_prop_and_motor() {
   // prop disc at TRUE diameter, aft of the stern, at hub height (clearance check).
@@ -854,6 +1035,7 @@ module oriented(p) {
   else if (p=="body") translate([0,0,D]) rotate([-90,0,0]) children();   // floor down
   else if (p=="lid")  translate([0,0,lid_t]) rotate([90,0,0]) children(); // outer face down
   else if (p=="pylon") children();  // modeled flat already (Z=0 face on the bed)
+  else if (p=="cradle") translate([0,0,cr_foam_y]) rotate([-90,0,0]) children(); // bond-face down
   else children();
 }
 
@@ -864,7 +1046,9 @@ module hull_assembly() {
   translate([Ax, Ay, 0]) rotate([0, 0, -lid_open]) translate([-Ax, -Ay, 0])
     color("Gainsboro") lid();
   pylon_at_stern();
-  if (show_ghosts) { ghost_components(); ghost_float(); ghost_prop_and_motor(); }
+  if (cradle) cradle();   // the box drops into this foam-bonded collar
+  if (show_ghosts) { ghost_components(); ghost_float(); ghost_prop_and_motor();
+                     if (cradle) ghost_glands(); }
 }
 
 module assembly_scene() {
@@ -883,3 +1067,4 @@ if (part=="assembly") {
 else if (part=="body")  oriented("body") apply_side() body();
 else if (part=="lid")   oriented("lid")  apply_side() lid();
 else if (part=="pylon") oriented("pylon") difference() { pylon(); pylon_cut(); }
+else if (part=="cradle") oriented("cradle") apply_side() cradle();
