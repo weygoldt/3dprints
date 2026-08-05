@@ -44,7 +44,7 @@ module pylon_cut() {
   bp_hole_l = 2*(pad_aft + 2);   // spans the full pad depth, both sides open
   // central boss clearance -- TEARDROP (apex toward +Z = pylon print-up) so the
   // 11.5 mm horizontal bore self-supports instead of drooping onto the boss.
-  translate([0, pylon_rise, cz]) rotate([0,0,-90]) teardrop(h=bp_hole_l, d=bp_bore+1.5);
+  //translate([0, pylon_rise, cz]) rotate([0,0,-90]) teardrop(h=bp_hole_l, d=bp_bore+1.5);
   for (p = [[bp_bolt/2,0],[-bp_bolt/2,0],[0,bp_bolt/2],[0,-bp_bolt/2]])
     translate([0, pylon_rise + p[0], cz + p[1]]) rotate([0,90,0])
       cylinder(h=bp_hole_l, d=bp_screw_d, center=true);           // 4x M3 plate-mount
