@@ -134,23 +134,28 @@ grip          = true;  // thumb-grip wedge on the lid's inboard rim
    sit in the free gaps between the floor components (echo-checked vs rc_parts).
    Mirrors with `side` (symmetric X pattern -> port/starboard land identically). */
 screw_mount     = true;
-screw_method    = "thread";  // [thread(BOSL2 modeled M4 -> screw straight into the PLA, DEFAULT),
-                             //  insert(M4 heat-set brass), selftap(thread-forming pilot)]
-// "thread" prints a real internal M4 thread (needs use_threads=true, the default) so an M4 machine
-// screw threads straight into the floor boss -- no heat-set inserts to install.  Note: M4x0.7 printed
-// threads on a 0.4 mm nozzle are a touch coarse (see DFM-REVIEW) and can wear if you mount/unmount a
-// LOT; if they strip, "selftap" (or thread + use_threads=false) forms a stronger thread in solid PLA.
+screw_method    = "insert";  // [insert(M4 heat-set brass, DEFAULT), thread(BOSL2 modeled M4 ->
+                             //  screw straight into the PLA), selftap(thread-forming pilot)]
+// "insert" bores a plain 5.6 mm hole and you melt an M4 brass heat-set insert in from the bed
+// (underside) face; the hold-down screw then threads into brass -- the strongest, most reusable
+// hold, with no printed-thread wear across repeated field mount/unmount.  "thread" prints a real
+// internal M4 thread (needs use_threads=true) so a screw threads straight into the PLA -- no
+// inserts to install, but M4x0.7 printed threads on a 0.4 mm nozzle are coarse (see DFM-REVIEW)
+// and wear if you mount/unmount a LOT.  "selftap" bores an undersized pilot; the screw cuts its own.
 screw_size      = 4;         // M4 nominal (tension + shear hold-down; assembled/disassembled in the field)
 // 4 bosses as a symmetric rectangle inset from the corners, tucked in the gaps
 // between the RC components (see rc_parts) and merging into the bow/stern end
 // walls for stiffness.  [X athwartship, Z fore-aft], box model frame.
 screw_positions = [[-27, 79], [27, 79], [-27, -79], [27, -79]];
-boss_od         = 12;        // boss outer diameter (>= 2x the insert OD, CNC-Kitchen rule -> ~3.2 mm wall,
-                             // so a hot brass insert does not split the boss)
+boss_od         = 12;        // boss outer diameter -- CNC-Kitchen rule: >= 2x the INSERT OD (insert_od,
+                             // NOT the hole), so a hot brass insert seats without splitting the boss.
+                             // 12 = exactly 2x a 6.0 mm M4 insert; bump to ~13 for inserts nearer 6.4.
 boss_rise       = 12;        // how far the boss rises off the floor INTO the chamber
 boss_cap_min    = 3;         // min sealed PLA cap above the bore top (watertight bar; >=2.5)
-// -- (insert) M4 brass heat-set: plain bore, insert melts in from the bed face --
-insert_d        = 5.6;       // heat-set hole for M4 brass (MEASURE your inserts; ~5.6-5.7)
+// -- (insert) M4 brass heat-set: plain round bore, insert melts in from the bed face --
+insert_d        = 5.6;       // heat-set HOLE for M4 brass (MEASURE your inserts; ~5.6-5.7)
+insert_od       = 6.0;       // heat-set brass OUTER knurl OD (MEASURE; ruthex M4 ~6.0, some ~6.4) --
+                             // the melted insert expands the hole to this; the CNC-Kitchen 2x boss rule uses it
 insert_depth    = 9;         // bore depth up from the floor underside (insert ~8 + melt lead)
 // -- (thread) BOSL2 modeled internal M4 thread -- the screw threads straight into the PLA --
 screw_pitch     = 0.7;       // M4 coarse
@@ -177,19 +182,19 @@ xt60_flange_len = 35;      // flange LONG axis (screw line): X on bow/stern, Z o
 xt60_body_depth = 12;      // how far the connector body reaches inward
 
 // =====================================================================
-//  TASK 5 -- METRIC THREADS (BOSL2)
-//  Tapped holes so bolts/set-screws thread straight into the PLA.  Two families
-//  use the tapped_hole() helper:
-//    (a) the 4 stern-block pylon-attach holes -> M4  (see mm_bolt_* below)
-//    (b) the through-board screw-mount bosses  -> M4  (ONLY when screw_method
-//        ="thread"; the default "insert" and the "selftap" fallback bore plain)
-//  use_threads=true models real BOSL2 internal threads.  If they print poorly
-//  at this scale on the MK3S, set use_threads=false to fall back to the
-//  thread-FORMING pilot holes (a bolt cuts its own thread in the PLA).  The
-//  stern-block holes print with their axis HORIZONTAL, so they use BOSL2's
-//  teardrop thread crest (self-supporting); the screw-mount bores print with a
-//  VERTICAL axis (self-support is automatic).  The pylon-foot holes and cable
-//  ports stay plain (bolt+nut / gland).
+//  TASK 5 -- PLA FASTENERS (heat-set inserts, default)
+//  Both PLA-threaded families now default to M4 HEAT-SET BRASS INSERTS: bore a
+//  plain insert_d hole and melt the brass insert in; the screw threads into
+//  brass (strongest, reusable, no printed-thread wear).  BOSL2 tapped_hole() is
+//  only reached when a family's method is switched back to "thread":
+//    (a) the 4 stern-block pylon-attach holes -> M4  (only when mm_bolt_method="thread")
+//    (b) the through-board screw-mount bosses  -> M4  (only when screw_method="thread")
+//  In "thread" mode use_threads=true models real BOSL2 internal threads; set it
+//  false to fall back to thread-FORMING pilot holes.  The stern-block holes print
+//  with their axis HORIZONTAL, so BOTH the insert bore and the modeled thread are
+//  TEARDROPPED (apex up) to self-support; the screw-mount bores print VERTICAL
+//  (self-support automatic).  The pylon-foot holes and cable ports stay plain
+//  (bolt+nut / gland).
 // =====================================================================
 use_threads = true;
 thread_slop = 0.1;    // BOSL2 internal-thread clearance ($slop): adds ~4*slop to the bore
@@ -230,14 +235,17 @@ motor_body_d   = 28;    // motor can diameter (MEASURED off Motor.stl; pad + gho
    the wall -- none enters the sealed cavity (echo-checked).  A register
    socket takes the shear/moment so the M4s are not in pure shear.  The pylon
    prints laid FLAT (layers along its length carry the bending load). */
-mm_block_depth = 14;    // stern block aft protrusion (bolt thread lives here)
+mm_block_depth = 14;    // stern block aft protrusion (the insert / bolt thread lives here)
+mm_bolt_method = "insert"; // [insert(M4 heat-set brass, DEFAULT), thread(BOSL2 modeled M4), selftap(pilot)]
+                        // how the 4 pylon-attach bolts engage the block.  "insert": bore insert_d and
+                        // melt an M4 brass insert into the block aft face -> the screw threads into
+                        // brass (strongest, reusable).  "thread"/"selftap": into the PLA, as screw_method.
 mm_pad_w       = 50;    // block width  (X)  -- extends DOWN to the floor (load spread, no overhang)
 mm_bolt_x      = 28;    // M4 spread across the width (Z): pulled in so the foot bolt COUNTERBORES
                         // (Task 1 redesign) clear the 42 mm pylon edge by >=3 mm
 mm_bolt_y      = 26;    // M4 spread across the height
-mm_bolt_depth  = 10;    // blind M4 thread depth into the block (< block_depth-2)
-mm_bolt_pilot  = 3.4;   // BLIND-hole pilot in the block: thread-forming for M4 in PLA
-                        // (set ~5.6 instead if using M4 heat-set inserts)
+mm_bolt_depth  = 10;    // blind hole depth into the block (< block_depth-2); fits the M4 insert (~8) + lead
+mm_bolt_pilot  = 3.4;   // (selftap / thread-fallback only) thread-forming pilot for M4 in PLA
 reg_depth      = 6;     // register tongue/slot depth (fore-aft) -- takes the shear/moment
 reg_h          = 14;    // register tongue/slot height
 // -- Pylon: a SEPARATE flat-extruded part.  Patrick's v0.2 redesign makes the
@@ -249,7 +257,8 @@ reg_h          = 14;    // register tongue/slot height
 pylon_width    = 44;    // (was 44) trimmed to the motor "+" pattern (+/-16) + >=3 mm walls
 pylon_root_t   = 8;     // mast fore-aft thickness at the TIP (>=4)
 pylon_gusset   = 16;    // extra fore-aft thickness added at the BASE (base_aft = root + gusset)
-pylon_bolt_d   = 4.4;   // M4 CLEARANCE through the foot (the block holes use mm_bolt_pilot/threads)
+pylon_bolt_d   = 4.4;   // M4 CLEARANCE through the foot (the block holes take an M4 heat-set insert by
+                        // default; thread/selftap fallbacks) -- the bolt threads into brass, not the foot
 pylon_fillet   = 4;     // smooth-transition fillet radius at the mast/pad/base junctions
 foot_cbore_d   = 7.5;   // M4 socket-head counterbore in the foot aft face (recesses the head)
 foot_cbore_h   = 5;     // counterbore depth
@@ -369,6 +378,15 @@ mm_pad_top = ov_d + 1;                                     // block top Y (clear
 mm_pad_h   = D - mm_pad_top;                               // block spans down to the FLOOR (Y=D)
 mm_pad_yc  = (mm_pad_top + D)/2;                           // block/foot/bolt center in Y
 foot_h     = mm_pad_h;                                     // pylon foot height matches the block
+// stern-block fastener bore (ROUND for insert/selftap; the modeled thread carries its own teardrop crest):
+// insert_d for heat-set, thread minor+slop for modeled (as the floor screw_bore_d), pilot for selftap.
+// wall = least PLA from the round bore edge to the block edges (X width, Y top/floor); ends vs cavity above.
+mm_bolt_bore_d   = (mm_bolt_method=="insert") ? insert_d
+                 : (mm_bolt_method=="thread") ? screw_size + 4*thread_slop
+                 :                              mm_bolt_pilot;
+mm_bolt_wall_min = min(mm_pad_w/2 - mm_bolt_x/2 - mm_bolt_bore_d/2,          // to the block width edge (X)
+                       (D - (mm_pad_yc + mm_bolt_y/2)) - mm_bolt_bore_d/2,   // up to the floor edge (Y=D)
+                       (mm_pad_yc - mm_bolt_y/2 - mm_pad_top) - mm_bolt_bore_d/2); // down to the block top edge
 pad_h      = bp_bolt + 2*bp_edge;                          // pad backs the BasePlate: >=3 mm wall at the M3 "+" holes
 pad_aft    = pylon_root_t + motor_pad_t;                   // pylon pad aft (motor) face, fore-aft
 pad_bolt_wall_y = pad_h/2 - bp_bolt/2 - bp_screw_d/2;      // pad edge wall at the outer "+" bolts (Y)
@@ -422,6 +440,10 @@ echo(str("  stern block ", mm_pad_w, " x ", mm_pad_h, " x ", mm_block_depth,
          round(mm_bolt_envelope), " mm ", mm_bolt_envelope >= 36 ? "OK (buttress + tongue carry the moment; bolts clamp)" : "  << WARNING: bolt spread small"));
 echo(str("  motor-mount bolt cavity margin = ", mm_cavity_margin, " mm (need >= 3) ",
          mm_cavity_margin >= 3 ? "OK" : "  << WARNING: fastener enters the sealed cavity"));
+echo(str("  stern-block fastener method = ", mm_bolt_method, " ; bore ",
+         round(10*mm_bolt_bore_d)/10, " x depth ", mm_bolt_depth,
+         " ; PLA wall around bore = ", round(10*mm_bolt_wall_min)/10, " mm ",
+         mm_bolt_wall_min >= 2 ? "OK" : "  << WARNING: thin wall around the block fastener"));
 echo(str("  pylon: ONE extrude, ", pylon_width, " wide -> flat supportless; FULL-HEIGHT buttress ",
          base_aft, "->", pylon_root_t, " fore-aft (base->tip); prints ~", round(pylon_rise),
          " long x ", pad_h, " x ", pylon_width, " mm"));
@@ -440,6 +462,10 @@ if (screw_mount) {
                                      : "  << WARNING: bore breaches toward the sealed cavity"));
   echo(str("  boss wall around the bore = ", round(10*boss_wall_min)/10, " mm ",
            boss_wall_min >= 2 ? "OK" : "  << WARNING: thin boss wall around the bore"));
+  if (screw_method=="insert")
+    echo(str("  CNC-Kitchen check: boss OD ", boss_od, " vs 2x insert OD ", insert_od, " = ", 2*insert_od,
+             " ", boss_od >= 2*insert_od ? "OK -- a hot insert won't split the boss"
+                                         : "  << WARNING: bump boss_od or use a <=6 mm insert"));
   echo(str("  boss top at Y=", boss_top_y, " (rises ", boss_rise, " into the ", inner_d,
            " chamber) ; positions [X,Z] = ", screw_positions));
   echo(str("  min boss-to-component plan gap = ", round(10*screw_comp_gap)/10, " mm ",
@@ -449,6 +475,13 @@ if (screw_mount) {
            " + bore ", screw_hole_depth, "; the bore already includes the ", wall,
            " mm floor) -- shorter is safer (blind cap) ; fender washer / backing plate under the soft foam"));
 } else echo("  screw mount OFF");
+// consolidated heat-set BOM/tooling note (both PLA-threaded families default to inserts)
+n_floor_ins = (screw_mount && screw_method=="insert") ? len(screw_positions) : 0;
+n_block_ins = (mm_bolt_method=="insert") ? 4 : 0;
+if (n_floor_ins + n_block_ins > 0)
+  echo(str("  HEAT-SET BOM: ", n_floor_ins + n_block_ins, "x M", screw_size, " brass inserts (",
+           n_floor_ins, " floor from the bed face + ", n_block_ins, " stern-block from the aft face)",
+           " + a soldering-iron insert tip ; pylon-attach M4 socket-head ~30 mm (foot + ~8 mm insert, trim to fit)"));
 
 echo("--- beam / stern-prop collision across the hulls ---------------");
 if (beam_target <= prop_diameter)

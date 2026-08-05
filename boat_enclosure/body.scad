@@ -119,9 +119,10 @@ module cable_port_cut(z, dia) {
 //  A solid block protruding AFT from the stern wall, extending DOWN to the
 //  FLOOR (Y=D) so it rests on the bed when printing (no overhang) and spreads
 //  the motor load into the floor, not just the 2.5 mm wall.  The pylon foot
-//  bolts to its aft face; 4 M4 blind PILOT holes thread into the block and end
-//  mm_cavity_margin short of the cavity -- no fastener enters the interior.  A
-//  full-width register SLOT takes the shear/moment (bolts not in pure shear).
+//  bolts to its aft face; 4 M4 blind holes (default: heat-set brass INSERT bore;
+//  thread / selftap fallbacks) end mm_cavity_margin short of the cavity -- no
+//  fastener enters the interior.  A full-width register SLOT takes the
+//  shear/moment (bolts not in pure shear).
 // =====================================================================
 module motor_mount_boss() {
   difference() {
@@ -134,13 +135,21 @@ module motor_mount_boss() {
 }
 
 module motor_mount_cut() {
-  // 4 TAPPED M4 blind holes into the aft face; end short of the cavity (item 5).
-  // Axis is model +Z (fore-aft) -> prints HORIZONTAL, so teardrop the crest.
-  // The body prints via rotate([-90,0,0]) (model -Y -> world +Z up); spin=180
-  // moves BOSL2's default +Y teardrop to model -Y so its apex ends up UP.
+  // 4 blind M4 holes into the block aft face; end mm_cavity_margin short of the
+  // cavity (item 5).  Axis is model +Z (fore-aft) -> prints HORIZONTAL.  The plain
+  // bores (insert / selftap pilot) are ROUND: a heat-set insert is a round brass
+  // knurl and wants full-circumference PLA to reflow into (a teardrop would leave
+  // an ungripped void above it so the insert seats high/cocked), and at <=5.6 mm a
+  // horizontal round bore self-supports fine -- the brass reflows any minor top sag
+  // flush (the DFM review makes the same call for the round gland ports).  Only the
+  // MODELED thread keeps BOSL2's teardrop crest (td=true; spin=180 puts the apex UP
+  // in the floor-down print) so its profile stays accurate without reflow.
   for (sx=[-1,1], sy=[-1,1])
-    translate([sx*mm_bolt_x/2, mm_pad_yc + sy*mm_bolt_y/2, mm_block_aft_z - eps])
-      tapped_hole(4, 0.7, mm_bolt_depth + eps, mm_bolt_pilot, td=true, spin=180);
+    translate([sx*mm_bolt_x/2, mm_pad_yc + sy*mm_bolt_y/2, mm_block_aft_z - eps]) {
+      if (mm_bolt_method=="insert")      cylinder(h=mm_bolt_depth + eps, d=insert_d);      // round heat-set bore
+      else if (mm_bolt_method=="thread") tapped_hole(4, 0.7, mm_bolt_depth + eps, mm_bolt_pilot, td=true, spin=180);
+      else                               cylinder(h=mm_bolt_depth + eps, d=mm_bolt_pilot); // round thread-forming pilot
+    }
 }
 
 // =====================================================================

@@ -33,10 +33,11 @@ cylinder rising into the chamber; the screw bore is drilled from the **bed face 
   a support-need — same interpretation guard as the top/bottom-shell bridge-infill.)
 - **Watertight, probe-verified.** Every screw bore ∩ the sealed chamber = **0 mm³** for insert/thread/
   selftap on both `side` settings; positive controls (over-deep bore, boss-under-component) fire, so the
-  0 is real. Sealed PLA cap above every bore = **4.5 mm** (thread, default) / 5.5 mm (insert) — a fully over-driven
-  real screw still stops on solid PLA.
-- **Heat-set insert wall.** `boss_od=12` around a ⌀5.6 insert hole = **3.2 mm** radial wall — meets the
-  CNC-Kitchen ≥2×-insert-OD rule, so a hot brass insert seats without splitting the boss.
+  0 is real. Sealed PLA cap above every bore = **5.5 mm** (insert, default) / 4.5 mm (thread fallback) — a
+  fully over-driven real screw still stops on solid PLA.
+- **Heat-set insert wall.** `boss_od=12` = **2× a 6.0 mm M4 insert OD** (the CNC-Kitchen rule is against the
+  brass OD, not the ⌀5.6 *hole*) → a 3.0 mm wall at the real OD, so a hot insert seats without splitting the
+  boss. Both PLA-threaded families (floor bosses + stern block) now **default to inserts**.
 
 ## How this was checked
 - Sliced every part with **PrusaSlicer** using an **authentic MK3S PLA profile** (0.4 nozzle, 0.2 mm layer
@@ -52,21 +53,23 @@ the slicer's *print-stability* flag. Judged on those, no part needs support.
 
 ## Must-do (2)
 
-### 1. Printed M4 threads are coarse on the MK3S — know the durability ladder
-Two families of modeled M4 thread print (with `use_threads=true`, the default): the **stern-block**
-pylon-attach holes, and — by Patrick's call — the **through-board screw-mount bores** (`screw_method
-="thread"`, now the **default** so a screw threads straight in, no heat-set inserts). At MK3S PLA radial
-resolution the M4×0.7 crest ≈ 0.38 mm (~one 0.45 mm bead): it prints and threads a screw, but the crest is
-thin and can **strip under repeated field mount/unmount**. Pick per how often you'll cycle the mount — all
-one flag, all **probe-verified watertight**:
-- **`screw_method="thread"` (default)** — easiest, no inserts; `thread_len`=10 (~2.5×dia) adds shear area.
-  Fine if you don't unbolt the box often.
-- **`screw_method="selftap"`** (or `"thread"` + `use_threads=false`) — a plain ⌀3.4 pilot; the screw forms
-  its own thread in **solid** PLA: **stronger** than a printed thread, no `$slop` gamble. Best all-round.
-- **`screw_method="insert"`** — M4 heat-set brass (⌀5.6 bore): strongest, best for many cycles, needs a
-  soldering iron to install.
-For the **stern-block** M4 (horizontal, teardrop crest) the same coarseness applies; `use_threads=false`
-falls it back to a thread-forming pilot.
+### 1. Heat-set inserts are the default — install 8× M4 brass before assembly
+Both PLA-threaded families now default to **M4 heat-set brass inserts**: the 4 **through-board floor
+bosses** (`screw_method="insert"`) and the 4 **stern-block** pylon-attach holes (`mm_bolt_method="insert"`)
+— **8× M4 brass inserts** + a **soldering-iron insert tip**. Floor bores are ⌀5.6 vertical (installed from
+the bed face, pointing up into the chamber); stern-block bores are ⌀5.6 **round** horizontal (installed from
+the aft face — the same round-bore call this review makes for the gland ports: the brass reflows any minor
+top sag flush, and round gives the full-circumference grip a teardrop would not). `boss_od=12` = 2× a 6.0 mm
+insert OD (CNC-Kitchen), so a hot insert won't split the boss. All methods are **probe-verified watertight**.
+Prefer not to install inserts? Two printed-thread fallbacks (both one flag, both watertight) — but M4×0.7
+crests on the MK3S are coarse (≈0.38 mm, ~one 0.45 mm bead) and can **strip under repeated field
+mount/unmount**:
+- **`insert` (default)** — M4 heat-set brass: strongest, best for many mount/unmount cycles.
+- **`selftap`** — a plain ⌀3.4 pilot; the screw forms its own thread in **solid** PLA: stronger than a
+  printed thread, no `$slop` gamble. Best if you skip inserts.
+- **`thread`** — BOSL2-modeled internal M4 (`use_threads=true`); a screw threads straight into the PLA, no
+  inserts, but the printed crest is the wear-prone option. `thread_len`=10 (~2.5×dia) adds shear area.
+Set the two families independently via `screw_method` and `mm_bolt_method`.
 
 ### 2. Brim the lid — it's the real warp risk
 The lid is a **170 mm-long, 3 mm-thin broad flat panel** — a textbook corner/edge-curl candidate in PLA.

@@ -29,10 +29,11 @@ sealed bosses on the floor underside**. Nothing else changes — cable ports/lid
 - **Watertight math:** cap = `boss_h − screw_hole_depth` = 14.5 − `screw_hole_depth` = **4.5 mm**
   (thread, `screw_hole_depth`=10) / 5.5 mm (insert, 9) of solid PLA above every bore (need ≥
   `boss_cap_min`=3). Even a fully over-driven real screw stops on that cap — no leak path.
-- **`screw_method` toggle** (mirrors `use_threads`): **`thread`** (**default**, Patrick's call — BOSL2
-  models a real internal M4 thread so the screw threads **straight into the PLA, no inserts**; vertical
-  → self-supporting; cap 4.5 mm; `thread_len`=10) · **`insert`** (M4 heat-set brass, ⌀5.6 bore, boss OD
-  12 → 3.2 mm wall so a hot insert won't split it) · **`selftap`** (⌀3.4 pilot, the screw forms its own,
+- **`screw_method` toggle** (mirrors `use_threads`): **`insert`** (**default**, Patrick's call — M4
+  heat-set brass, ⌀5.6 vertical bore installed from the bed face; boss OD 12 = 2× a 6.0 mm insert OD so a
+  hot insert won't split it; cap 5.5 mm; strongest/reusable) · **`thread`** (BOSL2 models a real internal
+  M4 thread so the screw threads straight into the PLA, no inserts; vertical → self-supporting; cap 4.5 mm;
+  `thread_len`=10) · **`selftap`** (⌀3.4 pilot, the screw forms its own,
   *stronger*, thread in solid PLA — the robust fallback if the coarse printed M4×0.7 thread wears from
   repeated field mount/unmount; `thread`+`use_threads=false` behaves the same).
 - **Prints the easy way:** floor-DOWN, the bosses stand vertically on the bed (fully supported) and the
@@ -226,9 +227,11 @@ Change `prop_diameter` to 254 (1045) and the pylon grows to ~110 mm above the bo
 6. **Float dimensions** — `float_thickness` (60) and `float_freeboard` (42) at ~2 kg all-up are
    assumptions; they set the prop clearance. Confirm against the real float at load.
 7. **Which hull is the stim hull** — set `stim_port=true` on that print (independent of `side`).
-8. **Screw mount** — 4× M4 at `screw_positions=[±27,±79]`, default `screw_method="thread"` (screw
-   straight into printed M4 threads — no inserts). Confirm the count/positions clear your real component
-   layout; if the coarse printed M4×0.7 threads wear from repeated mount/unmount, switch to `selftap`
-   (screw self-taps a stronger thread) or `insert` (heat-set brass). Foam thickness (`float_thickness=60`)
-   sets the **max** screw length (`screw_len_est` ≤70 mm; shorter is safer). Wide fender washer / backing
+8. **Screw mount** — 4× M4 at `screw_positions=[±27,±79]`, default `screw_method="insert"` (M4 heat-set
+   brass, melted in from the bed face — install 4 before assembly). Confirm the count/positions clear your
+   real component layout; printed-thread fallbacks exist (`selftap` = screw self-taps a stronger thread;
+   `thread` = straight into a printed M4 thread) if you'd rather skip inserts. Foam thickness
+   (`float_thickness=60`) sets the **max** screw length (`screw_len_est` ≤70 mm; shorter is safer). The
+   **stern-block** pylon-attach holes likewise default to `mm_bolt_method="insert"` (4 more M4 inserts,
+   melted in from the block aft face). Wide fender washer / backing
    plate under the soft foam so the head can't pull through.
