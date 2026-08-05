@@ -1,0 +1,178 @@
+// =====================================================================
+//  AIRBOAT ENCLOSURE -- BODY  (the shell; prints FLOOR down)
+// Part of the airboat catamaran enclosure. See common.scad for the
+// frame mapping, all parameters, the fit-check echoes, and shared helpers.
+// =====================================================================
+include <common.scad>
+
+// --- knuckle hinge: HOUSING leaf (body side of the outboard -X hinge) ---
+module housing_leaf_2d() {
+  translate([Ax, Ay]) circle(d=knuckle_d);
+  polygon(concat(
+    [[Ax + kr*cos(shell_bevel), Ay + kr*sin(shell_bevel)],
+     [-W/2, ov_d + 0.3],
+     [-W/2 + 0.6, ov_d + 0.3],
+     [-W/2 + 0.6, leaf_reach]],
+    arc(n=16, r=hinge_fillet, cp=leaf_F, angle=[0, -hinge_arm_ang]),
+    [leaf_P]));
+}
+
+module hinge_housing() {
+  difference() {
+    hinge_segments(0) housing_leaf_2d();
+    pin_bore_cut(-1);     // body prints floor down -> print-up = -y
+  }
+}
+
+// =====================================================================
+//  LID OVERLAP + SNAP LOCKS  (ported verbatim; full top-face perimeter)
+// =====================================================================
+module front_step_cut() {
+  intersection() {
+    difference() {
+      translate([-W/2-5, -eps, -H/2-5]) cube([W+10, ov_d+0.3+eps, H+10]);
+      translate([0, -2*eps, 0]) hull() for (sz=[-1,1]) {
+        translate([ W/2-corner_r, 0, sz*(H/2-corner_r)])
+          rotate([-90,0,0]) cylinder(h=ov_d+0.3+4*eps, r=corner_r-step);
+        translate([-W/2+corner_r + (step_left-step), 0, sz*(H/2-corner_r)])
+          rotate([-90,0,0]) cylinder(h=ov_d+0.3+4*eps, r=corner_r-step);
+      }
+    }
+    translate([-W/2-1, -1, -H/2-6]) cube([W+10, ov_d+2, H+12]);
+  }
+}
+
+module lock_dents() {
+  for (z = lock_zs) translate([W/2-step+eps, lock_y, z]) lock_wedge(LEFT, dent=true);
+  if (n_locks >= 2) translate([0, lock_y,  H/2-step+eps])  lock_wedge(DOWN, dent=true);
+  if (n_locks >= 3) translate([0, lock_y, -(H/2-step)-eps]) lock_wedge(UP, dent=true);
+}
+
+// =====================================================================
+//  XT60 CHARGE PORT  (ported; outboard wall / floor / stern)
+// =====================================================================
+module xt60_cut() {
+  if (xt60 && xt60_face != "none") {
+    bw = xt60_body[0]; bh = xt60_body[1];
+    if (xt60_face=="left" || xt60_face=="right") {
+      sx = (xt60_face=="right") ? 1 : -1;
+      translate([sx*(W/2-wall/2), D/2+xt60_y, xt60_pos]) rotate([0,sx*90,0]) {
+        cube([bw, bh, wall+2*eps], center=true);
+        for (s=[-1,1]) translate([s*xt60_screw_sep/2, 0, 0])
+          cylinder(h=wall+2*eps, d=xt60_screw_d, center=true);
+      }
+    } else if (xt60_face=="bottom") {   // floor (Y=D)
+      translate([xt60_pos, D-wall/2, 0]) rotate([90,0,0]) {
+        cube([bw, bh, wall+2*eps], center=true);
+        for (s=[-1,1]) translate([s*xt60_screw_sep/2, 0, 0])
+          cylinder(h=wall+2*eps, d=xt60_screw_d, center=true);
+      }
+    } else if (xt60_face=="bow" || xt60_face=="stern") {  // end wall (+Z bow / -Z stern)
+      zc = (xt60_face=="bow") ? H/2-wall/2 : -H/2+wall/2;
+      translate([xt60_pos, D/2+xt60_y, zc]) {   // long axis (flange/screws) along X
+        cube([bw, bh, wall+2*eps], center=true);
+        for (s=[-1,1]) translate([s*xt60_screw_sep/2, 0, 0])
+          cylinder(h=wall+2*eps, d=xt60_screw_d, center=true);
+      }
+    }
+  }
+}
+
+// =====================================================================
+//  THROUGH-BOARD SCREW MOUNT  (floor interior; blind, sealed, WATERTIGHT)
+//  Each boss is a solid PLA cylinder unioned to the floor, rising boss_rise
+//  INTO the chamber.  The screw bore is drilled from the BOTTOM (bed) face
+//  (Y=D) UPWARD (toward -Y / the lid) and stops screw_cap short of the boss
+//  top, so it NEVER reaches the chamber void -- the whole watertight guarantee.
+//  Because the box prints floor-DOWN, the boss stands vertically on the bed
+//  (fully supported) and the blind bore opens at the bed face and runs straight
+//  up -> self-supporting, NO teardrop needed (unlike the old horizontal sockets).
+//  The bosses are unioned AFTER the cavity is carved (see body()); otherwise the
+//  cavity cut would erase them.  The bore is then cut through the merged
+//  floor+boss, so the screw passes through the 2.5 mm floor and engages the boss.
+// =====================================================================
+module screw_boss(p) {   // solid boss: underside (Y=D) up into the chamber to Y=boss_top_y
+  translate([p[0], D, p[1]]) rotate([90,0,0]) cylinder(h=boss_h, d=boss_od);
+}
+
+module screw_boss_cut(p) {   // blind bore UP from the underside; method sets insert / thread / pilot
+  translate([p[0], D + eps, p[1]]) rotate([90,0,0]) {
+    if (screw_method=="insert")      cylinder(h=insert_depth + eps, d=insert_d);
+    else if (screw_method=="thread") tapped_hole(screw_size, screw_pitch, thread_len + eps, selftap_d, td=false);
+    else                             cylinder(h=selftap_depth + eps, d=selftap_d);
+  }
+}
+
+// =====================================================================
+//  TASK 3 -- CABLE PORTS  (inboard +X wall; PLAIN through-holes, item 4)
+//  No external boss: the cable gland's own threaded body + nut form the
+//  shoulder and seal.  Just a clean hole through the 2.5 mm wall, sized for
+//  the gland's panel-mount diameter.
+// =====================================================================
+module cable_port_cut(z, dia) {
+  translate([W/2-wall-eps, port_y, z]) rotate([0,90,0])
+    cylinder(h=2*wall+2*eps, d=dia);
+}
+
+// =====================================================================
+//  TASK 1 -- MOTOR MOUNT BLOCK  (external, on the stern -Z wall)
+//  A solid block protruding AFT from the stern wall, extending DOWN to the
+//  FLOOR (Y=D) so it rests on the bed when printing (no overhang) and spreads
+//  the motor load into the floor, not just the 2.5 mm wall.  The pylon foot
+//  bolts to its aft face; 4 M4 blind PILOT holes thread into the block and end
+//  mm_cavity_margin short of the cavity -- no fastener enters the interior.  A
+//  full-width register SLOT takes the shear/moment (bolts not in pure shear).
+// =====================================================================
+module motor_mount_boss() {
+  difference() {
+    translate([0, mm_pad_yc, -H/2 - mm_block_depth/2 + eps])
+      cube([mm_pad_w, mm_pad_h, mm_block_depth], center=true);
+    // full-width register slot in the aft face (pylon tongue seats here)
+    translate([0, mm_pad_yc, mm_block_aft_z - eps])
+      cube([pylon_width+0.4, reg_h+0.4, 2*reg_depth], center=true);
+  }
+}
+
+module motor_mount_cut() {
+  // 4 TAPPED M4 blind holes into the aft face; end short of the cavity (item 5).
+  // Axis is model +Z (fore-aft) -> prints HORIZONTAL, so teardrop the crest.
+  // The body prints via rotate([-90,0,0]) (model -Y -> world +Z up); spin=180
+  // moves BOSL2's default +Y teardrop to model -Y so its apex ends up UP.
+  for (sx=[-1,1], sy=[-1,1])
+    translate([sx*mm_bolt_x/2, mm_pad_yc + sy*mm_bolt_y/2, mm_block_aft_z - eps])
+      tapped_hole(4, 0.7, mm_bolt_depth + eps, mm_bolt_pilot, td=true, spin=180);
+}
+
+// =====================================================================
+//  BODY  (the shell -- one difference for all external through-features)
+// =====================================================================
+module body() {
+  difference() {
+    union() {
+      // shell hollowed FIRST, THEN the interior screw bosses are unioned on top
+      // (added after the cavity cut so the cavity does not erase them).
+      difference() {
+        union() {
+          rprism(W, H, D, corner_r);
+          hinge_housing();                          // outboard lid hinge
+          motor_mount_boss();                       // stern motor pad
+        }
+        translate([0,-eps,0]) rprism(inner_w, inner_h, inner_d+eps, corner_r-wall); // cavity (top open)
+      }
+      if (screw_mount) for (p=screw_positions) screw_boss(p);   // solid hold-down bosses on the floor
+    }
+    // through-features cut through the assembled solid: the screw bores pierce the
+    // floor AND the boss together, leaving the sealed cap between bore top and chamber.
+    if (screw_mount) for (p=screw_positions) screw_boss_cut(p);
+    cable_port_cut(port_stern_z, port_stern_d);     // plain gland holes (item 4)
+    cable_port_cut(port_bow_z, port_bow_d);
+    if (stim_port) cable_port_cut(port_stim_z, port_stim_d); // 3rd port, stim hull only (item 6)
+    motor_mount_cut();
+    xt60_cut();
+    front_step_cut();                               // stepped band the lid skirt wraps
+    lock_dents();
+  }
+}
+
+// standalone render: opening this file renders the BODY (floor down).
+oriented("body") apply_side() body();

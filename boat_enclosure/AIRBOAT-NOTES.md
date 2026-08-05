@@ -7,10 +7,58 @@ box**. One body serves both hulls via `side = "port" | "starboard"`.
 
 | Question | Answer |
 |---|---|
-| Base vs brief | **Reorient** to the flat low-profile float box; reuse the stim enclosure's knuckle hinge, snap-lock skirt, lanyard ears, wall/echo idioms. |
+| Base vs brief | **Reorient** to the flat low-profile float box; reuse the stim enclosure's knuckle hinge, snap-lock skirt, wall/echo idioms. |
 | Prop size | **Parametric** `prop_diameter` (default 203 = 8×4.5); the pylon height derives from it automatically. 1045 (254) is a one-line change. |
 | Stern cable port | **One 8 mm** gland (`port_stern_d`). |
-| Float mount | **Keep the lanyard/zip-tie ears** — box lashes to the styrofoam with zip ties through the foam. No bottom bolt bosses. |
+| Float mount | **Through-board screws (current).** The box is screwed DOWN onto the XPS float — screws up through the foam into blind, sealed floor bosses. Superseded the lanyard ears and (earlier) a bonded cradle+bungee. See "Float mount — through-board screw mount" below. |
+
+## Float mount — through-board screw mount (current)
+
+Patrick's decision: **rigidly screw the box down to its XPS foam float** and drop everything else
+(the lanyard/zip-tie ears *and* the bonded cradle+bungee that briefly replaced them, and the two
+inboard PVC rod sockets). Screws pass **UP through the foam from below** and thread into **blind,
+sealed bosses on the floor underside**. Nothing else changes — cable ports/lid gland/XT60 stay sealed.
+
+**Geometry (`[Through-board screw mount]` params + `screw_boss`/`screw_boss_cut`):**
+- **4 bosses** at `screw_positions = [±27, ±79]` — a 54 × 158 mm rectangle inset from the corners,
+  tucked in the free gaps between the RC components and **merging into the bow/stern end walls** for
+  stiffness. Min plan gap to any component = **3.0 mm** (echo-checked against `rc_parts`).
+- Each boss is a **solid `boss_od=12` cylinder** rising `boss_rise=12` off the floor **into** the
+  chamber (top at Y=23 of the 35 mm chamber). The screw bore is drilled from the **bottom (bed) face
+  UPWARD** and stops a **sealed cap** short of the boss top — **so it never reaches the chamber void.**
+- **Watertight math:** cap = `boss_h − screw_hole_depth` = 14.5 − `screw_hole_depth` = **4.5 mm**
+  (thread, `screw_hole_depth`=10) / 5.5 mm (insert, 9) of solid PLA above every bore (need ≥
+  `boss_cap_min`=3). Even a fully over-driven real screw stops on that cap — no leak path.
+- **`screw_method` toggle** (mirrors `use_threads`): **`thread`** (**default**, Patrick's call — BOSL2
+  models a real internal M4 thread so the screw threads **straight into the PLA, no inserts**; vertical
+  → self-supporting; cap 4.5 mm; `thread_len`=10) · **`insert`** (M4 heat-set brass, ⌀5.6 bore, boss OD
+  12 → 3.2 mm wall so a hot insert won't split it) · **`selftap`** (⌀3.4 pilot, the screw forms its own,
+  *stronger*, thread in solid PLA — the robust fallback if the coarse printed M4×0.7 thread wears from
+  repeated field mount/unmount; `thread`+`use_threads=false` behaves the same).
+- **Prints the easy way:** floor-DOWN, the bosses stand vertically on the bed (fully supported) and the
+  blind bores open at the bed face and run straight up → **self-supporting, no teardrop** (unlike the
+  old horizontal rod sockets). Removing the ears + rod sockets *dropped* the body's overhang-risk from
+  ~1300 → ~540 mm² and print time to ~8h47m.
+
+**Patrick's hardware (outside the box model):** the foam is soft — use **wide fender washers or a
+backing plate under the foam** so the head can't pull through. Max screw length = foam + bore
+(`screw_len_est` = `float_thickness + screw_hole_depth` = 60 + 10 = **≤70 mm** for 60 mm foam and the
+thread method — the bore already includes the 2.5 mm floor, don't add it twice; **shorter is safer**,
+the cap is blind). A smear of sealant on the screw at assembly is optional (the geometry alone is watertight).
+
+**Cross-brace note (float-level, confirm):** the removed PVC rods were also the **hull-to-hull link**.
+With each box screwed to its own float, the **box no longer cross-braces the two hulls** — that must be
+handled at the float/frame level. The box makes no claim to solve it.
+
+**Verification (all passing, house style — `probe.scad` intersection-volume probes with positive
+controls):**
+- body (port + starboard) / lid / pylon: `NoError`, **1 shell**; port ≡ starboard volume (mirror exact).
+- **WATERTIGHT — every screw bore ∩ the sealed chamber = 0 mm³** for insert/thread/selftap, both sides.
+  The probe's positive controls fire (over-deep bore → 148 mm³; boss under the LiPo → 1356 mm³), so the
+  0 is real detection, not a dead probe.
+- Boss ∩ each RC component = 0; boss ∩ stern motor block = 0; closed lid ∩ body = 0 (the nested-
+  difference `body()` restructure still seats the lid).
+- **Supportless** floor-down slice (MK3S PLA): **0 support material** (insert *and* thread methods).
 
 ## Frame mapping (why the reuse works)
 
@@ -18,7 +66,7 @@ The stim enclosure's code frame is kept verbatim so the proven hinge/skirt/print
 need no edits — only the physical meaning of each axis changes:
 
 ```
-code X (inner_w=90,  W=95)   = box WIDTH  (athwartship)   -X = OUTBOARD (hinge, XT60) | +X = INBOARD (rod sockets, cable ports)
+code X (inner_w=90,  W=95)   = box WIDTH  (athwartship)   -X = OUTBOARD (hinge, XT60) | +X = INBOARD (cable ports)
 code Z (inner_h=165, H=170)  = box LENGTH (fore-aft)       +Z = BOW | -Z = STERN (motor pylon)
 code Y (inner_d=35,  D=37.5) = box HEIGHT (floor→lid)      Y=0 = LID/TOP | Y=D = FLOOR (on the float)
 ```
@@ -30,29 +78,49 @@ overhang untouched, so both hulls print supportless equally well.
 
 ## Parts and export
 
+The model is **split into one file per part** — open a file to render that part
+(the old `-D 'part='` selector is gone). All shared parameters, the DERIVED values,
+the ECHO fit-check, and the shared helper/mechanism modules live in `common.scad`,
+which every other file `include`s.
+
 ```
-openscad -o body.stl     -D 'part="body"'  -D 'side="port"'      -D '$fn=128' main.scad
-openscad -o lid.stl      -D 'part="lid"'   -D 'side="port"'      -D '$fn=128' main.scad
-openscad -o pylon.stl    -D 'part="pylon"'                       -D '$fn=128' main.scad
+openscad -o body.stl   -D 'side="port"' -D '$fn=128' body.scad
+openscad -o lid.stl    -D 'side="port"' -D '$fn=128' lid.scad
+openscad -o pylon.stl                   -D '$fn=128' pylon.scad
 # starboard hull: same, with -D 'side="starboard"'
-# assembly preview:  -D 'part="assembly"' -D 'preview_upright=true' -D 'lid_open=42'
+# assembly preview (both hulls, ghosts, hardware phantoms):
+openscad main.scad     # or add -D 'preview_upright=true' -D 'lid_open=42'
 ```
 
-- **body** — prints floor on the bed. **lid** — outer face down. **pylon** — laid flat, layers
-  along its length (the bending load runs along the layers, not across them).
-- The pylon is a **separate part bolted to the stern** — never to the lid, and no fastener
-  enters the sealed cavity.
+**File layout**
+
+- `common.scad` — all parameters, DERIVED values, the ECHO fit-check, the shared
+  helpers (`rprism`, `tapped_hole`), the shared hinge / snap-lock primitives, the
+  orientation helpers, and the two BOSL2 `include`s. Included by every other file.
+- `body.scad` — `body()` + its body-only submodules → **prints floor on the bed**.
+- `lid.scad` — `lid()` + its lid-only submodules → **outer face down**.
+- `pylon.scad` — `pylon()`/`pylon_cut()` → **laid flat**, layers along its length
+  (the bending load runs along the layers, not across them).
+- `main.scad` — the **assembly preview**: `include <common.scad>` + `use` of the
+  three part files, plus the motor / float / prop / screw phantoms and the scene.
+
+- The pylon is a **separate part bolted to the stern** — never to the lid, and no
+  fastener enters the sealed cavity.
+
+> This split is a pure, behaviour-preserving refactor: the exported STLs are
+> byte-for-byte identical to the pre-split monolith at the same `$fn`.
 
 ## Verification (all passing)
 
 - Manifold `NoError` for body / lid / pylon on both `side` settings.
-- Bed fit (250×210×210): body **130.8×184×39**, lid **106.5×170×7.5**, pylon **30×139.5×44** (laid flat).
-- Body+lid nest across X = **242 mm** ≤ 245 budget (thin margin, as the brief warned), long axis along Y.
-- **No fastener breaches the cavity** — rod sockets, grub screws, and motor bolts intersect the
-  interior void at **0 mm³** (intersection probe). Cable ports are true **through-holes** (probed).
+- Bed fit (250×210×210): body **105×184×40.5** (narrower — ears + rod bosses gone, bosses are internal), lid **106.5×170×7.5**, pylon laid flat.
+- Body+lid nest across X = **217 mm** ≤ 245 budget (comfortable now the ears + rod bosses are gone), long axis along Y.
+- **No fastener breaches the cavity** — the through-board screw bores and the motor bolts intersect the
+  interior void at **0 mm³** (intersection probe, positive-control verified). Cable ports are true
+  **through-holes** (probed).
 - **Lid opens/closes cleanly** — `render()`-collapsed lid ∩ body = **empty at 0–175°**; seats at 0°.
 - **Prop disc clears** the box and the float (0 mm³), on both hulls; stern-prop gap across the beam = 37 mm.
-- Rod-socket blind bores are **teardrop, apex print-up** (self-supporting).
+- Through-board screw bores are **vertical** (open at the bed face, run straight up) → self-supporting, no teardrop.
 - **Pylon prints supportless** — one `linear_extrude` gives a genuinely flat bed face; layers run
   along the mast. Foot-bolt edge wall 3.8 mm; foot↔block bolt holes are coaxial; tongue seats in slot.
 - **XT60 on the bow wall** (the outboard wall is fully taken by the hinge; probed clear of it).
@@ -147,12 +215,20 @@ Change `prop_diameter` to 254 (1045) and the pylon grows to ~110 mm above the bo
    `foot_cbore_*` to taste. See "Item 1 — pylon redesigned as a full-height buttress" above.
 2. **BasePlate holes** — the pad matches the plate's **outer "+"** (⌀3/M3 at ±16) measured off
    `BasePlate.stl`. Confirm your plate matches (`bp_bolt`, `bp_size`, `bp_bore`).
-3. **Gland sizes** — every gland hole defaults to **⌀12.5 (PG7)**: `port_stern_d`, `port_bow_d`,
-   `port_stim_d`, `lid_gland_d`. Set them to your actual glands (PG9 = 15.2, M12 = 12).
+3. **Gland sizes** — every gland hole is now **⌀12 (MEASURED by Patrick, 2026-08-04)**: `port_stern_d`,
+   `port_bow_d`, `port_stim_d`, `lid_gland_d`. The installed footprint `port_ftp=19` drives the inboard
+   spacing check (not the 12 hole). Confirm both against your glands.
 4. **Threads print quality** — `use_threads=true` models real BOSL2 M4/M3. If they print poorly on
    the MK3S, set `use_threads=false` for thread-forming pilots (`mm_bolt_pilot` / `rod_grub_d`).
-5. **`beam_target`** (default 240 mm) sets the rod length (144 mm) and must exceed `prop_diameter`
-   or the two stern props collide — echo-checked. Confirm the catamaran beam you want.
+5. **`beam_target`** (default 240 mm) must exceed `prop_diameter` or the two stern props collide —
+   echo-checked (the rods that used to span it are gone). Confirm the catamaran beam you want, **and
+   how the two floats are cross-braced now the rods are removed** (float-level, outside the box).
 6. **Float dimensions** — `float_thickness` (60) and `float_freeboard` (42) at ~2 kg all-up are
    assumptions; they set the prop clearance. Confirm against the real float at load.
 7. **Which hull is the stim hull** — set `stim_port=true` on that print (independent of `side`).
+8. **Screw mount** — 4× M4 at `screw_positions=[±27,±79]`, default `screw_method="thread"` (screw
+   straight into printed M4 threads — no inserts). Confirm the count/positions clear your real component
+   layout; if the coarse printed M4×0.7 threads wear from repeated mount/unmount, switch to `selftap`
+   (screw self-taps a stronger thread) or `insert` (heat-set brass). Foam thickness (`float_thickness=60`)
+   sets the **max** screw length (`screw_len_est` ≤70 mm; shorter is safer). Wide fender washer / backing
+   plate under the soft foam so the head can't pull through.
