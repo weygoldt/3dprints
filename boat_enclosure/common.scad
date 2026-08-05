@@ -328,8 +328,10 @@ rib_inset    = 7;     // perimeter rib inset from the skirt inner face (was 5). 
                       // can't make them clash and hold the lid off its seat.
 rib_xs       = [-28, 0, 28];   // longitudinal ribs (run fore-aft, along Z) at these X
 rib_zs       = [-55, 0, 55];   // transverse ribs (run athwartship, along X) at these Z
-// -- lid deck shadow-gap panel line (looks) --
-lid_panel_line = true;
+// -- lid deck shadow-gap panel line (looks) -- OFF: a recessed groove in the OUTER
+// (bed) face fights a clean flat bottom (Patrick: prints poorly flat on the bed).
+// The 45deg top-edge chamfer alone carries the finished-deck look. Flip true to restore.
+lid_panel_line = false;
 panel_inset  = 7;     // inset of the shadow-gap line from the lid outline
 panel_w      = 1.5;   // line width
 panel_d      = 0.9;   // line depth into the OUTER (bed) face  (leaves >=1.8 of the 3mm lid)
