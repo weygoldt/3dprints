@@ -131,6 +131,53 @@ module motor_mount_boss() {
     // full-width register slot in the aft face (pylon tongue seats here)
     translate([0, mm_pad_yc, mm_block_aft_z - eps])
       cube([pylon_width+0.4, reg_h+0.4, 2*reg_depth], center=true);
+    // item 5 -- 45deg chamfer the block's exposed AFT-OUTER vertical edges so the
+    // glued-on-looking pad reads as an integral transom.  Stays in the 3 mm strip
+    // outboard of the 44 mm pylon mating footprint (X=+/-22) and clear of the +/-14
+    // insert bores; the aft MATING face + the register slot interior stay dead flat.
+    if (block_sculpt) for (sx=[-1,1])
+      translate([sx*mm_pad_w/2, mm_pad_yc, mm_block_aft_z]) rotate([90,0,0])
+        linear_extrude(mm_pad_h + 2*eps, center=true) rotate(45) square(edge_ch*sqrt(2), center=true);
+  }
+}
+
+// item 5 (cont.) -- concave gusset webs blending each block SIDE into the stern
+// wall: spreads the motor moment onto the wall and fairs the junction (looks).
+// Vertical (along Y) -> supportless; sits outboard of the block, on the flat wall.
+module block_side_gussets() {
+  g = block_fil_r;
+  for (sx=[-1,1])
+    translate([sx*mm_pad_w/2, mm_pad_yc, -H/2]) rotate([90,0,0])
+      linear_extrude(mm_pad_h, center=true)
+        polygon([[0,0], [sx*g, 0], [0, -g]]);   // right-triangle web onto the wall (X out, Z aft)
+}
+
+// item 4 -- interior floor<->wall COVE: a 45deg fillet along the internal floor
+// perimeter that stiffens the 2.5 mm wall roots and spreads floor/wall loads.
+// Added AFTER the cavity cut (fills the inside corner).  Floor-DOWN it is monotonic
+// (cross-section shrinks going up toward the opening) -> supportless.  Kept clear of
+// the RC components + the +/-79 boss (cove reaches inner_d..inner_d-cove_leg near the wall).
+module floor_cove_mod() {
+  difference() {
+    translate([0, inner_d - cove_leg, 0]) rprism(inner_w, inner_h, cove_leg + eps, corner_r - wall);
+    hull() {   // the remaining void: full opening up high, shrunk by cove_leg at the floor
+      translate([0, inner_d - cove_leg - eps, 0]) rprism(inner_w + eps, inner_h + eps, eps, corner_r - wall);
+      translate([0, inner_d, 0])
+        rprism(inner_w - 2*cove_leg, inner_h - 2*cove_leg, eps, max(0.5, corner_r - wall - cove_leg));
+    }
+  }
+}
+
+// item 7a -- finished FOOT: a 45deg chamfer on the bottom (floor, Y=D bed face)
+// outer perimeter edge.  Leaves the central floor field flat for the foam/washer
+// and clear of the screw-bore mouths; self-supporting floor-down (brim per DFM).
+module foot_chamfer_cut() {
+  difference() {
+    translate([0, D - edge_ch, 0]) rprism(W + 2, H + 2, edge_ch + eps, corner_r);
+    hull() {
+      translate([0, D - edge_ch, 0]) rprism(W, H, eps, corner_r);
+      translate([0, D - eps, 0]) rprism(W - 2*edge_ch, H - 2*edge_ch, eps, max(0.5, corner_r - edge_ch));
+    }
   }
 }
 
@@ -153,6 +200,42 @@ module motor_mount_cut() {
 }
 
 // =====================================================================
+//  SPLASH SEAL  (item 6) -- a real perimeter COMPRESSION gasket on the top rim.
+//  The naive "groove in the existing rim" was refuted (only 1.3 mm of flat rim
+//  survives inboard of the skirt step, and thinning it eats the lock band).
+//  Instead we UNION an inboard LIP that creates NEW sealing land (rim 1.3 +
+//  lip -> ~3.8 mm), flush to the Y=0 rim and dropping seal_land_h into the
+//  chamber, then cut a flat-bottomed channel into that new land.  GASKET: lay
+//  ~1.5 mm adhesive closed-cell foam / PORON weatherstrip TAPE (NOT a 2-3 mm cord)
+//  in the seal_groove_d (0.9 mm) channel; it stands ~0.6 mm proud and the flat lid
+//  underside compresses it ~40 % while STILL bottoming on the ~0.9 mm flat land
+//  strips either side of the groove -- the land is the crush stop, so the
+//  0-interference seat + every snap lock are preserved.  Full perimeter, so the
+//  compressed tape also clamps the outboard/hinge edge (which the hinge only
+//  locates, not clamps down).  Prints floor-down: the lip is a
+//  vertical-walled shelf with a flat top + the groove opens UP -> supportless.
+//  Watertight: the groove keeps >= (inner wall - seal_land_w) ~= 0.9 mm of PLA
+//  to the void laterally and seal_land_h - seal_groove_d below -> probe-checked.
+// =====================================================================
+module seal_lip() {
+  difference() {
+    rprism(inner_w, inner_h, seal_land_h, corner_r - wall);                      // fills to the wall inner face
+    translate([0,-eps,0]) rprism(inner_w - 2*seal_land_w, inner_h - 2*seal_land_w,
+                                 seal_land_h + 2*eps, max(0.5, corner_r - wall - seal_land_w));
+  }
+}
+
+module seal_groove() {
+  midX = ((W/2 - step) + (inner_w/2 - seal_land_w)) / 2;   // centre of the new sealing land, X
+  midZ = ((H/2 - step) + (inner_h/2 - seal_land_w)) / 2;   //                                  Z
+  translate([0,-eps,0]) difference() {
+    rprism(2*(midX + seal_groove_w/2), 2*(midZ + seal_groove_w/2), seal_groove_d + eps, corner_r - wall);
+    translate([0,-eps,0])
+      rprism(2*(midX - seal_groove_w/2), 2*(midZ - seal_groove_w/2), seal_groove_d + 3*eps, corner_r - wall);
+  }
+}
+
+// =====================================================================
 //  BODY  (the shell -- one difference for all external through-features)
 // =====================================================================
 module body() {
@@ -165,10 +248,13 @@ module body() {
           rprism(W, H, D, corner_r);
           hinge_housing();                          // outboard lid hinge
           motor_mount_boss();                       // stern motor pad
+          if (block_sculpt) block_side_gussets();   // stern block -> wall gussets (item 5)
         }
         translate([0,-eps,0]) rprism(inner_w, inner_h, inner_d+eps, corner_r-wall); // cavity (top open)
       }
       if (screw_mount) for (p=screw_positions) screw_boss(p);   // solid hold-down bosses on the floor
+      if (seal_gasket) seal_lip();                  // inboard gasket land around the top rim (item 6)
+      if (floor_cove)  floor_cove_mod();            // interior floor<->wall stiffening cove (item 4)
     }
     // through-features cut through the assembled solid: the screw bores pierce the
     // floor AND the boss together, leaving the sealed cap between bore top and chamber.
@@ -180,6 +266,8 @@ module body() {
     xt60_cut();
     front_step_cut();                               // stepped band the lid skirt wraps
     lock_dents();
+    if (seal_gasket) seal_groove();                 // foam-cord channel in the new land (item 6)
+    if (edge_ch > 0) foot_chamfer_cut();            // finished foot chamfer (item 7a)
   }
 }
 

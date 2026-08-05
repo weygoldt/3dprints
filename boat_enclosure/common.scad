@@ -70,7 +70,8 @@ inner_w  = 90;     // code X = box WIDTH   (athwartship)  -- floor 90 wide
 inner_h  = 180;    // code Z = box LENGTH  (fore-aft)     -- floor 90 x 165
 inner_d  = 40;     // code Y = box HEIGHT  (floor->lid)   -- LiPo 26.5 + routing
 wall     = 2.5;
-corner_r = 5;
+corner_r = 7;      // fuller, more designed vertical corners (was 5).  Feeds rprism/cavity/front_step_cut/
+                   // lid_r; purely vertical edges so no overhang. corner_r-wall=4.5 stays > 0 for the cavity.
 
 // readable aliases (new code + echoes use these; the ported modules keep the
 // original names so they need no edits)
@@ -114,7 +115,10 @@ ov_d          = 3.0;   // overlap depth behind the lid plane
 skirt_t       = 1.1;   // lid skirt thickness
 lid_clearance = 0.1;   // per-side skirt-to-band clearance (inspo)
 lid_clearance_left = 0.25;  // hinge-side (outboard) skirt clearance, looser for the swing
-lock_zs       = [55, 0, -55];  // Z centers of the INBOARD-edge locks (long free edge)
+lock_zs       = [55, 15, 0, -15, -55];  // Z centers of the INBOARD-edge locks (long free edge).  Denser
+                       // (was [55,0,-55]) so the 160 mm free edge is clamped every ~40 mm -> even gasket
+                       // squeeze, no bow-open between locks.  +/-15 (spans 7..23) clears the +/-35 gland
+                       // footprints (25.5..44.5); the amidships lock (Z=0) sits above the ports (different Y).
 n_locks       = 3;     // 1 = inboard edge (lock_zs), 2 = + bow end, 3 = + stern end
 bump_l        = 16;    // lock bump length along the wall
 bump_w        = 1.0;   // bump profile width
@@ -255,11 +259,22 @@ reg_h          = 14;    // register tongue/slot height
 // width to the motor-bolt floor.  Still ONE linear_extrude => supportless, with
 // the layers running along the mast (the bending load stays within the layers).
 pylon_width    = 44;    // (was 44) trimmed to the motor "+" pattern (+/-16) + >=3 mm walls
-pylon_root_t   = 8;     // mast fore-aft thickness at the TIP (>=4)
-pylon_gusset   = 16;    // extra fore-aft thickness added at the BASE (base_aft = root + gusset)
+pylon_root_t   = 12;    // mast fore-aft thickness at the TIP (was 8).  Deepening the tip mainly stiffens the
+                        // torsionally-soft tip (J ~ t^3, where the motor mass + gyro/imbalance couples act)
+                        // and finishes the silhouette; a tip-mass cantilever's FUNDAMENTAL is governed by
+                        // BASE compliance, so tip depth barely moves f_1. >=4.
+pylon_gusset   = 18;    // fore-aft thickness added at the BASE (was 16; base_aft = root + gusset = 30).  The
+                        // BASE is the efficient lever for the 1st-bending frequency (base I +~95% vs the old
+                        // 8/16): a higher f_1 + lower root stress means the mast spends less of a swept-rpm
+                        // run near resonance at lower amplitude -- it does NOT dodge the band (a run sweeps
+                        // through it).  GROW THIS, not root_t, if you want a stiffer/higher-f mast for a big
+                        // prop.  NB: BALANCING THE PROP is the dominant vibration lever -- geometry can't fix
+                        // an unbalanced prop.
 pylon_bolt_d   = 4.4;   // M4 CLEARANCE through the foot (the block holes take an M4 heat-set insert by
                         // default; thread/selftap fallbacks) -- the bolt threads into brass, not the foot
-pylon_fillet   = 4;     // smooth-transition fillet radius at the mast/pad/base junctions
+pylon_fillet   = 6;     // smooth-transition fillet radius at the mast/pad/base junctions (was 4).  Lowers the
+                        // peak-moment base stress concentration AND (as one offset() on the 2D profile) rounds
+                        // the convex mast TIP + pad-top corners into a finished mast silhouette. Still ONE extrude.
 foot_cbore_d   = 7.5;   // M4 socket-head counterbore in the foot aft face (recesses the head)
 foot_cbore_h   = 5;     // counterbore depth
 
@@ -284,6 +299,76 @@ port_y         = 24;    // Y of the port centers (near the floor)
 stim_port      = false; // set true when printing the stim hull
 port_stim_d    = 12;    // stim port gland hole (stimulator electrode/output leads) -- MEASURED
 port_stim_z    = 0;     // amidships: clear of the two ports at +/-35
+
+// =====================================================================
+//  FINISHING PASS  (edges, splash gasket, lid ribs, interior structure)
+//  A refinement layer over the verified design: it only ADDS material or
+//  removes it OUTSIDE the sealed void / away from the mechanisms, so every
+//  hard invariant (watertight, supportless, nesting, hinge/snap/register,
+//  0-interference lid seat) is preserved.  Everything here is prop-independent.
+// =====================================================================
+edge_ch      = 1.5;   // shared 45deg chamfer on printed BED faces (lid top edge, body foot, block corners)
+// -- perimeter foam-tape gasket land + retention groove on the body TOP rim (the splash seal) --
+seal_gasket  = true;  // add the inboard sealing lip + foam-tape groove around the rim
+seal_land_w  = 2.5;   // width of the added inboard lip -> flat sealing land = existing rim(1.3) + this = 3.8
+seal_land_h  = 5;     // how far the lip rises DOWN into the chamber from the Y=0 rim
+seal_groove_w= 2.0;   // foam-tape retention channel width (centred on the land, >=0.8 mm PLA to each edge)
+seal_groove_d= 0.9;   // channel depth (was 0.6).  GASKET SPEC: lay ~1.5 mm adhesive closed-cell foam/PORON
+                      // weatherstrip TAPE (NOT a 2-3 mm cord) in the channel -- it protrudes ~0.6 mm above
+                      // the land, and the flat lid underside compresses it ~40 % while STILL bottoming on
+                      // the ~0.9 mm flat land strips either side of the groove (so the 0-interference lid
+                      // seat + every snap lock are preserved -- the land IS the crush stop).  4.1 mm of lip
+                      // stays below the groove; >=0.8 mm PLA to the void laterally (probe-verified 0 breach).
+// -- lid underside stiffening ribs (kill the panel bow that breaks the seal) --
+lid_ribs     = true;
+rib_t        = 1.6;   // rib thickness
+rib_h        = 5;     // rib protrusion into the chamber when closed (< LiPo/boss headroom, Y=13.5/28)
+rib_inset    = 7;     // perimeter rib inset from the skirt inner face (was 5).  7 keeps the perimeter rib
+                      // ~2 mm clear of the body seal lip (was a razor 0.3 mm) so print tolerance + lip droop
+                      // can't make them clash and hold the lid off its seat.
+rib_xs       = [-28, 0, 28];   // longitudinal ribs (run fore-aft, along Z) at these X
+rib_zs       = [-55, 0, 55];   // transverse ribs (run athwartship, along X) at these Z
+// -- lid deck shadow-gap panel line (looks) --
+lid_panel_line = true;
+panel_inset  = 7;     // inset of the shadow-gap line from the lid outline
+panel_w      = 1.5;   // line width
+panel_d      = 0.9;   // line depth into the OUTER (bed) face  (leaves >=1.8 of the 3mm lid)
+// -- interior floor<->wall coves (spread loads; stiffen the 2.5mm wall roots) --
+floor_cove   = true;
+cove_leg     = 3;     // 45deg cove leg along the internal floor/wall junction (supportless floor-down)
+// -- stern motor-block sculpting (fillet/chamfer the block-to-shell junctions) --
+block_sculpt = true;
+block_fil_r  = 4;     // vertical block-side <-> stern-wall concave fillet radius (looks + load path)
+
+// =====================================================================
+//  FOAM CATAMARAN BODY  (the XPS float the enclosures ride on)
+//  Hand-cut XPS, NOT printed -- modeled for ASSEMBLY / CLEARANCE / aesthetics
+//  and to plan the raked-bow cut.  Two plate layers:
+//    * a full-width DECK (top plate) with a central water-access CUTOUT, and
+//    * TWO SKIDS glued to its underside -- the catamaran floats.
+//  ONE enclosure rides on each skid (centred over it); the props sweep aft over
+//  the stern; the BOW is raked back for lower water-entry drag + a finished look.
+//  Frame = the enclosure model frame: X athwartship (boat centreline X=0),
+//  Y down (+Y toward the water; foam TOP at Y=D = the enclosure floor),
+//  Z fore-aft (+Z BOW, -Z STERN).  All dims MEASURE/confirm on the real foam.
+// =====================================================================
+show_foam       = true;   // assembly preview: draw the foam catamaran body
+deck_w          = 350;    // deck athwartship width  (X, the beam)      ~35 cm
+deck_len        = 550;    // deck fore-aft length    (Z)                ~55 cm
+deck_t          = 25;     // deck (top plate) thickness (Y)   -- deck_t+skid_t = float_thickness
+deck_r          = 15;     // deck plan corner radius (stern corners; the bow is raked)
+deck_cut_w      = 120;    // central water-access cutout, athwartship (X)   ~12 cm
+deck_cut_len    = 300;    // central water-access cutout, fore-aft   (Z)   ~30 cm
+deck_cut_r      = 30;     // cutout corner radius
+skid_w          = 150;    // each skid athwartship width (X)                ~15 cm
+skid_len        = 550;    // each skid fore-aft length  (Z)  -- default shares the deck bow/stern
+skid_t          = 35;     // each skid thickness (Y)         -- deck_t+skid_t = float_thickness (60)
+skid_r          = 20;     // skid plan corner radius (stern; the bow is raked)
+deck_center_z   = 40;     // deck centre fore-aft vs the enclosures (+ = more FOREdeck, props aft)
+// Raked bow: a single inclined cut across the whole foam front -- the underside
+// sweeps UP toward a forward top point (ski-tip / raked stem): finer water entry,
+// less spray, and it reads as a purpose-built boat.  Angle from vertical.
+bow_rake_ang    = 30;     // bow rake from vertical (deg); 0 = square bow.  Patrick to tune
 
 // =====================================================================
 //  DERIVED
@@ -396,6 +481,22 @@ foot_cbore_wall = pylon_width/2 - mm_bolt_x/2 - foot_cbore_d/2; // pylon edge wa
 // overall stack height (waterline to prop top), for the hand-back report
 stack_height = float_freeboard + box_outer_height + hub_above_box_top + prop_radius;
 
+// --- Foam catamaran derived (enclosure model frame; foam top at Y=D) ---
+skid_center   = beam_target/2;                  // each skid/enclosure centre off the centreline (X)
+foam_top_y    = D;                              // foam top = enclosure floor
+foam_bot_y    = D + deck_t + skid_t;            // foam underside (skid bottom)
+foam_h        = deck_t + skid_t;                // total foam thickness
+bow_tip_z     = max(deck_len, skid_len)/2;      // forward-most foam edge (foam-local Z)
+bow_rake_setback = foam_h * tan(bow_rake_ang);  // how far the bow underside is cut back
+// enclosure fore-aft extents on the deck (enclosures modelled at Z=0; deck shifted deck_center_z)
+foredeck_len  = (deck_center_z + deck_len/2) - (H/2);              // clear deck ahead of the bow wall
+aftdeck_len   = mm_block_aft_z - (deck_center_z - deck_len/2);     // stern block aft face -> deck transom
+prop_disc_z   = -H/2 - prop_z_offset;                             // prop disc plane (enclosure frame Z)
+prop_to_transom = prop_disc_z - (deck_center_z - deck_len/2);      // + = disc forward of the transom
+skid_overhang = (skid_center + skid_w/2) - deck_w/2;              // + = skid sticks out past the deck edge
+cut_to_skid   = (skid_center - skid_w/2) - deck_cut_w/2;          // + = clear gap between cutout and skid
+foam_ok = deck_t + skid_t == float_thickness;
+
 // =====================================================================
 //  ECHO FIT-CHECK REPORT  (how correctness is verified -- house style)
 // =====================================================================
@@ -450,6 +551,12 @@ echo(str("  pylon: ONE extrude, ", pylon_width, " wide -> flat supportless; FULL
 echo(str("  pylon foot-bolt counterbore edge wall = ", round(10*foot_cbore_wall)/10,
          " mm (need >= 3) ", foot_cbore_wall >= 3 ? "OK" : "  << WARNING: narrow mm_bolt_x or foot_cbore_d"));
 echo(str("  OVERALL STACK (waterline -> prop top) = ", round(stack_height), " mm"));
+// prop is a FREE constant: warn when a big prop makes the mast tall enough that the
+// stern joint (fixed block/gussets/2.5 mm wall), not the mast, becomes the weak link.
+if (pylon_rise > 160)
+  echo(str("  NOTE: tall mast (pylon_rise ", round(pylon_rise), " mm -> large prop): the stern block + ",
+           block_fil_r, " mm gussets + 2.5 mm wall become the structural weak link -- grow block_fil_r / ",
+           "mm_block_depth (they do NOT scale with prop_diameter) or reduce prop_diameter."));
 
 echo("--- through-board screw mount (watertight blind bosses) --------");
 if (screw_mount) {
@@ -474,6 +581,12 @@ if (screw_mount) {
   echo(str("  screw length <= ", screw_len_est, " mm (foam ", float_thickness,
            " + bore ", screw_hole_depth, "; the bore already includes the ", wall,
            " mm floor) -- shorter is safer (blind cap) ; fender washer / backing plate under the soft foam"));
+  // stability caveat: the mast (stern block) overhangs AFT of the aftmost hold-down.
+  echo(str("  MOUNT NOTE: the mast/stern block (~Z ", round(mm_block_aft_z),
+           ") sits AFT of the aftmost hold-down (Z +/-", max([for(p=screw_positions) abs(p[1])]),
+           "), so thrust PITCHES the box -> the aft bolts take TENSION through the soft foam (creep -> loosen",
+           " -> rattle).  Backing plate BOTH faces + consider an aft hold-down: this joint, not the mast,",
+           " sets 'stable' in the field."));
 } else echo("  screw mount OFF");
 // consolidated heat-set BOM/tooling note (both PLA-threaded families default to inserts)
 n_floor_ins = (screw_mount && screw_method=="insert") ? len(screw_positions) : 0;
@@ -490,6 +603,31 @@ if (beam_target <= prop_diameter)
 else
   echo(str("  beam_target = ", beam_target, " ; stern-prop clearance across the beam = ",
            beam_target - prop_diameter, " mm OK"));
+
+echo("--- foam catamaran body (XPS: deck + 2 skids) -----------------");
+if (show_foam) {
+  echo(str("  deck ", deck_w, "(beam) x ", deck_len, "(length) x ", deck_t,
+           " ; central water cutout ", deck_cut_w, " x ", deck_cut_len, " (r", deck_cut_r, ")"));
+  echo(str("  skids 2x ", skid_w, " x ", skid_len, " x ", skid_t, " at X=+/-", skid_center,
+           " (centred under the enclosures) ; foam thickness ", foam_h,
+           foam_ok ? str(" == float_thickness ", float_thickness, " OK")
+                   : str("  << CHECK: != float_thickness ", float_thickness)));
+  echo(str("  skid vs deck edge: ", skid_overhang <= 0
+           ? str("skid inset ", round(-skid_overhang), " mm within the deck OK")
+           : str("skid OVERHANGS the deck by ", round(skid_overhang),
+                 " mm  << widen deck_w to ", round(2*(skid_center+skid_w/2)),
+                 " (skids flush) or use smaller props/beam")));
+  echo(str("  cutout-to-skid gap = ", round(cut_to_skid), " mm ",
+           cut_to_skid >= 0 ? "OK (water channel clear of the skids)"
+                            : "  << the cutout overlaps the skids -- narrow deck_cut_w or spread the skids"));
+  echo(str("  foredeck ahead of the bow wall = ", round(foredeck_len),
+           " mm ; aft deck (transom aft of the stern block) = ", round(aftdeck_len), " mm"));
+  echo(str("  prop disc ", prop_to_transom >= 0
+           ? str(round(prop_to_transom), " mm FORWARD of the transom (sweeps over the aft deck)")
+           : str(round(-prop_to_transom), " mm AFT of the transom (overhangs the stern)")));
+  echo(str("  raked bow: ", bow_rake_ang, " deg from vertical -> underside cut back ",
+           round(bow_rake_setback), " mm at the keel"));
+} else echo("  foam body OFF");
 
 echo("--- Task 3: cable ports (inboard +X wall) -- PLAIN gland holes -");
 echo(str("  stern port ", port_stern_d, " mm at Z=", port_stern_z,
