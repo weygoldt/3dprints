@@ -67,8 +67,8 @@ eps  = 0.01;
    existing inner_w/inner_h/inner_d names are KEPT (the brief says do not
    rename); the aliases below give the airboat semantics for new code. */
 inner_w  = 90;     // code X = box WIDTH   (athwartship)  -- floor 90 wide
-inner_h  = 165;    // code Z = box LENGTH  (fore-aft)     -- floor 90 x 165
-inner_d  = 35;     // code Y = box HEIGHT  (floor->lid)   -- LiPo 26.5 + routing
+inner_h  = 180;    // code Z = box LENGTH  (fore-aft)     -- floor 90 x 165
+inner_d  = 40;     // code Y = box HEIGHT  (floor->lid)   -- LiPo 26.5 + routing
 wall     = 2.5;
 corner_r = 5;
 
@@ -92,14 +92,14 @@ lid_gland_x = 0;      // athwartship (X): 0 = centreline
 lid_gland_z = -60;    // fore-aft (Z): near the stern/pylon end, clear of locks & skirt
 
 /* [Side & boat] -- one body, two hulls */
-beam_target = 240;  // hull centreline-to-centreline spacing (mm).  MUST exceed
+beam_target = 260;  // hull centreline-to-centreline spacing (mm).  MUST exceed
                     // prop_diameter or the two stern props collide (echo-checked).
 
 /* [Knuckle hinge] -- hand-rolled, OUTBOARD long edge (-X), axis along the
    length (code Z), 1.75 mm filament pin.  Ported verbatim from the stim
    enclosure; only the span/segment count grow for the longer edge. */
-hinge_segs   = 7;      // total knuckles (odd -> housing gets the two ends)
-hinge_span   = 120;    // Z (length) span of the knuckle stack, centered
+hinge_segs   = 9;      // total knuckles (odd -> housing gets the two ends)
+hinge_span   = 160;    // Z (length) span of the knuckle stack, centered
 hinge_gap    = 0.3;    // Z clearance between adjacent knuckles (rotation)
 knuckle_d    = 6;      // hinge barrel outer diameter
 hinge_offset = 7;      // pin axis standoff from the outboard wall face (>=knuckle_d/2)
@@ -165,7 +165,7 @@ selftap_depth   = 9;         // pilot depth up from the underside
    flange cannot clear the +/-60 knuckle stack), and the inboard wall carries
    the cable ports -- the bow end is the only clear face.
    Measured off the real part (hole 19x11.5, screw 2.4->2.8, sep 25, flange 35x16). */
-xt60          = true;
+xt60          = false;
 xt60_face     = "bow";     // [bow(+Z end), stern(-Z end), left(outboard), bottom(floor), none]
 xt60_body     = [19, 11.5];// connector through-hole [long(screw axis), short] -- MEASURED
 xt60_screw_d  = 2.8;       // clearance for the 2.4 mm screw (side-wall holes print undersized)
@@ -200,11 +200,11 @@ thread_slop = 0.1;    // BOSL2 internal-thread clearance ($slop): adds ~4*slop t
 /* [Prop & clearance] -- the ONE knob the user asked for: set prop_diameter
    and the required pylon height falls out.  Default 8x4.5 (203 mm): shorter,
    stiffer, ~450 g static thrust/motor.  1045 (254 mm) is a one-line change. */
-prop_diameter        = 203;   // 8x4.5 = 203, 1045 = 254
+prop_diameter        = 254;   // 8x4.5 = 203, 1045 = 254
 float_thickness      = 60;    // styrofoam float thickness
 float_freeboard      = 42;    // float top above the waterline at ~2 kg all-up
-prop_clearance_margin= 20;    // disc lowest point above the float top
-prop_z_offset        = 30;    // how far AFT of the stern wall the prop disc sweeps
+prop_clearance_margin= 10;    // disc lowest point above the float top
+prop_z_offset        = 65;    // how far AFT of the stern wall the prop disc sweeps
 
 /* [Motor + BasePlate mount] -- item 2.  The real chain is
    motor -> BasePlate.stl -> pylon pad.  The motor bolts to an X-shaped plate,
@@ -246,7 +246,7 @@ reg_h          = 14;    // register tongue/slot height
 // where the section must be deep) with FILLETED transitions, and trims the
 // width to the motor-bolt floor.  Still ONE linear_extrude => supportless, with
 // the layers running along the mast (the bending load stays within the layers).
-pylon_width    = 42;    // (was 44) trimmed to the motor "+" pattern (+/-16) + >=3 mm walls
+pylon_width    = 44;    // (was 44) trimmed to the motor "+" pattern (+/-16) + >=3 mm walls
 pylon_root_t   = 8;     // mast fore-aft thickness at the TIP (>=4)
 pylon_gusset   = 16;    // extra fore-aft thickness added at the BASE (base_aft = root + gusset)
 pylon_bolt_d   = 4.4;   // M4 CLEARANCE through the foot (the block holes use mm_bolt_pilot/threads)
