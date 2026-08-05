@@ -16,6 +16,7 @@ include <common.scad>
 use <body.scad>
 use <lid.scad>
 use <pylon.scad>
+use <float.scad>
 
 // =====================================================================
 //  PHANTOMS  (assembly preview only)
@@ -26,13 +27,6 @@ module ghost_components() {
   for (p = rc_parts) color([0.3,0.6,0.9,0.35])
     translate([p[3][0]-p[1][0]/2, inner_d - p[2], p[3][1]-p[1][1]/2])
       cube([p[1][0], p[2], p[1][1]]);
-}
-
-module ghost_float() {
-  // extends aft under the prop so the disc is seen sweeping OVER the float
-  aft = prop_z_offset + 25;
-  color([0.95,0.95,0.85,0.3])
-    translate([-W/2-8, D, -H/2-aft]) cube([W+16, float_thickness, H+aft+15]);
 }
 
 module ghost_prop_and_motor() {
@@ -91,15 +85,16 @@ module hull_assembly() {
   translate([Ax, Ay, 0]) rotate([0, 0, -lid_open]) translate([-Ax, -Ay, 0])
     color("Gainsboro") lid();
   pylon_at_stern();
-  if (show_ghosts) { ghost_components(); ghost_float(); ghost_prop_and_motor(); ghost_screws(); }
+  if (show_ghosts) { ghost_components(); ghost_prop_and_motor(); ghost_screws(); }
 }
 
 module assembly_scene() {
-  apply_side() hull_assembly();
-  if (show_both_hulls) {
-    translate([ (side=="port"? 1:-1) * beam_target, 0, 0])
-      mirror([1,0,0]) apply_side() hull_assembly();
-  }
+  // both hulls centred on the boat centreline (X=0), one over each skid
+  translate([-beam_target/2, 0, 0]) apply_side() hull_assembly();
+  if (show_both_hulls)
+    translate([ beam_target/2, 0, 0]) mirror([1,0,0]) apply_side() hull_assembly();
+  // the shared foam catamaran body (drawn once, shifted fore-aft by deck_center_z)
+  if (show_foam) translate([0, 0, deck_center_z]) foam_body();
 }
 
 // model "up" is -Y; upright view rotates it so height is world +Z (Z-up camera)
