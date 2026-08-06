@@ -6,15 +6,26 @@
 include <common.scad>
 
 // --- knuckle hinge: DOOR leaf (lid side of the outboard -X hinge) ---
-module door_leaf_2d() {
-  translate([Ax, Ay]) circle(d=knuckle_d);
-  polygon([[Ax - kr, -lid_t], [-W/2 + 0.6, -lid_t],
-           [-W/2 + 0.6, Ay], [Ax - kr, Ay]]);
+// barrel (pivot) + a flush leaf PLATE that carries it into the lid.  The plate
+// is FLUSH with the lid top (Y=0) and carries the SAME edge_ch 45deg chamfer on
+// its OUTER (deck, Y=-lid_t) edges as the lid itself -- so on the OUTSIDE the
+// barrels no longer chop the lid's chamfered edge with sharp square corners; the
+// leaf edges bevel to match it.  The plate reaches door_web_merge into the lid to
+// root the barrel and stays full to the deck so the barrel keeps print support;
+// pin bore unchanged.  (The barrel must still tie to the deck, so the chamfer
+// can't run perfectly UNBROKEN through a knuckle -- but the break is now a
+// matching bevel, not a sharp step.)
+module door_leaf(z0) {
+  xo = Ax - kr;                           // outboard extent (under the barrel)
+  xi = -W/2 + door_web_merge;             // inboard root into the lid
+  translate([(xo + xi)/2, 0, z0 + seg_h/2])
+    chamfered_slab(xi - xo, seg_h, lid_t, max(0.6, edge_ch), (edge_ch > 0) ? edge_ch : 0);
+  translate([0, 0, z0]) linear_extrude(seg_h) translate([Ax, Ay]) circle(d=knuckle_d);
 }
 
 module hinge_door() {
   difference() {
-    hinge_segments(1) door_leaf_2d();
+    for (i = [1 : 2 : hinge_segs-1]) door_leaf(seg_z(i));
     pin_bore_cut(+1);     // lid prints outer face down -> print-up = +y
   }
 }

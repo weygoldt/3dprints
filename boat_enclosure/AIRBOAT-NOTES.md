@@ -244,6 +244,23 @@ the old coarse `step >= wall − 1.0` check, which ignored the dent depth entire
 can render the *wrong* (main, older) tree depending on where the shell resets. Always render with the **absolute
 worktree path** (`…/.claude/worktrees/airboat-enclosure/boat_enclosure/<part>.scad`).
 
+## Post-print refinement — hinge→lid transition (2026-08-06)
+
+Patrick: the door-leaf knuckles meet the lid edge roughly — the **lid's edge chamfer got chopped by the
+hinge leaf's sharp square corners on the OUTSIDE (deck) face**. Fix (`door_leaf` in lid.scad): the door leaf
+is now a **flush plate carrying the SAME `edge_ch` 45° chamfer on its outer/deck edges as the lid** (built
+with the lid's own `chamfered_slab`), so the leaf's edges bevel to match the lid instead of ending in sharp
+square corners — the chamfer treatment reads continuous. The plate is flush with the lid top (Y=0), rooted
+`door_web_merge` = 3 mm into the lid, and stays full to the deck so the barrel keeps print support; pin bore,
+swing gap (0.117 mm), and all manifolds unchanged. **Two dead-end iterations before this** (both misread the
+complaint as the *inner* face): (1) RAMPED the leaf top down to the surface — left a thin proud wedge with a
+sharp inboard corner on the inner face; (2) flush leaf with no chamfer — clean inner face but the *outer*
+edge was still sharp, which is what Patrick actually meant. **Geometric limit worth remembering:** the barrel
+*must* tie into the deck for bed support, so the chamfer can't run perfectly unbroken *through* a knuckle —
+but the break is now a matching bevel, not a sharp step (inherent to a knuckle hinge). **Debugging the
+right target took two wrong guesses — "on the outside of the hinge" = the deck/outer face, not the inner
+rib face.**
+
 ## Prop clearance (parametric)
 
 ```

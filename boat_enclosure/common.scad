@@ -116,6 +116,10 @@ knuckle_d    = 6;      // hinge barrel outer diameter
 hinge_offset = 7;      // pin axis standoff from the outboard wall face (>=knuckle_d/2)
 hinge_fillet = 2;      // housing leaf-to-wall fillet radius (exact tangent arc)
 hinge_arm_ang = 35;    // housing leaf underside overhang from vertical (<=~45 for PLA)
+door_web_merge = 3;    // how far the DOOR leaf PLATE roots INTO the lid (past the -X edge).  The plate is
+                       // flush with the lid top and edge_ch-chamfered on its deck edges (see lid.scad
+                       // door_leaf), so this reach is invisible -- it just gives the barrel a solid root.
+                       // Kept modest so the leaf doesn't run inboard into the rib ring.
 pin_d        = 1.75;   // filament pin nominal
 pin_clr      = 0.3;    // added to pin bore
 
