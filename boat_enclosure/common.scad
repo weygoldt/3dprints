@@ -359,7 +359,10 @@ gland_zs = gland_set(box_role);  // the standalone-render / echo set
 //  hard invariant (watertight, supportless, nesting, hinge/snap/register,
 //  0-interference lid seat) is preserved.  Everything here is prop-independent.
 // =====================================================================
-edge_ch      = 1.5;   // shared 45deg chamfer on printed BED faces (lid top edge, body foot, block corners)
+edge_ch      = 1.5;   // shared 45deg chamfer on printed BED faces (lid top edge, block aft corners)
+foot_chamfer = false; // body FOOT bottom-edge chamfer -- OFF (Patrick): the stern block's foot is square, so the
+                      // chamfer left a mismatched gap where the body meets the block; a square foot also seats the
+                      // whole bottom flush on the bed (easier first layer).  Flip true to restore the finished foot edge.
 // -- perimeter foam-tape gasket land + retention groove on the body TOP rim (the splash seal) --
 seal_gasket  = true;  // add the inboard sealing lip + foam-tape groove around the rim
 seal_land_w  = 2.5;   // width of the added inboard lip -> flat sealing land = existing rim(1.3) + this = 3.8

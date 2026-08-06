@@ -265,7 +265,7 @@ module body(role = box_role) {
     front_step_cut();                               // stepped band the lid skirt wraps
     lock_dents();
     if (seal_gasket) seal_groove();                 // foam-cord channel in the new land (item 6)
-    if (edge_ch > 0) foot_chamfer_cut();            // finished foot chamfer (item 7a)
+    if (edge_ch > 0 && foot_chamfer) foot_chamfer_cut(); // finished foot chamfer (item 7a) -- OFF: matches the square block foot + seats flush
   }
 }
 
