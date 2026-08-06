@@ -6,15 +6,26 @@
 include <common.scad>
 
 // --- knuckle hinge: DOOR leaf (lid side of the outboard -X hinge) ---
-module door_leaf_2d() {
-  translate([Ax, Ay]) circle(d=knuckle_d);
-  polygon([[Ax - kr, -lid_t], [-W/2 + 0.6, -lid_t],
-           [-W/2 + 0.6, Ay], [Ax - kr, Ay]]);
+// barrel (pivot) + a flush leaf PLATE that carries it into the lid.  The plate
+// is FLUSH with the lid top (Y=0) and carries the SAME edge_ch 45deg chamfer on
+// its OUTER (deck, Y=-lid_t) edges as the lid itself -- so on the OUTSIDE the
+// barrels no longer chop the lid's chamfered edge with sharp square corners; the
+// leaf edges bevel to match it.  The plate reaches door_web_merge into the lid to
+// root the barrel and stays full to the deck so the barrel keeps print support;
+// pin bore unchanged.  (The barrel must still tie to the deck, so the chamfer
+// can't run perfectly UNBROKEN through a knuckle -- but the break is now a
+// matching bevel, not a sharp step.)
+module door_leaf(z0) {
+  xo = Ax - kr;                           // outboard extent (under the barrel)
+  xi = -W/2 + door_web_merge;             // inboard root into the lid
+  translate([(xo + xi)/2, 0, z0 + seg_h/2])
+    chamfered_slab(xi - xo, seg_h, lid_t, max(0.6, edge_ch), (edge_ch > 0) ? edge_ch : 0);
+  translate([0, 0, z0]) linear_extrude(seg_h) translate([Ax, Ay]) circle(d=knuckle_d);
 }
 
 module hinge_door() {
   difference() {
-    hinge_segments(1) door_leaf_2d();
+    for (i = [1 : 2 : hinge_segs-1]) door_leaf(seg_z(i));
     pin_bore_cut(+1);     // lid prints outer face down -> print-up = +y
   }
 }
@@ -58,26 +69,29 @@ module lid_body() {
     else rprism(lid_w, lid_h, lid_t, lid_r);
 }
 
-// item 8 -- UNDERSIDE stiffening rib grid: kills the 185x3 mm panel bow that
-// breaks the skirt seal.  Ribs stand +Y INTO the chamber when closed; printed
-// outer-face-DOWN they build UP off the panel -> supportless.  Held inboard of
-// the skirt/lip and notched clear of the gland.
+// item 8 -- UNDERSIDE stiffening WAFFLE: kills the 185x3 mm panel bow that breaks
+// the skirt seal.  Ribs stand +Y INTO the chamber when closed; printed outer-face-
+// DOWN they build UP off the panel -> supportless.  The field is bounded by a
+// perimeter ring and EVERY internal rib runs ring-to-ring (terminates on the ring,
+// so no bar overshoots into a ragged free end).  A rectangular KEEP-OUT sized to the
+// switch body footprint (switch_ftp + switch_clear) kills every rib over the switch,
+// so its chunky inner body sits clear of all support.  Shallower than the first cut
+// (rib_h) -- it only needs to stiffen the panel, not reach deep into the cavity.
 module lid_ribs_mod() {
-  rx = inner_w/2 - 4;                 // rib field half-width  (X) -- clears the body seal lip (X>=42.5)
-  rz = inner_h/2 - 4;                 // rib field half-length (Z)
-  prx = W/2 - skirt_t - rib_inset;    // perimeter rib centre (X), inboard of the lip
-  prz = H/2 - skirt_t - rib_inset;
+  prx = W/2 - skirt_t - rib_inset;    // perimeter ring centre (X), inboard of the lip
+  prz = H/2 - skirt_t - rib_inset;    //                          (Z)
   difference() {
     union() {
-      for (x = rib_xs) translate([x - rib_t/2, 0, -rz]) cube([rib_t, rib_h, 2*rz]);  // longitudinal (along Z)
-      for (z = rib_zs) translate([-rx, 0, z - rib_t/2]) cube([2*rx, rib_h, rib_t]);  // transverse (along X)
-      difference() {                                                                  // perimeter rib ring
+      for (x = rib_xs) translate([x - rib_t/2, 0, -prz]) cube([rib_t, rib_h, 2*prz]); // longitudinal (Z), ring-to-ring
+      for (z = rib_zs) translate([-prx, 0, z - rib_t/2]) cube([2*prx, rib_h, rib_t]); // transverse  (X), ring-to-ring
+      difference() {                                                                   // perimeter ring
         rprism(2*prx + rib_t, 2*prz + rib_t, rib_h, corner_r - wall);
         translate([0,-eps,0]) rprism(2*prx - rib_t, 2*prz - rib_t, rib_h + 2*eps, corner_r - wall);
       }
     }
-    if (lid_gland)                                                                    // notch clear of the gland
-      translate([lid_gland_x, -eps, lid_gland_z]) cylinder(h = rib_h + 2*eps, r = lid_gland_d/2 + 3);
+    if (lid_switch)                                                                    // rectangular keep-out: no rib touches the switch body
+      translate([lid_switch_x, rib_h/2, lid_switch_z])
+        cube([switch_ftp[0] + 2*switch_clear, rib_h + 2*eps, switch_ftp[1] + 2*switch_clear], center=true);
   }
 }
 
@@ -96,10 +110,10 @@ module panel_line_cut() {
   }
 }
 
-module lid_gland_cut() {   // item 3: through-hole for the local motor's phase leads
-  if (lid_gland)
-    translate([lid_gland_x, -lid_t-eps, lid_gland_z]) rotate([-90,0,0])
-      cylinder(h=lid_t+2*eps, d=lid_gland_d);
+module lid_switch_cut() {   // through-hole for the on/off switch (motors now exit via the side glands)
+  if (lid_switch)
+    translate([lid_switch_x, -lid_t-eps, lid_switch_z]) rotate([-90,0,0])
+      cylinder(h=lid_t+2*eps, d=lid_switch_d);
 }
 
 module lid() {
@@ -108,7 +122,7 @@ module lid() {
       lid_body();
       if (lid_ribs) lid_ribs_mod();
     }
-    lid_gland_cut();     // gland pierces the panel (ribs are already notched clear)
+    lid_switch_cut();    // switch hole pierces the panel (ribs are notched clear)
     panel_line_cut();    // deck shadow-gap line
   }
   hinge_door();

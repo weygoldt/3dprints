@@ -148,10 +148,10 @@ table below; item 1 became a full pylon redesign (its own section, further down)
 | # | Ask | What changed |
 |---|---|---|
 | 2 | Pad mounts the **X BasePlate**, not the motor directly | `pylon_cut` now cuts 4× **M3** on the plate's **outer "+"** pattern (`bp_bolt=32` across each axis, holes at ±16) + a **⌀11.5 teardrop** central clearance for the motor boss. Pad grew to `pad_h=42` (backs the 39.5 plate, ≥3 mm wall at the M3s). Holes open **both sides** (flat-head from the plate, nut behind). Real `BasePlate.stl`/`Motor.stl` `import()` phantoms added (`show_hardware`). The old direct-2212 cuts and `motor_bolt_*`/`motor_slot`/`motor_screw_d`/`motor_bore` params were removed. |
-| 3 | Route the local motor leads through a **lid gland**, drop the pylon groove | `lid_gland` hole (⌀12.5, at X=0 Z=−60) pierces the lid panel only, clear of hinge/skirt/locks (≥9.5 mm to the stern lock). The pylon cable-groove is **removed** — mast face is solid again. |
+| 3 | Route the local motor leads through a **lid gland**, drop the pylon groove | `lid_gland` hole (⌀12.5, at X=0 Z=−60) pierces the lid panel only, clear of hinge/skirt/locks (≥9.5 mm to the stern lock). The pylon cable-groove is **removed** — mast face is solid again. *(Superseded 2026-08-06: motors now exit via the inboard side glands, so this lid hole became the on/off switch — `lid_switch*`. See the pre-print refinement round.)* |
 | 4 | Cable ports = **plain holes** (no gland boss) | `cable_port_boss` deleted; ports are clean ⌀12.5 through-holes (gland body + nut form the seal). `port_boss_t` gone. |
 | 5 | **BOSL2 metric threads** | `include ../BOSL2/threading.scad`; `tapped_hole()` helper. **M4** tapped in the 4 stern-block pylon-attach holes (teardrop crest, `spin=180` → apex prints up); **M3** tapped in the rod-socket grub holes (vertical axis). `use_threads=false` falls back to thread-forming pilots. |
-| 6 | **Third inboard port** for the stim wires, one hull only | `stim_port` (default off, **independent of `side`** — set it on whichever hull you print as the stim box) adds a ⌀12.5 port at Z=0, amidships (clear of both rod sockets and the two other ports). |
+| 6 | **Third inboard port** for the stim wires, one hull only | `stim_port` (default off, **independent of `side`** — set it on whichever hull you print as the stim box) adds a ⌀12.5 port at Z=0, amidships (clear of both rod sockets and the two other ports). *(Superseded 2026-08-06 by `box_role`, which selects the whole gland set per box — see the pre-print refinement round.)* |
 
 **Measured off the real `BasePlate.stl`** (exact cylinders): plate 39.49 sq × 2 mm; central bore ⌀10;
 outer "+" (plate→pylon) at (±16,0)/(0,±16) ⌀3 (M3), countersunk; inner 2212 (motor→plate) at
@@ -169,7 +169,7 @@ would droop — now teardropped.
 ### Toggles added this round
 
 ```
-stim_port = true      # print the stim hull (adds the 3rd inboard port)
+stim_port = true      # (superseded 2026-08-06 by box_role="stim") print the stim hull
 use_threads = false   # fall back to thread-forming pilots if BOSL2 threads print poorly
 show_hardware = false # hide the BasePlate/Motor import phantoms in the assembly preview
 ```
@@ -198,6 +198,69 @@ Trade noted: the 4-bolt envelope drops to ~38 mm (from 41), but the full-height 
 now carry the moment and the bolts mainly clamp. Still ONE `linear_extrude` → supportless, layers along
 the mast. Verified: 1 shell both sides, cavity-breach 0, all echo walls ≥3 mm.
 
+## Pre-print refinement round (2026-08-06) — fixes before the first print
+
+Patrick's final pass on the printed pylon + lid before the first production print. All three are
+echo-verified and rendered.
+
+| # | Ask | What changed |
+|---|---|---|
+| 1 | **Forward pylon slope should start at the top**, like the aft face — not ¾ of the way up | The forward gusset was a *short* bracket topping out mid-mast in a **point** (a stress concentrator right where the slope started). It is now a **full-height taper**: `fg_y1 = pad_y0 − fwd_gusset_top_gap` carries the forward slope from the bearing foot on the block top all the way up to **just below the motor pad**, mirroring the aft buttress taper. Spreads the bending-section change over the whole mast instead of stepping it mid-span. `fwd_gusset_rise` (mid-mast apex height) is replaced by `fwd_gusset_top_gap` (clearance below the pad). Still one flat `linear_extrude` → supportless; still bears aft of the lid. |
+| 2 | **Lid underside ribs**: too deep, uneven (bars overshoot), and crowd the switch hole | Rib grid rebuilt as an **even waffle**: `rib_h` 5 → **3** (shallower — the ribs stiffen the panel, they don't fill the cavity); every internal rib now runs **ring-to-ring** (terminates on the perimeter ring → no overshooting/ragged free ends); `rib_xs`/`rib_zs` re-spaced (`[−20,0,20]`/`[−42,0,42]`) into even bays. **The switch keep-out is a full rectangle, not a disc** (2nd pass — a disc left the chunky flip switch's corners over ribs): `lid_ribs_mod` KILLS every rib within `switch_ftp` (**30×15**, the switch's inner-body footprint) + `switch_clear` (3 mm each side). |
+| 3 | **Role-based cable glands**, tied to the hull; assembly shows both boxes | The gland SET now **follows the hull** (Patrick's 2nd pass): **`rc_side = "port" \| "starboard"`** names which hull carries the RC/boat electronics (the other is the stimulator). `role_of_side(side)` derives `box_role`, so a `side` render gets that hull's correct bores automatically, and **`main.scad` draws each hull with its own set** — the preview is the real boat: one RC box (3 glands) + one stim box (2). **rc** (boat electronics): 2 motor glands **aft** by the pylon at Z=−72/−48 (same-side + opposite-side motor, one 3-wire bundle each) + 1 control gland **forward** at Z=55 (kept away from the motor phase wires). **stim**: 2 glands both **forward** — signal-IN (Z=55, from the RC receiver) + electrode-OUT (Z=30). All ⌀12 on the inboard +X wall at Y=24. `body(role)` takes the role so the assembly can pass each hull's; `-D box_role=…` still forces it. The old `port_stern/bow/stim` params + `stim_port` are gone. The freed-up **lid hole is now the on/off switch** (`lid_switch*`, was `lid_gland*`; **bore 12.2** for the flip switch — the local motor no longer routes through the lid). |
+
+| 4 | **Rotate the motor-mount bores 45° (＋ → ✕)** to shrink the pad and pull the slopes further up | The 4 M3 plate bolts stay on the same bolt circle (r `bp_bolt/2`=16) but rotate 45° to an **X** — mount the BasePlate turned 45°. New derived `bp_axis = (bp_bolt/2)/√2` ≈ **11.3**: the bolts' reach along the pad **axes** drops from 16 to 11.3, so `pad_h = 2·bp_axis + 2·bp_edge` shrinks **42 → 32.6 mm**. That raises `pad_y0` (116 → 121) and the forward slope apex (114 → 119, climb 75 → **80 mm**). The (rigid) 39.5 plate now **overhangs** the smaller pad — bolted at 4 points, overhang in free air at the tip. `pylon.scad` bores the X pattern; the `main.scad` plate/motor phantoms clock 45° **about X** (the pad-plane normal — a Z clock would tilt them out of plane) to match; pad-fit echoes rewritten (pad-holds-bolts + plate-overhangs, X-bolt edge wall 3.3 mm ≥ 3). |
+| 5 | **Body foot bottom edge mismatched the square block foot** (chamfer left a gap where the body meets the stern block) | New `foot_chamfer` toggle, **default OFF**: `foot_chamfer_cut` (the 45° body-foot bottom bevel) is disabled, so the body's bottom edge is square like the block's foot — no gap at the transition, and the whole bottom seats flush on the bed (easier first layer). `edge_ch` still chamfers the lid top edge + block aft corners; flip `foot_chamfer=true` to restore the finished foot edge. |
+| 6 | **Splash-seal lip won't print well** — remove it | `seal_gasket` → **OFF**. The inboard sealing lip was a full-perimeter *cantilevered overhang* at the top of the print → the slicer wants support **inside** the 40 mm-deep box (awkward to remove, and it mars the sealing face). It only ever bought SPLASH resistance (a capsize floods the box through the glands/lid regardless), and the lid's **overlap skirt + snap locks still shed the bulk of prop spray**. Fallback if testing shows intrusion: stick adhesive foam weatherstrip on the flat rim — no printed lip needed. `seal_lip`/`seal_groove` code kept behind the toggle (`seal_gasket=true` restores). |
+
+**Verification:** all parts `NoError`; port body (RC, 3 glands) and starboard (stim, 2) export as *different*
+geometry (extra hole); both roles pass the gland-spacing (≥3 mm footprint gap) and flat-wall echo checks;
+the switch keep-out clears the skirt (20.9 mm) and stern lock (12.8 mm); forward-slope apex tops out just
+below the pad; the X bores keep a 3.3 mm pad edge wall and 7 mm flat above the top screws.
+
+## Post-print refinement — snap closure (2026-08-06) — after the first printed lid popped open
+
+The first printed lid closes but the snap is weak (pops open on a knock) and the **inboard-edge dents looked
+unprofessional**: three of them overlapped into one ragged blob in the middle of the housing.
+
+| # | Ask | What changed |
+|---|---|---|
+| 1 | **Snappier** — deeper groove, stronger lid protrusion | `bump_h` **0.25 → 0.38** (≈1.5× deeper engagement). 0.25 mm was so shallow a <0.25 mm accidental lift unseated it; 0.38 mm is the deepest that still keeps **≥0.8 mm PLA behind the dent to the sealed chamber** — `wall 2.5 − step 1.2 − dent 0.48 = 0.82 mm`, a hair above the watertight bar (0.4 would sit exactly on it, no margin). `bump_w` **1.0 → 1.2** widens the wedge base so the deeper bump's lead-in ramp stays ~32° (firm but still hand-closeable) instead of getting too steep to seat. Depth is capped by watertightness, not by feel — if it still pops, add locks or steepen the *exit* ramp rather than cut deeper. |
+| 2 | **3 overlapping grooves in the middle look unprofessional** | `lock_zs` **`[55,15,0,−15,−55]` → `[55,27.5,0,−27.5,−55]`** (even 27.5 mm pitch). The old middle three sat on **15 mm centres** while each dent is **16.8 mm** long (16 mm × the 5% dent margin) → they physically overlapped into one merged, wavy recess. Even pitch > dent length gives **5 discrete dents with a ~10.7 mm clean gap each** → tidy rim *and* a crisper snap (each bump now seats in its own dent instead of two bumps sharing one merged pocket). Still 7 locks total (5 inboard + bow + stern end). |
+| 3 | **Sub-2 mm wall at the snaps feels flimsy** — make it bigger | The snap joint intrinsically splits the wall into two overlapping leaves (body **band** + lid **skirt**), so the band was only ~1.3 mm and ~0.82 mm behind each dent (sat exactly on the watertight bar). Beefed **both leaves**: `wall` **2.5 → 3.0** and `skirt_t` **1.1 → 1.4**. `W/H/D` are derived (`inner + 2·wall`), so this grows the **outer** box ~1 mm and leaves the electronics cavity untouched. Result: band **1.3 → 1.5 mm**, behind-dent **0.82 → 1.02 mm** (real margin now), lid skirt **1.1 → 1.4 mm**, closed joint composite **~2.4 → ~2.9 mm**. `step = skirt_t + clearance` moves with the skirt so the bump↔dent clearance stays 0.1 mm — **the snap geometry is unchanged**. Cost: ~+30–40 g PLA / +1–2 h print per hull; +1 mm outer footprint (trivial for the foam float). The extra behind-dent margin also leaves headroom to deepen the snap to ~0.5 later if it still pops. |
+
+Two new echo guards (in `common.scad`, under `--- lid overlap + snap locks ---`): **`wall behind the snap dents`**
+(warns if the dent thins the sealed inboard wall below the 0.8 mm bar — this is what caps `bump_h`) and **`inboard
+dents: min pitch / clean gap`** (warns if any adjacent pair overlaps/crowds → the "looks unclean" trap). Replaces
+the old coarse `step >= wall − 1.0` check, which ignored the dent depth entirely.
+
+**Verification:** body/lid/main all `NoError` (with wall 3.0 + skirt 1.4 baked in); `skirt 1.4 × 3 deep over a
+1.5 band`; `wall behind the dents = 1.02 mm OK (≥0.8)`; `inboard dents: min pitch 27.5 mm, clean gap 10.7 mm OK
+(discrete, tidy)`; hinge swing gap 0.117 mm OK; bed 106 × 200 (fits). The dents are shallow surface features
+(0.38–0.48 mm on a 185 mm edge), so a section render can't show the pattern convincingly — the echoes are the proof.
+
+**Worktree gotcha (this session):** the main checkout `/home/weygoldt/wrk/3dprints/boat_enclosure/` and the
+`airboat-enclosure` worktree BOTH have `boat_enclosure/common.scad`, so a bare `cd boat_enclosure && openscad …`
+can render the *wrong* (main, older) tree depending on where the shell resets. Always render with the **absolute
+worktree path** (`…/.claude/worktrees/airboat-enclosure/boat_enclosure/<part>.scad`).
+
+## Post-print refinement — hinge→lid transition (2026-08-06)
+
+Patrick: the door-leaf knuckles meet the lid edge roughly — the **lid's edge chamfer got chopped by the
+hinge leaf's sharp square corners on the OUTSIDE (deck) face**. Fix (`door_leaf` in lid.scad): the door leaf
+is now a **flush plate carrying the SAME `edge_ch` 45° chamfer on its outer/deck edges as the lid** (built
+with the lid's own `chamfered_slab`), so the leaf's edges bevel to match the lid instead of ending in sharp
+square corners — the chamfer treatment reads continuous. The plate is flush with the lid top (Y=0), rooted
+`door_web_merge` = 3 mm into the lid, and stays full to the deck so the barrel keeps print support; pin bore,
+swing gap (0.117 mm), and all manifolds unchanged. **Two dead-end iterations before this** (both misread the
+complaint as the *inner* face): (1) RAMPED the leaf top down to the surface — left a thin proud wedge with a
+sharp inboard corner on the inner face; (2) flush leaf with no chamfer — clean inner face but the *outer*
+edge was still sharp, which is what Patrick actually meant. **Geometric limit worth remembering:** the barrel
+*must* tie into the deck for bed support, so the chamfer can't run perfectly unbroken *through* a knuckle —
+but the break is now a matching bevel, not a sharp step (inherent to a knuckle hinge). **Debugging the
+right target took two wrong guesses — "on the outside of the hinge" = the deck/outer face, not the inner
+rib face.**
+
 ## Prop clearance (parametric)
 
 ```
@@ -216,9 +279,10 @@ Change `prop_diameter` to 254 (1045) and the pylon grows to ~110 mm above the bo
    `foot_cbore_*` to taste. See "Item 1 — pylon redesigned as a full-height buttress" above.
 2. **BasePlate holes** — the pad matches the plate's **outer "+"** (⌀3/M3 at ±16) measured off
    `BasePlate.stl`. Confirm your plate matches (`bp_bolt`, `bp_size`, `bp_bore`).
-3. **Gland sizes** — every gland hole is now **⌀12 (MEASURED by Patrick, 2026-08-04)**: `port_stern_d`,
-   `port_bow_d`, `port_stim_d`, `lid_gland_d`. The installed footprint `port_ftp=19` drives the inboard
-   spacing check (not the 12 hole). Confirm both against your glands.
+3. **Gland / switch sizes** — every side gland hole is **⌀12 (`port_gland_d`, MEASURED 2026-08-04)**; the
+   installed footprint `port_ftp=19` drives the inboard spacing check (not the 12 hole). The lid **switch**
+   is **⌀12.2 bore (`lid_switch_d`)** with a **30×15 rib-free keep-out (`switch_ftp`)** for its inner body
+   — confirm both, and swap `switch_ftp` to `[15,30]` if your flip switch is rotated 90°.
 4. **Threads print quality** — `use_threads=true` models real BOSL2 M4/M3. If they print poorly on
    the MK3S, set `use_threads=false` for thread-forming pilots (`mm_bolt_pilot` / `rod_grub_d`).
 5. **`beam_target`** (default 240 mm) must exceed `prop_diameter` or the two stern props collide —
@@ -226,7 +290,11 @@ Change `prop_diameter` to 254 (1045) and the pylon grows to ~110 mm above the bo
    how the two floats are cross-braced now the rods are removed** (float-level, outside the box).
 6. **Float dimensions** — `float_thickness` (60) and `float_freeboard` (42) at ~2 kg all-up are
    assumptions; they set the prop clearance. Confirm against the real float at load.
-7. **Which hull is the stim hull** — set `stim_port=true` on that print (independent of `side`).
+7. **Which hull is which** — the gland set follows the hull via **`rc_side`** (default `"port"` = the RC/boat-
+   electronics box; the other hull is the stimulator). **CONFIRM this matches your physical boat** (a mirror is
+   invisible to a probe): with `rc_side="port"`, `side="port"` → RC bores (2 aft motor + 1 fwd control),
+   `side="starboard"` → stim bores (signal-in + electrode-out). Flip `rc_side` if your boat is the other way.
+   `main.scad` draws both hulls with their own sets. (`-D box_role="rc"|"stim"` still forces a single render.)
 8. **Screw mount** — 4× M4 at `screw_positions=[±27,±79]`, default `screw_method="insert"` (M4 heat-set
    brass, melted in from the bed face — install 4 before assembly). Confirm the count/positions clear your
    real component layout; printed-thread fallbacks exist (`selftap` = screw self-taps a stronger thread;

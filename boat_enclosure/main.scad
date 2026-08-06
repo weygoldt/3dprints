@@ -46,10 +46,13 @@ module ghost_prop_and_motor() {
 // The plate's OUTER "+" holes (+/-16) must land on the pad's 4 M3 holes.
 module ghost_hardware() {
   if (show_hardware) {
+    // plate + motor mounted turned 45deg so the plate's outer "+" holes land on the pylon's X bores.
+    // The plate lies in the pad plane (normal = fore-aft X), so the 45deg CLOCK is about X (rotate([45,0,0])
+    // applied AFTER the base orientation) -- NOT about Z, which would tilt it out of the pad plane.
     color([0.72,0.73,0.75,0.9])   // BasePlate flat on the pad aft face (X=pad_aft)
-      translate([pad_aft, pylon_rise, pylon_width/2]) rotate([0,0,-90]) import("BasePlate.stl");
-    color([0.12,0.12,0.13,0.9])   // motor: mounting face on the plate, can aft (+X)
-      translate([pad_aft+2+1.6, pylon_rise, pylon_width/2]) rotate([0,0,90]) import("Motor.stl");
+      translate([pad_aft, pylon_rise, pylon_width/2]) rotate([45,0,0]) rotate([0,0,-90]) import("BasePlate.stl");
+    color([0.12,0.12,0.13,0.9])   // motor: mounting face on the plate, can aft (+X), clocked about its own axis (X)
+      translate([pad_aft+2+1.6, pylon_rise, pylon_width/2]) rotate([45,0,0]) rotate([0,0,90]) import("Motor.stl");
   }
 }
 
@@ -78,21 +81,26 @@ module pylon_at_stern() {
 // =====================================================================
 //  SCENE
 // =====================================================================
-// one hull, in model space (before side mirror / orientation)
-module hull_assembly() {
-  color("SteelBlue") body();
-  // lid swings about the outboard hinge axis (Ax,Ay), which runs along Z (the length)
-  translate([Ax, Ay, 0]) rotate([0, 0, -lid_open]) translate([-Ax, -Ay, 0])
-    color("Gainsboro") lid();
-  pylon_at_stern();
-  if (show_ghosts) { ghost_components(); ghost_prop_and_motor(); ghost_screws(); }
+// one hull for the named side: applies that hull's mirror AND its own gland role,
+// so the two boxes show their CORRECT, DIFFERENT bore sets (rc = 3, stim = 2).
+module hull_assembly(hull) {
+  apply_side_of(hull) {
+    color("SteelBlue") body(role_of_side(hull));
+    // lid swings about the outboard hinge axis (Ax,Ay), which runs along Z (the length)
+    translate([Ax, Ay, 0]) rotate([0, 0, -lid_open]) translate([-Ax, -Ay, 0])
+      color("Gainsboro") lid();
+    pylon_at_stern();
+    if (show_ghosts) { ghost_components(); ghost_prop_and_motor(); ghost_screws(); }
+  }
 }
 
 module assembly_scene() {
-  // both hulls centred on the boat centreline (X=0), one over each skid
-  translate([-beam_target/2, 0, 0]) apply_side() hull_assembly();
+  // the two hulls in their PHYSICAL positions (port at -X, starboard at +X), each with its own
+  // electronics role -> the preview is the real boat: one RC box + one stim box (mapping = rc_side).
+  // Independent of the global `side` (that only picks which single part body.scad/lid.scad export).
+  translate([-beam_target/2, 0, 0]) hull_assembly("port");
   if (show_both_hulls)
-    translate([ beam_target/2, 0, 0]) mirror([1,0,0]) apply_side() hull_assembly();
+    translate([ beam_target/2, 0, 0]) hull_assembly("starboard");
   // the shared foam catamaran body (drawn once, shifted fore-aft by deck_center_z)
   if (show_foam) translate([0, 0, deck_center_z]) foam_body();
 }

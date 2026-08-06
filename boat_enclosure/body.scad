@@ -238,7 +238,7 @@ module seal_groove() {
 // =====================================================================
 //  BODY  (the shell -- one difference for all external through-features)
 // =====================================================================
-module body() {
+module body(role = box_role) {
   difference() {
     union() {
       // shell hollowed FIRST, THEN the interior screw bosses are unioned on top
@@ -259,15 +259,13 @@ module body() {
     // through-features cut through the assembled solid: the screw bores pierce the
     // floor AND the boss together, leaving the sealed cap between bore top and chamber.
     if (screw_mount) for (p=screw_positions) screw_boss_cut(p);
-    cable_port_cut(port_stern_z, port_stern_d);     // plain gland holes (item 4)
-    cable_port_cut(port_bow_z, port_bow_d);
-    if (stim_port) cable_port_cut(port_stim_z, port_stim_d); // 3rd port, stim hull only (item 6)
+    for (z = gland_set(role)) cable_port_cut(z, port_gland_d); // plain gland holes, THIS hull's role set (Task 3)
     motor_mount_cut();
     xt60_cut();
     front_step_cut();                               // stepped band the lid skirt wraps
     lock_dents();
     if (seal_gasket) seal_groove();                 // foam-cord channel in the new land (item 6)
-    if (edge_ch > 0) foot_chamfer_cut();            // finished foot chamfer (item 7a)
+    if (edge_ch > 0 && foot_chamfer) foot_chamfer_cut(); // finished foot chamfer (item 7a) -- OFF: matches the square block foot + seats flush
   }
 }
 

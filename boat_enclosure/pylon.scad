@@ -41,18 +41,20 @@ module pylon() color("Tan") linear_extrude(pylon_width) pylon_2d();
 
 module pylon_cut() {
   cz = pylon_width/2;
-  // PAD mounts the X BasePlate (item 2): a central clearance for the motor boss
-  // that pokes through the plate's 10 mm bore, plus 4 M3 CLEARANCE holes on the
-  // plate's OUTER "+" pattern (32 mm across each axis).  Every hole runs along
-  // X through the whole pad -> open both sides (flat-head from the plate side,
-  // nut on the forward face).  The pad face is the aft plane X=pad_aft.
+  // PAD mounts the X BasePlate (item 2): 4 M3 CLEARANCE holes on the plate's outer
+  // bolt circle (radius bp_bolt/2 = 16), but ROTATED 45deg to an "X" -- mount the
+  // plate turned 45deg.  The X pulls each bolt's reach along the pad axes in from 16
+  // to bp_axis (~11.3), so the pad is shorter and the sloped mast climbs higher (the
+  // rigid plate overhangs the smaller pad, in free air at the tip).  Every hole runs
+  // along X through the whole pad -> open both sides (flat-head from the plate, nut
+  // on the forward face).  The pad face is the aft plane X=pad_aft.
   bp_hole_l = 2*(pad_aft + 2);   // spans the full pad depth, both sides open
   // central boss clearance -- TEARDROP (apex toward +Z = pylon print-up) so the
   // 11.5 mm horizontal bore self-supports instead of drooping onto the boss.
   //translate([0, pylon_rise, cz]) rotate([0,0,-90]) teardrop(h=bp_hole_l, d=bp_bore+1.5);
-  for (p = [[bp_bolt/2,0],[-bp_bolt/2,0],[0,bp_bolt/2],[0,-bp_bolt/2]])
-    translate([0, pylon_rise + p[0], cz + p[1]]) rotate([0,90,0])
-      cylinder(h=bp_hole_l, d=bp_screw_d, center=true);           // 4x M3 plate-mount
+  for (sy=[-1,1], sz=[-1,1])
+    translate([0, pylon_rise + sy*bp_axis, cz + sz*bp_axis]) rotate([0,90,0])
+      cylinder(h=bp_hole_l, d=bp_screw_d, center=true);           // 4x M3 plate-mount (X pattern)
   // 4 foot bolts (item 1 redesign): M4 CLEARANCE all the way through the thick
   // buttress into the block, plus a socket-head COUNTERBORE cut ~foot_cbore_h
   // in from the ACTUAL (tapered) aft surface, so the heads stay recessed and
