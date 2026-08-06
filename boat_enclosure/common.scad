@@ -364,7 +364,12 @@ foot_chamfer = false; // body FOOT bottom-edge chamfer -- OFF (Patrick): the ste
                       // chamfer left a mismatched gap where the body meets the block; a square foot also seats the
                       // whole bottom flush on the bed (easier first layer).  Flip true to restore the finished foot edge.
 // -- perimeter foam-tape gasket land + retention groove on the body TOP rim (the splash seal) --
-seal_gasket  = true;  // add the inboard sealing lip + foam-tape groove around the rim
+seal_gasket  = false; // OFF (Patrick): the inboard sealing lip is a full-perimeter cantilevered overhang at the
+                      // top of the print -> the slicer wants support INSIDE the deep box (awkward to remove, mars
+                      // the very sealing face).  It only bought SPLASH resistance anyway (a capsize floods the box
+                      // through the glands/lid regardless), and the lid's overlap skirt + snap locks still shed the
+                      // bulk of prop spray.  If spray intrusion shows up in testing, stick adhesive foam weatherstrip
+                      // on the flat rim -- no printed lip needed.  Flip true to restore the printed land + groove.
 seal_land_w  = 2.5;   // width of the added inboard lip -> flat sealing land = existing rim(1.3) + this = 3.8
 seal_land_h  = 5;     // how far the lip rises DOWN into the chamber from the Y=0 rim
 seal_groove_w= 2.0;   // foam-tape retention channel width (centred on the land, >=0.8 mm PLA to each edge)
