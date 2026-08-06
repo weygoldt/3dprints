@@ -198,7 +198,7 @@ Trade noted: the 4-bolt envelope drops to ~38 mm (from 41), but the full-height 
 now carry the moment and the bolts mainly clamp. Still ONE `linear_extrude` → supportless, layers along
 the mast. Verified: 1 shell both sides, cavity-breach 0, all echo walls ≥3 mm.
 
-## Pre-print refinement round (2026-08-06) — three fixes before the first print
+## Pre-print refinement round (2026-08-06) — fixes before the first print
 
 Patrick's final pass on the printed pylon + lid before the first production print. All three are
 echo-verified and rendered.
@@ -209,10 +209,12 @@ echo-verified and rendered.
 | 2 | **Lid underside ribs**: too deep, uneven (bars overshoot), and crowd the switch hole | Rib grid rebuilt as an **even waffle**: `rib_h` 5 → **3** (shallower — the ribs stiffen the panel, they don't fill the cavity); every internal rib now runs **ring-to-ring** (terminates on the perimeter ring → no overshooting/ragged free ends); `rib_xs`/`rib_zs` re-spaced (`[−20,0,20]`/`[−42,0,42]`) into even bays. **The switch keep-out is a full rectangle, not a disc** (2nd pass — a disc left the chunky flip switch's corners over ribs): `lid_ribs_mod` KILLS every rib within `switch_ftp` (**30×15**, the switch's inner-body footprint) + `switch_clear` (3 mm each side). |
 | 3 | **Role-based cable glands**, tied to the hull; assembly shows both boxes | The gland SET now **follows the hull** (Patrick's 2nd pass): **`rc_side = "port" \| "starboard"`** names which hull carries the RC/boat electronics (the other is the stimulator). `role_of_side(side)` derives `box_role`, so a `side` render gets that hull's correct bores automatically, and **`main.scad` draws each hull with its own set** — the preview is the real boat: one RC box (3 glands) + one stim box (2). **rc** (boat electronics): 2 motor glands **aft** by the pylon at Z=−72/−48 (same-side + opposite-side motor, one 3-wire bundle each) + 1 control gland **forward** at Z=55 (kept away from the motor phase wires). **stim**: 2 glands both **forward** — signal-IN (Z=55, from the RC receiver) + electrode-OUT (Z=30). All ⌀12 on the inboard +X wall at Y=24. `body(role)` takes the role so the assembly can pass each hull's; `-D box_role=…` still forces it. The old `port_stern/bow/stim` params + `stim_port` are gone. The freed-up **lid hole is now the on/off switch** (`lid_switch*`, was `lid_gland*`; **bore 12.2** for the flip switch — the local motor no longer routes through the lid). |
 
+| 4 | **Rotate the motor-mount bores 45° (＋ → ✕)** to shrink the pad and pull the slopes further up | The 4 M3 plate bolts stay on the same bolt circle (r `bp_bolt/2`=16) but rotate 45° to an **X** — mount the BasePlate turned 45°. New derived `bp_axis = (bp_bolt/2)/√2` ≈ **11.3**: the bolts' reach along the pad **axes** drops from 16 to 11.3, so `pad_h = 2·bp_axis + 2·bp_edge` shrinks **42 → 32.6 mm**. That raises `pad_y0` (116 → 121) and the forward slope apex (114 → 119, climb 75 → **80 mm**). The (rigid) 39.5 plate now **overhangs** the smaller pad — bolted at 4 points, overhang in free air at the tip. `pylon.scad` bores the X pattern; the `main.scad` plate/motor phantoms rotate 45° to match; pad-fit echoes rewritten (pad-holds-bolts + plate-overhangs, X-bolt edge wall 3.3 mm ≥ 3). |
+
 **Verification:** all parts `NoError`; port body (RC, 3 glands) and starboard (stim, 2) export as *different*
 geometry (extra hole); both roles pass the gland-spacing (≥3 mm footprint gap) and flat-wall echo checks;
-the switch keep-out clears the skirt (20.9 mm) and stern lock (12.8 mm); forward-slope echo confirms the
-apex tops out just below the pad.
+the switch keep-out clears the skirt (20.9 mm) and stern lock (12.8 mm); forward-slope apex tops out just
+below the pad; the X bores keep a 3.3 mm pad edge wall and 7 mm flat above the top screws.
 
 ## Prop clearance (parametric)
 

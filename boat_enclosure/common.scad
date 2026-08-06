@@ -535,16 +535,22 @@ mm_bolt_wall_min = min(mm_pad_w/2 - mm_bolt_x/2 - mm_bolt_bore_d/2,          // 
 // melt-EXPANDED insert OD (insert_od) for insert mode so a hot insert has PLA to reflow into, not the slot.
 mm_bolt_slot_bore_r = (mm_bolt_method=="insert") ? insert_od/2 : mm_bolt_bore_d/2;
 mm_bolt_slot_wall   = mm_bolt_y/2 - (reg_h+0.4)/2 - mm_bolt_slot_bore_r;
-pad_h      = bp_bolt + 2*bp_edge;                          // pad backs the BasePlate: >=3 mm wall at the M3 "+" holes
+// The 4 plate bolts sit on the same bolt CIRCLE (radius bp_bolt/2 = 16), but ROTATED 45deg to an "X"
+// (mount the BasePlate turned 45deg).  That pulls each bolt's reach along the pad AXES in from bp_bolt/2
+// (16) to bp_axis (~11.3), so the pad only has to be 2*bp_axis+edge tall -- shorter than the old "+" pad,
+// which raises pad_y0 and lets the sloped mast climb higher.  The (rigid metal) plate now overhangs the
+// smaller pad; it is bolted at 4 points and the overhang hangs in free air at the mast tip.
+bp_axis    = (bp_bolt/2) / sqrt(2);                        // X-pattern bolt offset along each pad axis (Y,Z)
+pad_h      = 2*bp_axis + 2*bp_edge;                        // pad backs the 4 X bolts + edge (>=3 mm wall at the M3s)
 pad_aft    = pylon_root_t + motor_pad_t;                   // pylon pad aft (motor) face, fore-aft
-pad_bolt_wall_y = pad_h/2 - bp_bolt/2 - bp_screw_d/2;      // pad edge wall at the outer "+" bolts (Y)
-pad_bolt_wall_z = pylon_width/2 - bp_bolt/2 - bp_screw_d/2;// pad edge wall at the outer "+" bolts (Z/width)
+pad_bolt_wall_y = pad_h/2 - bp_axis - bp_screw_d/2;        // pad edge wall at the X bolts (Y)
+pad_bolt_wall_z = pylon_width/2 - bp_axis - bp_screw_d/2;  // pad edge wall at the X bolts (Z/width)
 base_aft   = pylon_root_t + pylon_gusset;                  // buttress fore-aft thickness at the foam BASE
 foot_cbore_wall = pylon_width/2 - mm_bolt_x/2 - foot_cbore_d/2; // pylon edge wall at the foot-bolt counterbores
 // -- Item 1: pad top extends ABOVE the top "+" screw so the fillet round lands clear of the plate --
 pad_y0     = pylon_rise - pad_h/2;                         // pad bottom (merges into the buttress top)
 pad_y1     = pylon_rise + pad_h/2 + pad_top_pad;           // pad top (extended: flat seat above the fillet)
-pad_top_flat = pad_y1 - (pylon_rise + bp_bolt/2) - pylon_fillet; // FLAT above the top "+" screw before the round
+pad_top_flat = pad_y1 - (pylon_rise + bp_axis) - pylon_fillet; // FLAT above the top X screws before the round
 // -- Item 3: low foot bolt now clears the base-corner fillet (counterbore bottom above the round) --
 foot_lowbolt_y   = foot_h/2 - mm_bolt_y/2;                 // local Y of the low foot bolt (up from the base)
 foot_bolt_base_clear = foot_lowbolt_y - foot_cbore_d/2 - pylon_fillet; // its cbore bottom above the base round
@@ -602,16 +608,17 @@ echo(str("  hub above box top = ", hub_above_box_top,
          " ; pylon rise above floor = ", pylon_rise));
 echo(str("  prop disc lowest point clears the float top by ", disc_low_above_float,
          " mm ", disc_low_above_float >= 0 ? "OK" : "  << WARNING: prop dips below the float"));
-echo(str("  pad mounts BasePlate (", bp_size, " sq): 4x M3 at the OUTER \"+\" (",
-         bp_bolt, " across each axis, holes +/-", bp_bolt/2,
-         ") ; central boss clearance ", bp_bore+1.5));
-echo(str("  pad face ", pad_y1-pad_y0, "(Y, incl. +", pad_top_pad, " top pad) x ", pylon_width,
-         "(Z) >= plate ", bp_size,
-         " ", ((pad_y1-pad_y0)>=bp_size && pylon_width>=bp_size)?"OK":"  << WARNING: pad smaller than plate"));
-echo(str("  pad \"+\" bolt edge wall = ", round(10*min(pad_bolt_wall_y,pad_bolt_wall_z))/10,
+echo(str("  pad mounts BasePlate (", bp_size, " sq): 4x M3 on the outer bolt circle r", bp_bolt/2,
+         ", ROTATED 45deg to an X (mount the plate turned 45deg) -> bolts at +/-", round(10*bp_axis)/10,
+         " on each pad axis ; central boss clearance ", bp_bore+1.5));
+echo(str("  pad face ", round(pad_y1-pad_y0), "(Y, incl. +", pad_top_pad, " top pad) x ", pylon_width,
+         "(Z): the X bolts span only +/-", round(10*bp_axis)/10, " so the pad holds them + edge -- the ",
+         bp_size, " plate OVERHANGS (rigid, free air at the mast tip) ",
+         (pad_h/2 >= bp_axis + bp_edge) ? "OK -- shorter pad, slopes climb higher" : "  << WARNING: pad too small for the X bolts"));
+echo(str("  pad X-bolt edge wall = ", round(10*min(pad_bolt_wall_y,pad_bolt_wall_z))/10,
          " mm (need >= 3) ", min(pad_bolt_wall_y,pad_bolt_wall_z) >= 3 ? "OK" : "  << WARNING: grow pad_h/pylon_width"));
-echo(str("  (item 1) FLAT above the top \"+\" screw before the fillet = ", round(10*pad_top_flat)/10,
-         " mm ", pad_top_flat >= 2 ? "OK -- top screw seats on flat" : "  << WARNING: raise pad_top_pad or drop pylon_fillet"));
+echo(str("  (item 1) FLAT above the top X screws before the fillet = ", round(10*pad_top_flat)/10,
+         " mm ", pad_top_flat >= 2 ? "OK -- top screws seat on flat" : "  << WARNING: raise pad_top_pad or drop pylon_fillet"));
 if (motor_pad_t < 5) echo("  WARNING: motor pad < 5 mm");
 if (pylon_root_t < 4) echo("  WARNING: pylon root wall < 4 mm");
 echo(str("  stern block ", mm_pad_w, " x ", mm_pad_h, " x ", mm_block_depth,
