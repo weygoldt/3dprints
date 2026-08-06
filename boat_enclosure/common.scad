@@ -123,14 +123,23 @@ ov_d          = 3.0;   // overlap depth behind the lid plane
 skirt_t       = 1.1;   // lid skirt thickness
 lid_clearance = 0.1;   // per-side skirt-to-band clearance (inspo)
 lid_clearance_left = 0.25;  // hinge-side (outboard) skirt clearance, looser for the swing
-lock_zs       = [55, 15, 0, -15, -55];  // Z centers of the INBOARD-edge locks (long free edge).  Denser
-                       // (was [55,0,-55]) so the 160 mm free edge is clamped every ~40 mm -> even gasket
-                       // squeeze, no bow-open between locks.  The side glands sit at Y=port_y (24), the locks
-                       // at the rim (Y~lock_y=2), so a lock and a gland may share a Z without ever touching.
+lock_zs       = [55, 27.5, 0, -27.5, -55];  // Z centers of the INBOARD-edge locks (long free edge), EVEN
+                       // 27.5 mm pitch.  Was [55,15,0,-15,-55]: the middle three (16 mm-long dents on 15 mm
+                       // centres) OVERLAPPED into one ragged blob -- looked unclean AND seated sloppily (two
+                       // bumps sharing one merged dent).  Even pitch > dent length (16.8) gives 5 DISCRETE
+                       // dents with a ~10 mm clean gap each -> a crisper snap and a tidy rim.  The side glands
+                       // sit at Y=port_y (24), the locks at the rim (Y~lock_y=2), so a lock and a gland may
+                       // share a Z without ever touching (see the inboard-dent-gap echo).
 n_locks       = 3;     // 1 = inboard edge (lock_zs), 2 = + bow end, 3 = + stern end
 bump_l        = 16;    // lock bump length along the wall
-bump_w        = 1.0;   // bump profile width
-bump_h        = 0.25;  // bump proudness (dent = 5% wider, 0.1 deeper)
+bump_w        = 1.2;   // bump profile width = triangle base along the closing slide.  With bump_h=0.38 this
+                       // is a ~32 deg lead-in ramp: firm but still hand-closeable (was 1.0 = ~27 deg for the
+                       // old shallow 0.25 bump; widened in step so the deeper bump doesn't get too steep to seat).
+bump_h        = 0.38;  // bump proudness / dent depth (dent = 5% wider, 0.1 deeper).  0.25 popped open too
+                       // easily (a <0.25 mm lift unseated it); 0.38 is ~1.5x deeper for a firm, accident-proof
+                       // snap while the dent stays clear of the sealed chamber: wall 2.5 - step 1.2 - dent 0.48
+                       // = 0.82 mm PLA behind the dent, a hair above the 0.8 watertight bar (guarded by the
+                       // "wall behind the snap dents" echo below; 0.4 would sit exactly on the bar with no margin).
 grip          = true;  // thumb-grip wedge on the lid's inboard rim
 
 /* [Through-board screw mount] -- REPLACES the lanyard ears AND the rod sockets.
@@ -764,7 +773,19 @@ echo(str("  skirt ", skirt_t, " x ", ov_d, " deep over a ", step, " band ; ",
          len(lock_zs) + (n_locks>=2?1:0) + (n_locks>=3?1:0), " locks"));
 echo(str("  hinge-side swing gap = ", round(1000*swing_gap)/1000, " mm ",
          swing_gap >= 0.1 ? "OK" : "  << WARNING: skirt scrapes on the swing"));
-if (step >= wall - 1.0) echo("  WARNING: step band leaves < 1 mm of wall behind the dents");
+// snap strength vs watertightness: the dent cuts INTO the inboard chamber wall.  Deeper = snappier
+// but thinner behind the dent -> guard the sealed-wall bar (0.8 mm PLA to the void).
+dent_wall = wall - step - (bump_h + 0.1);   // PLA left behind the deepest (dent) cut, to the sealed chamber
+echo(str("  bump ", bump_h, " mm proud into a ", bump_h+0.1, " mm dent -> wall behind the dents = ",
+         round(100*dent_wall)/100, " mm ",
+         dent_wall >= 0.8 ? "OK (>=0.8 watertight bar)"
+                          : "  << WARNING: dent thins the sealed wall below 0.8 mm -- reduce bump_h"));
+// tidy rim: adjacent INBOARD dents must not overlap (16.8 mm dent length) or they merge into a ragged blob.
+lock_pitch = min([for (i=[1:len(lock_zs)-1]) abs(lock_zs[i]-lock_zs[i-1])]);
+lock_gap   = lock_pitch - bump_l*1.05;
+echo(str("  inboard dents: min pitch ", lock_pitch, " mm, clean gap ", round(10*lock_gap)/10, " mm ",
+         lock_gap >= 3 ? "OK (discrete, tidy)"
+                       : "  << WARNING: adjacent dents overlap/crowd -> looks unclean, spread lock_zs"));
 
 echo("--- lid on/off switch (chunky flip switch; motors exit via side glands) -");
 if (lid_switch) {

@@ -218,6 +218,25 @@ geometry (extra hole); both roles pass the gland-spacing (≥3 mm footprint gap)
 the switch keep-out clears the skirt (20.9 mm) and stern lock (12.8 mm); forward-slope apex tops out just
 below the pad; the X bores keep a 3.3 mm pad edge wall and 7 mm flat above the top screws.
 
+## Post-print refinement — snap closure (2026-08-06) — after the first printed lid popped open
+
+The first printed lid closes but the snap is weak (pops open on a knock) and the **inboard-edge dents looked
+unprofessional**: three of them overlapped into one ragged blob in the middle of the housing.
+
+| # | Ask | What changed |
+|---|---|---|
+| 1 | **Snappier** — deeper groove, stronger lid protrusion | `bump_h` **0.25 → 0.38** (≈1.5× deeper engagement). 0.25 mm was so shallow a <0.25 mm accidental lift unseated it; 0.38 mm is the deepest that still keeps **≥0.8 mm PLA behind the dent to the sealed chamber** — `wall 2.5 − step 1.2 − dent 0.48 = 0.82 mm`, a hair above the watertight bar (0.4 would sit exactly on it, no margin). `bump_w` **1.0 → 1.2** widens the wedge base so the deeper bump's lead-in ramp stays ~32° (firm but still hand-closeable) instead of getting too steep to seat. Depth is capped by watertightness, not by feel — if it still pops, add locks or steepen the *exit* ramp rather than cut deeper. |
+| 2 | **3 overlapping grooves in the middle look unprofessional** | `lock_zs` **`[55,15,0,−15,−55]` → `[55,27.5,0,−27.5,−55]`** (even 27.5 mm pitch). The old middle three sat on **15 mm centres** while each dent is **16.8 mm** long (16 mm × the 5% dent margin) → they physically overlapped into one merged, wavy recess. Even pitch > dent length gives **5 discrete dents with a ~10.7 mm clean gap each** → tidy rim *and* a crisper snap (each bump now seats in its own dent instead of two bumps sharing one merged pocket). Still 7 locks total (5 inboard + bow + stern end). |
+
+Two new echo guards (in `common.scad`, under `--- lid overlap + snap locks ---`): **`wall behind the snap dents`**
+(warns if the dent thins the sealed inboard wall below the 0.8 mm bar — this is what caps `bump_h`) and **`inboard
+dents: min pitch / clean gap`** (warns if any adjacent pair overlaps/crowds → the "looks unclean" trap). Replaces
+the old coarse `step >= wall − 1.0` check, which ignored the dent depth entirely.
+
+**Verification:** body/lid/main all `NoError`; `wall behind the dents = 0.82 mm OK (≥0.8)`; `inboard dents: min
+pitch 27.5 mm, clean gap 10.7 mm OK (discrete, tidy)`. The dents are shallow surface features (0.38–0.48 mm on a
+185 mm edge), so a section render can't show the pattern convincingly — the echoes are the proof.
+
 ## Prop clearance (parametric)
 
 ```
