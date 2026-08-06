@@ -46,12 +46,13 @@ module ghost_prop_and_motor() {
 // The plate's OUTER "+" holes (+/-16) must land on the pad's 4 M3 holes.
 module ghost_hardware() {
   if (show_hardware) {
-    // plate + motor mounted turned 45deg (the extra -45 vs the old -90) so the plate's outer
-    // "+" holes land on the pylon's X bores; the motor is a can, so clocking it 45deg is cosmetic.
+    // plate + motor mounted turned 45deg so the plate's outer "+" holes land on the pylon's X bores.
+    // The plate lies in the pad plane (normal = fore-aft X), so the 45deg CLOCK is about X (rotate([45,0,0])
+    // applied AFTER the base orientation) -- NOT about Z, which would tilt it out of the pad plane.
     color([0.72,0.73,0.75,0.9])   // BasePlate flat on the pad aft face (X=pad_aft)
-      translate([pad_aft, pylon_rise, pylon_width/2]) rotate([0,0,-45]) import("BasePlate.stl");
-    color([0.12,0.12,0.13,0.9])   // motor: mounting face on the plate, can aft (+X)
-      translate([pad_aft+2+1.6, pylon_rise, pylon_width/2]) rotate([0,0,135]) import("Motor.stl");
+      translate([pad_aft, pylon_rise, pylon_width/2]) rotate([45,0,0]) rotate([0,0,-90]) import("BasePlate.stl");
+    color([0.12,0.12,0.13,0.9])   // motor: mounting face on the plate, can aft (+X), clocked about its own axis (X)
+      translate([pad_aft+2+1.6, pylon_rise, pylon_width/2]) rotate([45,0,0]) rotate([0,0,90]) import("Motor.stl");
   }
 }
 
