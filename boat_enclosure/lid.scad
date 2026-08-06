@@ -62,9 +62,10 @@ module lid_body() {
 // the skirt seal.  Ribs stand +Y INTO the chamber when closed; printed outer-face-
 // DOWN they build UP off the panel -> supportless.  The field is bounded by a
 // perimeter ring and EVERY internal rib runs ring-to-ring (terminates on the ring,
-// so no bar overshoots into a ragged free end); a clean disc is kept clear around
-// the on/off switch hole.  Shallower than the first cut (rib_h) -- it only needs to
-// stiffen the panel, not reach deep into the cavity.
+// so no bar overshoots into a ragged free end).  A rectangular KEEP-OUT sized to the
+// switch body footprint (switch_ftp + switch_clear) kills every rib over the switch,
+// so its chunky inner body sits clear of all support.  Shallower than the first cut
+// (rib_h) -- it only needs to stiffen the panel, not reach deep into the cavity.
 module lid_ribs_mod() {
   prx = W/2 - skirt_t - rib_inset;    // perimeter ring centre (X), inboard of the lip
   prz = H/2 - skirt_t - rib_inset;    //                          (Z)
@@ -77,8 +78,9 @@ module lid_ribs_mod() {
         translate([0,-eps,0]) rprism(2*prx - rib_t, 2*prz - rib_t, rib_h + 2*eps, corner_r - wall);
       }
     }
-    if (lid_switch)                                                                    // clean disc around the switch hole
-      translate([lid_switch_x, -eps, lid_switch_z]) cylinder(h = rib_h + 2*eps, r = lid_switch_d/2 + switch_clear);
+    if (lid_switch)                                                                    // rectangular keep-out: no rib touches the switch body
+      translate([lid_switch_x, rib_h/2, lid_switch_z])
+        cube([switch_ftp[0] + 2*switch_clear, rib_h + 2*eps, switch_ftp[1] + 2*switch_clear], center=true);
   }
 }
 

@@ -238,7 +238,7 @@ module seal_groove() {
 // =====================================================================
 //  BODY  (the shell -- one difference for all external through-features)
 // =====================================================================
-module body() {
+module body(role = box_role) {
   difference() {
     union() {
       // shell hollowed FIRST, THEN the interior screw bosses are unioned on top
@@ -259,7 +259,7 @@ module body() {
     // through-features cut through the assembled solid: the screw bores pierce the
     // floor AND the boss together, leaving the sealed cap between bore top and chamber.
     if (screw_mount) for (p=screw_positions) screw_boss_cut(p);
-    for (z = gland_zs) cable_port_cut(z, port_gland_d); // plain gland holes, role-based set (box_role, Task 3)
+    for (z = gland_set(role)) cable_port_cut(z, port_gland_d); // plain gland holes, THIS hull's role set (Task 3)
     motor_mount_cut();
     xt60_cut();
     front_step_cut();                               // stepped band the lid skirt wraps

@@ -78,21 +78,26 @@ module pylon_at_stern() {
 // =====================================================================
 //  SCENE
 // =====================================================================
-// one hull, in model space (before side mirror / orientation)
-module hull_assembly() {
-  color("SteelBlue") body();
-  // lid swings about the outboard hinge axis (Ax,Ay), which runs along Z (the length)
-  translate([Ax, Ay, 0]) rotate([0, 0, -lid_open]) translate([-Ax, -Ay, 0])
-    color("Gainsboro") lid();
-  pylon_at_stern();
-  if (show_ghosts) { ghost_components(); ghost_prop_and_motor(); ghost_screws(); }
+// one hull for the named side: applies that hull's mirror AND its own gland role,
+// so the two boxes show their CORRECT, DIFFERENT bore sets (rc = 3, stim = 2).
+module hull_assembly(hull) {
+  apply_side_of(hull) {
+    color("SteelBlue") body(role_of_side(hull));
+    // lid swings about the outboard hinge axis (Ax,Ay), which runs along Z (the length)
+    translate([Ax, Ay, 0]) rotate([0, 0, -lid_open]) translate([-Ax, -Ay, 0])
+      color("Gainsboro") lid();
+    pylon_at_stern();
+    if (show_ghosts) { ghost_components(); ghost_prop_and_motor(); ghost_screws(); }
+  }
 }
 
 module assembly_scene() {
-  // both hulls centred on the boat centreline (X=0), one over each skid
-  translate([-beam_target/2, 0, 0]) apply_side() hull_assembly();
+  // the two hulls in their PHYSICAL positions (port at -X, starboard at +X), each with its own
+  // electronics role -> the preview is the real boat: one RC box + one stim box (mapping = rc_side).
+  // Independent of the global `side` (that only picks which single part body.scad/lid.scad export).
+  translate([-beam_target/2, 0, 0]) hull_assembly("port");
   if (show_both_hulls)
-    translate([ beam_target/2, 0, 0]) mirror([1,0,0]) apply_side() hull_assembly();
+    translate([ beam_target/2, 0, 0]) hull_assembly("starboard");
   // the shared foam catamaran body (drawn once, shifted fore-aft by deck_center_z)
   if (show_foam) translate([0, 0, deck_center_z]) foam_body();
 }

@@ -52,10 +52,11 @@ include <../BOSL2/std.scad>
 include <../BOSL2/threading.scad>   // metric tapped holes (Task 5); std.scad omits it
 
 /* [What to render] */
-side = "port";       // [port, starboard]  -- which physical hull (mirror about the boat centreline)
-box_role = "rc";     // [rc, stim]  -- which ELECTRONICS this box carries (independent of side): drives the
-                     // cable-gland SET (Task 3).  rc = boat electronics (2 aft motor glands + 1 fwd control);
-                     // stim = stimulator (2 forward glands: signal-in + electrode-out).
+side = "port";       // [port, starboard]  -- which physical hull to render (mirror about the boat centreline)
+rc_side = "port";    // [port, starboard]  -- which hull carries the RC/BOAT electronics; the OTHER hull is the
+                     // stimulator.  The cable-gland SET now FOLLOWS the hull (Task 3): a `side` render gets that
+                     // hull's correct bores, and the assembly draws both hulls with their own sets.  Set this to
+                     // match your physical boat.  (You can still force the role directly with -D box_role="rc"|"stim".)
 print_ready = true;
 lid_open   = 0;      // assembly preview only: degrees the lid is swung open
 show_ghosts = true;  // assembly preview: draw components + float + prop discs
@@ -85,15 +86,19 @@ box_height = inner_d;    // floor -> lid
 /* [Lid] */
 lid_t     = 3;     // top-lid outline matches the body exactly (inspo lid == base)
 
-// A hole through the LID for the ON/OFF SWITCH (master power).  The local motor's
-// phase leads used to route through here, but they now exit via the inboard SIDE
-// glands near the pylon (see box_role / Task 3), which frees this lid hole for the
-// switch.  Placed over the stern end, clear of the hinge (outboard), the perimeter
-// skirt, and the snap locks; the underside stiffening ribs are notched clear of it.
+// A bore through the LID for the ON/OFF SWITCH (master power) -- a big chunky FLIP switch.  The local
+// motor's phase leads used to route through here, but they now exit via the inboard SIDE glands near the
+// pylon (see box_role / Task 3), which frees this lid hole for the switch.  Placed over the stern end,
+// clear of the hinge (outboard), the perimeter skirt, and the snap locks.  The switch's INNER BODY
+// (switch_ftp) must sit clear of ALL lid stiffening ribs -> lid_ribs_mod KILLS every rib within the
+// footprint + switch_clear margin (a full rectangular keep-out, not just a disc around the bore).
 lid_switch   = true;
-lid_switch_d = 12;    // switch panel-mount hole -- MEASURE your switch (rocker/toggle/button); 12 = the old gland hole
+lid_switch_d = 12.2;  // switch panel-mount BORE -- MEASURED (this flip switch needs 12.2)
 lid_switch_x = 0;     // athwartship (X): 0 = centreline
 lid_switch_z = -60;   // fore-aft (Z): near the stern/pylon end, clear of locks & skirt
+switch_ftp   = [30, 15]; // switch INNER-body footprint on the lid [X athwartship, Z fore-aft] -- MEASURED 30x15
+                         // (30 across the width here).  If your switch is rotated 90deg, swap to [15, 30].
+switch_clear = 3;     // margin kept rib-free around the switch footprint (each side) -- the keep-out is ftp + 2*this
 
 /* [Side & boat] -- one body, two hulls */
 beam_target = 260;  // hull centreline-to-centreline spacing (mm).  MUST exceed
@@ -338,9 +343,14 @@ rc_motor_zs    = [-72, -48]; // RC: 2 aft motor glands by the pylon (same-side +
 rc_ctrl_z      = 55;    // RC: control-signal gland, well forward (far from the motor wires for less EMI pickup)
 stim_in_z      = 55;    // STIM: signal-in from the RC receiver (forward)
 stim_out_z     = 30;    // STIM: stimulus electrode leads out (forward)
-// the gland Z set for THIS box (inboard +X wall); body.scad cuts one plain hole per Z
-gland_zs = (box_role == "stim") ? [stim_in_z, stim_out_z]
-                                : concat(rc_motor_zs, [rc_ctrl_z]);
+// role <-> hull, and the gland Z SET for a role (inboard +X wall; body cuts one plain hole per Z).
+// The set FOLLOWS the hull: rc_side names which hull is RC, the other is stim.  body(role) takes the
+// role so the assembly can draw each hull with its own set; the standalone render uses box_role (from side).
+function gland_set(role) = (role == "stim") ? [stim_in_z, stim_out_z]
+                                            : concat(rc_motor_zs, [rc_ctrl_z]);
+function role_of_side(s)  = (s == rc_side) ? "rc" : "stim";
+box_role = role_of_side(side);   // THIS render's electronics role, derived from the hull (override: -D box_role=...)
+gland_zs = gland_set(box_role);  // the standalone-render / echo set
 
 // =====================================================================
 //  FINISHING PASS  (edges, splash gasket, lid ribs, interior structure)
@@ -373,7 +383,7 @@ rib_inset    = 7;     // perimeter rib inset from the skirt inner face (was 5). 
 // (lid_ribs_mod terminates them on the perimeter ring -- no overshoot) and the spacing divides the field evenly.
 rib_xs       = [-20, 0, 20];   // longitudinal ribs (run fore-aft, along Z) at these X
 rib_zs       = [-42, 0, 42];   // transverse ribs (run athwartship, along X) at these Z -- clear of the switch bay (Z=-60)
-switch_clear = 6;     // radial clearance kept between the underside ribs and the switch hole (a clean disc, item 8)
+// (switch_ftp / switch_clear -- the switch keep-out that kills ribs around the hole -- live in the [Lid] block above)
 // -- lid deck shadow-gap panel line (looks) -- OFF: a recessed groove in the OUTER
 // (bed) face fights a clean flat bottom (Patrick: prints poorly flat on the bed).
 // The 45deg top-edge chamfer alone carries the finished-deck look. Flip true to restore.
@@ -709,7 +719,9 @@ if (show_foam) {
 } else echo("  foam body OFF");
 
 echo("--- Task 3: cable glands (inboard +X wall) -- role-based -------");
-echo(str("  box_role = ", box_role, " -> ", len(gland_zs), " glands, ", port_gland_d,
+echo(str("  rc_side=", rc_side, " -> port hull=", role_of_side("port"),
+         ", starboard hull=", role_of_side("starboard"), " (the assembly draws both; each `side` render gets its own set)"));
+echo(str("  this render: side=", side, " -> box_role=", box_role, " -> ", len(gland_zs), " glands, ", port_gland_d,
          " mm holes at Z=", gland_zs, " (Y=", port_y, ") : ",
          box_role=="stim" ? "signal-IN + electrode-OUT, both forward"
                           : "2 aft motor glands (same-side + opposite-side) + 1 forward control"));
@@ -739,15 +751,18 @@ echo(str("  hinge-side swing gap = ", round(1000*swing_gap)/1000, " mm ",
          swing_gap >= 0.1 ? "OK" : "  << WARNING: skirt scrapes on the swing"));
 if (step >= wall - 1.0) echo("  WARNING: step band leaves < 1 mm of wall behind the dents");
 
-echo("--- lid on/off switch hole (motors now exit via the side glands) -");
+echo("--- lid on/off switch (chunky flip switch; motors exit via side glands) -");
 if (lid_switch) {
-  s_edge = min(H/2 - abs(lid_switch_z), W/2 - abs(lid_switch_x)) - lid_switch_d/2;   // to nearest lid edge/skirt
-  s_lock = (n_locks>=3) ? abs(lid_switch_z + (H/2 - step)) - lid_switch_d/2 - bump_l/2 : 1e9; // to stern-end lock
-  echo(str("  switch hole ", lid_switch_d, " at (X=", lid_switch_x, ", Z=", lid_switch_z,
-           ") ; clear of lid edge/skirt by ", round(10*s_edge)/10, " mm ",
-           s_edge >= skirt_t+2 ? "OK" : "  << WARNING: too close to the skirt"));
-  echo(str("  clear of the stern-end snap lock by ", round(10*s_lock)/10, " mm ",
-           s_lock >= 2 ? "OK" : "  << WARNING: switch sits over a snap lock"));
+  kx = switch_ftp[0] + 2*switch_clear;   // rib keep-out extents (switch body footprint + margin)
+  kz = switch_ftp[1] + 2*switch_clear;
+  s_edge = min(H/2 - abs(lid_switch_z) - kz/2, W/2 - abs(lid_switch_x) - kx/2) - skirt_t;  // keep-out -> lid edge/skirt
+  s_lock = (n_locks>=3) ? (H/2 - step) - (abs(lid_switch_z) + kz/2) - bump_l/2 : 1e9;       // keep-out -> stern lock
+  echo(str("  ", lid_switch_d, " bore + ", switch_ftp[0], "x", switch_ftp[1], " rib-free keep-out at (X=",
+           lid_switch_x, ", Z=", lid_switch_z, ")"));
+  echo(str("  keep-out clears the lid edge/skirt by ", round(10*s_edge)/10, " mm ",
+           s_edge >= 2 ? "OK" : "  << WARNING: switch footprint too close to the skirt"));
+  echo(str("  keep-out clears the stern-end snap lock by ", round(10*s_lock)/10, " mm ",
+           s_lock >= 1 ? "OK" : "  << WARNING: switch footprint fouls the stern lock"));
 } else echo("  lid switch OFF");
 
 echo("--- XT60 charge port -------------------------------------------");
@@ -808,6 +823,12 @@ module lock_wedge(o, dent=false) {
 // =====================================================================
 module apply_side() {
   if (side == "starboard") mirror([1,0,0]) children();
+  else children();
+}
+
+// same mirror, but for an EXPLICIT hull (not the global `side`) -- the assembly draws both hulls
+module apply_side_of(s) {
+  if (s == "starboard") mirror([1,0,0]) children();
   else children();
 }
 
