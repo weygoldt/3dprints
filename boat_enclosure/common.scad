@@ -73,7 +73,9 @@ eps  = 0.01;
 inner_w  = 90;     // code X = box WIDTH   (athwartship)  -- floor 90 wide
 inner_h  = 180;    // code Z = box LENGTH  (fore-aft)     -- floor 90 x 165
 inner_d  = 40;     // code Y = box HEIGHT  (floor->lid)   -- LiPo 26.5 + routing
-wall     = 2.5;
+wall     = 3.0;    // was 2.5 -- bumped so the snap-lock rim band isn't a flimsy weak point.  W/H/D are
+                   // DERIVED (inner + 2*wall), so this grows the OUTER box ~1 mm and leaves the electronics
+                   // cavity (inner_*) untouched; pairs with skirt_t 1.4 -> both joint leaves ~1.5 mm.
 corner_r = 7;      // fuller, more designed vertical corners (was 5).  Feeds rprism/cavity/front_step_cut/
                    // lid_r; purely vertical edges so no overhang. corner_r-wall=4.5 stays > 0 for the cavity.
 
@@ -120,7 +122,8 @@ pin_clr      = 0.3;    // added to pin bore
 /* [Lid overlap + snap locks] -- the inspo closure, ported verbatim: lid
    skirt over a stepped body band, bump-in-dent interlocks, full perimeter. */
 ov_d          = 3.0;   // overlap depth behind the lid plane
-skirt_t       = 1.1;   // lid skirt thickness
+skirt_t       = 1.4;   // lid skirt thickness (was 1.1 -- beefed the lid leaf of the joint alongside wall 3.0;
+                       // step follows (=skirt_t+clearance) so the bump<->dent clearance stays 0.1, snap unchanged).
 lid_clearance = 0.1;   // per-side skirt-to-band clearance (inspo)
 lid_clearance_left = 0.25;  // hinge-side (outboard) skirt clearance, looser for the swing
 lock_zs       = [55, 27.5, 0, -27.5, -55];  // Z centers of the INBOARD-edge locks (long free edge), EVEN
@@ -137,9 +140,10 @@ bump_w        = 1.2;   // bump profile width = triangle base along the closing s
                        // old shallow 0.25 bump; widened in step so the deeper bump doesn't get too steep to seat).
 bump_h        = 0.38;  // bump proudness / dent depth (dent = 5% wider, 0.1 deeper).  0.25 popped open too
                        // easily (a <0.25 mm lift unseated it); 0.38 is ~1.5x deeper for a firm, accident-proof
-                       // snap while the dent stays clear of the sealed chamber: wall 2.5 - step 1.2 - dent 0.48
-                       // = 0.82 mm PLA behind the dent, a hair above the 0.8 watertight bar (guarded by the
-                       // "wall behind the snap dents" echo below; 0.4 would sit exactly on the bar with no margin).
+                       // snap while the dent stays clear of the sealed chamber: wall 3.0 - step 1.5 - dent 0.48
+                       // = 1.02 mm PLA behind the dent (was a tight 0.82 at wall 2.5; the thicker wall now
+                       // leaves real margin over the 0.8 bar -- room to deepen to ~0.5 later if it still pops).
+                       // Guarded by the "wall behind the snap dents" echo below.
 grip          = true;  // thumb-grip wedge on the lid's inboard rim
 
 /* [Through-board screw mount] -- REPLACES the lanyard ears AND the rod sockets.

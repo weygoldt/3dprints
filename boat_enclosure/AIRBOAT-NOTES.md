@@ -227,15 +227,22 @@ unprofessional**: three of them overlapped into one ragged blob in the middle of
 |---|---|---|
 | 1 | **Snappier** — deeper groove, stronger lid protrusion | `bump_h` **0.25 → 0.38** (≈1.5× deeper engagement). 0.25 mm was so shallow a <0.25 mm accidental lift unseated it; 0.38 mm is the deepest that still keeps **≥0.8 mm PLA behind the dent to the sealed chamber** — `wall 2.5 − step 1.2 − dent 0.48 = 0.82 mm`, a hair above the watertight bar (0.4 would sit exactly on it, no margin). `bump_w` **1.0 → 1.2** widens the wedge base so the deeper bump's lead-in ramp stays ~32° (firm but still hand-closeable) instead of getting too steep to seat. Depth is capped by watertightness, not by feel — if it still pops, add locks or steepen the *exit* ramp rather than cut deeper. |
 | 2 | **3 overlapping grooves in the middle look unprofessional** | `lock_zs` **`[55,15,0,−15,−55]` → `[55,27.5,0,−27.5,−55]`** (even 27.5 mm pitch). The old middle three sat on **15 mm centres** while each dent is **16.8 mm** long (16 mm × the 5% dent margin) → they physically overlapped into one merged, wavy recess. Even pitch > dent length gives **5 discrete dents with a ~10.7 mm clean gap each** → tidy rim *and* a crisper snap (each bump now seats in its own dent instead of two bumps sharing one merged pocket). Still 7 locks total (5 inboard + bow + stern end). |
+| 3 | **Sub-2 mm wall at the snaps feels flimsy** — make it bigger | The snap joint intrinsically splits the wall into two overlapping leaves (body **band** + lid **skirt**), so the band was only ~1.3 mm and ~0.82 mm behind each dent (sat exactly on the watertight bar). Beefed **both leaves**: `wall` **2.5 → 3.0** and `skirt_t` **1.1 → 1.4**. `W/H/D` are derived (`inner + 2·wall`), so this grows the **outer** box ~1 mm and leaves the electronics cavity untouched. Result: band **1.3 → 1.5 mm**, behind-dent **0.82 → 1.02 mm** (real margin now), lid skirt **1.1 → 1.4 mm**, closed joint composite **~2.4 → ~2.9 mm**. `step = skirt_t + clearance` moves with the skirt so the bump↔dent clearance stays 0.1 mm — **the snap geometry is unchanged**. Cost: ~+30–40 g PLA / +1–2 h print per hull; +1 mm outer footprint (trivial for the foam float). The extra behind-dent margin also leaves headroom to deepen the snap to ~0.5 later if it still pops. |
 
 Two new echo guards (in `common.scad`, under `--- lid overlap + snap locks ---`): **`wall behind the snap dents`**
 (warns if the dent thins the sealed inboard wall below the 0.8 mm bar — this is what caps `bump_h`) and **`inboard
 dents: min pitch / clean gap`** (warns if any adjacent pair overlaps/crowds → the "looks unclean" trap). Replaces
 the old coarse `step >= wall − 1.0` check, which ignored the dent depth entirely.
 
-**Verification:** body/lid/main all `NoError`; `wall behind the dents = 0.82 mm OK (≥0.8)`; `inboard dents: min
-pitch 27.5 mm, clean gap 10.7 mm OK (discrete, tidy)`. The dents are shallow surface features (0.38–0.48 mm on a
-185 mm edge), so a section render can't show the pattern convincingly — the echoes are the proof.
+**Verification:** body/lid/main all `NoError` (with wall 3.0 + skirt 1.4 baked in); `skirt 1.4 × 3 deep over a
+1.5 band`; `wall behind the dents = 1.02 mm OK (≥0.8)`; `inboard dents: min pitch 27.5 mm, clean gap 10.7 mm OK
+(discrete, tidy)`; hinge swing gap 0.117 mm OK; bed 106 × 200 (fits). The dents are shallow surface features
+(0.38–0.48 mm on a 185 mm edge), so a section render can't show the pattern convincingly — the echoes are the proof.
+
+**Worktree gotcha (this session):** the main checkout `/home/weygoldt/wrk/3dprints/boat_enclosure/` and the
+`airboat-enclosure` worktree BOTH have `boat_enclosure/common.scad`, so a bare `cd boat_enclosure && openscad …`
+can render the *wrong* (main, older) tree depending on where the shell resets. Always render with the **absolute
+worktree path** (`…/.claude/worktrees/airboat-enclosure/boat_enclosure/<part>.scad`).
 
 ## Prop clearance (parametric)
 
