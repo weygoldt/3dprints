@@ -233,6 +233,11 @@ bp_screw_d     = 3.4;   // M3 clearance through the pad (flat-head from the plat
 bp_edge        = 5;     // pad material beyond the bolt centres (keeps >=3 mm wall at the M3s)
 motor_pad_t    = 5;     // pad thickness aft of the mast (>=5)
 motor_body_d   = 28;    // motor can diameter (MEASURED off Motor.stl; pad + ghost sizing)
+// Item 1 (2026-08-06): with pylon_fillet raised to 6 the pad-top round SWALLOWED the top motor "+"
+// screw (at pylon_rise + bp_bolt/2) -- the head/plate landed on the curve.  Extend the pad UPWARD by
+// pad_top_pad so a full FLAT seat sits above that screw before the round begins.  Only the top grows
+// (the bottom still merges into the buttress), so the mast + motor axis stay put.
+pad_top_pad    = 6;     // extra flat above the top "+" screw (>= pylon_fillet + ~1 keeps the screw off the round)
 
 /* [Motor mount + pylon] -- SEPARATE printed pylon bolts to an aft-protruding
    BLOCK on the stern wall.  Every fastener stays inside that block, AFT of
@@ -247,11 +252,22 @@ mm_bolt_method = "insert"; // [insert(M4 heat-set brass, DEFAULT), thread(BOSL2 
 mm_pad_w       = 50;    // block width  (X)  -- extends DOWN to the floor (load spread, no overhang)
 mm_bolt_x      = 28;    // M4 spread across the width (Z): pulled in so the foot bolt COUNTERBORES
                         // (Task 1 redesign) clear the 42 mm pylon edge by >=3 mm
-mm_bolt_y      = 26;    // M4 spread across the height
+// Item 3 (2026-08-06): was 26 -- at that spread the LOW foot bolt sat so near the foot base that its
+// counterbore ran into the (now r6->r4) base-corner fillet ("screws on the rounded radius").  The
+// forward gusset (item 2) now carries the forward-tipping MOMENT in compression, so the bolts no
+// longer need a tall spread to resist it -- they just clamp.  20 RAISES the low foot bolt onto clean
+// FLAT and keeps the block-edge walls healthy, with the same footprint.  Block holes track this param.
+mm_bolt_y      = 20;    // M4 spread across the height  (moment now goes through the gusset, not the bolt spread)
 mm_bolt_depth  = 10;    // blind hole depth into the block (< block_depth-2); fits the M4 insert (~8) + lead
 mm_bolt_pilot  = 3.4;   // (selftap / thread-fallback only) thread-forming pilot for M4 in PLA
-reg_depth      = 6;     // register tongue/slot depth (fore-aft) -- takes the shear/moment
-reg_h          = 14;    // register tongue/slot height
+reg_depth      = 8;     // register tongue/slot depth (fore-aft) -- the primary shear/moment key (item 4:
+                        // KEEP the square peg, deepen it 6->8 for more engagement; a dovetail's thin flare
+                        // necks would be stress risers under this moment and would fight the flat side-print)
+reg_h          = 10;    // register tongue/slot HEIGHT (was 14).  The CENTRED slot must not collide with the 4
+                        // M4 attach-insert bores once item 3 pulls them inward: at reg_h 14 + mm_bolt_y 20 the
+                        // upper insert bore ran TANGENT to the slot (0 mm PLA -> insert reflows into the slot).
+                        // Trimming the slot to 10 (deeper engagement via reg_depth 8 more than pays for the
+                        // lost height) leaves >=2 mm PLA bore<->slot (mm_bolt_slot_wall echo now guards this).
 // -- Pylon: a SEPARATE flat-extruded part.  Patrick's v0.2 redesign makes the
 // reinforcement a FULL-HEIGHT triangular buttress (thick fore-aft at the foam
 // BASE, tapering to the mast tip -- the moment peaks at the base, so that is
@@ -272,11 +288,24 @@ pylon_gusset   = 18;    // fore-aft thickness added at the BASE (was 16; base_af
                         // an unbalanced prop.
 pylon_bolt_d   = 4.4;   // M4 CLEARANCE through the foot (the block holes take an M4 heat-set insert by
                         // default; thread/selftap fallbacks) -- the bolt threads into brass, not the foot
-pylon_fillet   = 6;     // smooth-transition fillet radius at the mast/pad/base junctions (was 4).  Lowers the
-                        // peak-moment base stress concentration AND (as one offset() on the 2D profile) rounds
-                        // the convex mast TIP + pad-top corners into a finished mast silhouette. Still ONE extrude.
+pylon_fillet   = 4;     // smooth-transition fillet radius at the mast/pad/base junctions (item 1/3: was 6,
+                        // trimmed to 4 -- r6 rounded the mast tip/pad-top nicely but rolled the screw seats
+                        // onto the curve; r4 still smooths the peak-moment base + finishes the silhouette while
+                        // leaving flat under the pad-top screw (with pad_top_pad) and the low foot bolt).
 foot_cbore_d   = 7.5;   // M4 socket-head counterbore in the foot aft face (recesses the head)
 foot_cbore_h   = 5;     // counterbore depth
+// Item 2 (2026-08-06) -- FORWARD GUSSET: a compression bracket on the mast's FORWARD face.  Its
+// underside is a flat face 90deg to the mast that BEARS ON TOP OF THE STERN BLOCK, sloping up to
+// the mast and reaching forward to the housing's stern wall.  When the motor thrusts, the pylon
+// tips forward and this face drives DOWN into the block top -- a direct compression path into the
+// body that off-loads the 4 attach bolts (see mm_bolt_y).  It is added to the SAME single flat
+// linear_extrude (crisp, like the register tongue), so it costs NOTHING in print supports.  It
+// bears on the BLOCK top (aft of the lid), never the box top, so the lid stays clear.
+fwd_gusset      = true;  // item 2: the forward compression bracket
+fwd_gusset_rise = 24;    // how far UP the mast (from the block top) the forward slope climbs
+fwd_gusset_gap  = 0.15;  // clearance under the bearing face so it never fights foot-seating; small so the
+                         // gusset engages after minimal deflection (it is a compression bracket for the
+                         // dominant FORWARD thrust; aft/handling loads are carried by the deep tongue + bolts)
 
 // =====================================================================
 //  TASK 3 -- CABLE PORTS (inboard +X wall) -- PLAIN through-holes.
@@ -474,12 +503,28 @@ mm_bolt_bore_d   = (mm_bolt_method=="insert") ? insert_d
 mm_bolt_wall_min = min(mm_pad_w/2 - mm_bolt_x/2 - mm_bolt_bore_d/2,          // to the block width edge (X)
                        (D - (mm_pad_yc + mm_bolt_y/2)) - mm_bolt_bore_d/2,   // up to the floor edge (Y=D)
                        (mm_pad_yc - mm_bolt_y/2 - mm_pad_top) - mm_bolt_bore_d/2); // down to the block top edge
+// PLA web between the M4 attach bore and the CENTRED register slot (the wall mm_bolt_wall_min omits).
+// The bolts straddle the slot in Y, so the inner bore edge must clear the slot half-height; use the
+// melt-EXPANDED insert OD (insert_od) for insert mode so a hot insert has PLA to reflow into, not the slot.
+mm_bolt_slot_bore_r = (mm_bolt_method=="insert") ? insert_od/2 : mm_bolt_bore_d/2;
+mm_bolt_slot_wall   = mm_bolt_y/2 - (reg_h+0.4)/2 - mm_bolt_slot_bore_r;
 pad_h      = bp_bolt + 2*bp_edge;                          // pad backs the BasePlate: >=3 mm wall at the M3 "+" holes
 pad_aft    = pylon_root_t + motor_pad_t;                   // pylon pad aft (motor) face, fore-aft
 pad_bolt_wall_y = pad_h/2 - bp_bolt/2 - bp_screw_d/2;      // pad edge wall at the outer "+" bolts (Y)
 pad_bolt_wall_z = pylon_width/2 - bp_bolt/2 - bp_screw_d/2;// pad edge wall at the outer "+" bolts (Z/width)
 base_aft   = pylon_root_t + pylon_gusset;                  // buttress fore-aft thickness at the foam BASE
 foot_cbore_wall = pylon_width/2 - mm_bolt_x/2 - foot_cbore_d/2; // pylon edge wall at the foot-bolt counterbores
+// -- Item 1: pad top extends ABOVE the top "+" screw so the fillet round lands clear of the plate --
+pad_y0     = pylon_rise - pad_h/2;                         // pad bottom (merges into the buttress top)
+pad_y1     = pylon_rise + pad_h/2 + pad_top_pad;           // pad top (extended: flat seat above the fillet)
+pad_top_flat = pad_y1 - (pylon_rise + bp_bolt/2) - pylon_fillet; // FLAT above the top "+" screw before the round
+// -- Item 3: low foot bolt now clears the base-corner fillet (counterbore bottom above the round) --
+foot_lowbolt_y   = foot_h/2 - mm_bolt_y/2;                 // local Y of the low foot bolt (up from the base)
+foot_bolt_base_clear = foot_lowbolt_y - foot_cbore_d/2 - pylon_fillet; // its cbore bottom above the base round
+// -- Item 2: forward gusset extents (pylon-local: X=fore-aft +aft, Y=up mast; bears on the block top) --
+fg_reach   = mm_block_depth - fwd_gusset_gap;              // forward reach = to the stern wall, a hair shy so the foot seats first
+fg_y0      = foot_h + fwd_gusset_gap;                      // bearing face (a hair above the block top)
+fg_y1      = fg_y0 + fwd_gusset_rise;                      // apex, up the mast front
 // overall stack height (waterline to prop top), for the hand-back report
 stack_height = float_freeboard + box_outer_height + hub_above_box_top + prop_radius;
 
@@ -532,26 +577,39 @@ echo(str("  prop disc lowest point clears the float top by ", disc_low_above_flo
 echo(str("  pad mounts BasePlate (", bp_size, " sq): 4x M3 at the OUTER \"+\" (",
          bp_bolt, " across each axis, holes +/-", bp_bolt/2,
          ") ; central boss clearance ", bp_bore+1.5));
-echo(str("  pad face ", pad_h, "(Y) x ", pylon_width, "(Z) >= plate ", bp_size,
-         " ", (pad_h>=bp_size && pylon_width>=bp_size)?"OK":"  << WARNING: pad smaller than plate"));
+echo(str("  pad face ", pad_y1-pad_y0, "(Y, incl. +", pad_top_pad, " top pad) x ", pylon_width,
+         "(Z) >= plate ", bp_size,
+         " ", ((pad_y1-pad_y0)>=bp_size && pylon_width>=bp_size)?"OK":"  << WARNING: pad smaller than plate"));
 echo(str("  pad \"+\" bolt edge wall = ", round(10*min(pad_bolt_wall_y,pad_bolt_wall_z))/10,
          " mm (need >= 3) ", min(pad_bolt_wall_y,pad_bolt_wall_z) >= 3 ? "OK" : "  << WARNING: grow pad_h/pylon_width"));
+echo(str("  (item 1) FLAT above the top \"+\" screw before the fillet = ", round(10*pad_top_flat)/10,
+         " mm ", pad_top_flat >= 2 ? "OK -- top screw seats on flat" : "  << WARNING: raise pad_top_pad or drop pylon_fillet"));
 if (motor_pad_t < 5) echo("  WARNING: motor pad < 5 mm");
 if (pylon_root_t < 4) echo("  WARNING: pylon root wall < 4 mm");
 echo(str("  stern block ", mm_pad_w, " x ", mm_pad_h, " x ", mm_block_depth,
-         " aft ; M4 x4 depth ", mm_bolt_depth, " ; bolt envelope ",
-         round(mm_bolt_envelope), " mm ", mm_bolt_envelope >= 36 ? "OK (buttress + tongue carry the moment; bolts clamp)" : "  << WARNING: bolt spread small"));
+         " aft ; M4 x4 depth ", mm_bolt_depth, " (reg tongue ", reg_depth, " deep x ", reg_h, " tall) ; bolt envelope ",
+         round(mm_bolt_envelope), " mm ", mm_bolt_envelope >= 33 ? "OK (fwd gusset + deep tongue carry the moment; bolts clamp)" : "  << WARNING: bolt spread small"));
 echo(str("  motor-mount bolt cavity margin = ", mm_cavity_margin, " mm (need >= 3) ",
          mm_cavity_margin >= 3 ? "OK" : "  << WARNING: fastener enters the sealed cavity"));
 echo(str("  stern-block fastener method = ", mm_bolt_method, " ; bore ",
          round(10*mm_bolt_bore_d)/10, " x depth ", mm_bolt_depth,
          " ; PLA wall around bore = ", round(10*mm_bolt_wall_min)/10, " mm ",
          mm_bolt_wall_min >= 2 ? "OK" : "  << WARNING: thin wall around the block fastener"));
+echo(str("  bore <-> register-slot PLA web = ", round(10*mm_bolt_slot_wall)/10, " mm ",
+         mm_bolt_slot_wall >= 1.5 ? "OK -- insert has PLA to grip; won't reflow into the slot"
+                                  : "  << WARNING: bore fouls the register slot -- widen mm_bolt_y or shrink reg_h"));
 echo(str("  pylon: ONE extrude, ", pylon_width, " wide -> flat supportless; FULL-HEIGHT buttress ",
-         base_aft, "->", pylon_root_t, " fore-aft (base->tip); prints ~", round(pylon_rise),
-         " long x ", pad_h, " x ", pylon_width, " mm"));
+         base_aft, "->", pylon_root_t, " fore-aft (base->tip); prints bed ", round(pad_y1),
+         "(Y, mast->pad tip) x ", round(base_aft + fg_reach), "(X, gusset tip->base) x ", pylon_width, " build"));
 echo(str("  pylon foot-bolt counterbore edge wall = ", round(10*foot_cbore_wall)/10,
          " mm (need >= 3) ", foot_cbore_wall >= 3 ? "OK" : "  << WARNING: narrow mm_bolt_x or foot_cbore_d"));
+echo(str("  (item 3) low foot-bolt counterbore clears the base fillet by ", round(10*foot_bolt_base_clear)/10,
+         " mm ", foot_bolt_base_clear >= 1 ? "OK -- foot bolts on flat" : "  << WARNING: raise the bolt group / shrink pylon_fillet"));
+if (fwd_gusset)
+  echo(str("  (item 2) FORWARD GUSSET: bears on the block top, reaches ", fg_reach,
+           " mm fwd to the stern wall, climbs ", fwd_gusset_rise, " mm up the mast (apex Y=", fg_y1,
+           " < pad Y0=", pad_y0, " ", fg_y1 < pad_y0 ? "OK -- clear of the pad" : "<< WARNING: gusset hits the pad", ")"));
+else echo("  (item 2) forward gusset OFF");
 echo(str("  OVERALL STACK (waterline -> prop top) = ", round(stack_height), " mm"));
 // prop is a FREE constant: warn when a big prop makes the mast tall enough that the
 // stern joint (fixed block/gussets/2.5 mm wall), not the mast, becomes the weak link.

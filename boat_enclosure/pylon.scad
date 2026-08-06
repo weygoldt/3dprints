@@ -26,9 +26,14 @@ module pylon_2d() {
   union() {
     offset(r=pylon_fillet) offset(delta=-pylon_fillet) union() {
       polygon([[0,0], [base_aft,0], [pylon_root_t, pylon_rise], [0, pylon_rise]]); // full-height buttress
-      translate([0, pylon_rise - pad_h/2]) square([pad_aft, pad_h]);               // motor pad
+      translate([0, pad_y0]) square([pad_aft, pad_y1 - pad_y0]);                   // motor pad (item 1: top extended)
     }
     translate([-reg_depth, (foot_h-reg_h)/2]) square([reg_depth+eps, reg_h]);       // register tongue (crisp)
+    // item 2 -- forward gusset (crisp, like the tongue, so the thin tip keeps its full reach to the
+    // stern wall and the bearing face stays flat).  Right edge at X=+eps sits INSIDE the mast front
+    // (x>=0) for a solid weld; bottom face at fg_y0 bears on the block top; apex at (eps,fg_y1).
+    if (fwd_gusset)
+      polygon([[eps, fg_y1], [eps, fg_y0], [-fg_reach, fg_y0]]);
   }
 }
 
