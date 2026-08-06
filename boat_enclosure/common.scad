@@ -52,7 +52,10 @@ include <../BOSL2/std.scad>
 include <../BOSL2/threading.scad>   // metric tapped holes (Task 5); std.scad omits it
 
 /* [What to render] */
-side = "port";       // [port, starboard]
+side = "port";       // [port, starboard]  -- which physical hull (mirror about the boat centreline)
+box_role = "rc";     // [rc, stim]  -- which ELECTRONICS this box carries (independent of side): drives the
+                     // cable-gland SET (Task 3).  rc = boat electronics (2 aft motor glands + 1 fwd control);
+                     // stim = stimulator (2 forward glands: signal-in + electrode-out).
 print_ready = true;
 lid_open   = 0;      // assembly preview only: degrees the lid is swung open
 show_ghosts = true;  // assembly preview: draw components + float + prop discs
@@ -82,15 +85,15 @@ box_height = inner_d;    // floor -> lid
 /* [Lid] */
 lid_t     = 3;     // top-lid outline matches the body exactly (inspo lid == base)
 
-// Item 3 -- a gland hole through the LID for the LOCAL motor's 3 phase leads
-// (the motor sits on this hull's stern pylon; its leads drop into the box
-// through this sealed hole and are zip-tied to the pylon).  Placed over the
-// stern end, clear of the hinge (outboard), the perimeter skirt, and the snap
-// locks.  Replaces the pylon cable-groove as the routing solution (item 3).
-lid_gland   = true;
-lid_gland_d = 12;     // gland panel-mount hole -- MEASURED (matches the port glands)
-lid_gland_x = 0;      // athwartship (X): 0 = centreline
-lid_gland_z = -60;    // fore-aft (Z): near the stern/pylon end, clear of locks & skirt
+// A hole through the LID for the ON/OFF SWITCH (master power).  The local motor's
+// phase leads used to route through here, but they now exit via the inboard SIDE
+// glands near the pylon (see box_role / Task 3), which frees this lid hole for the
+// switch.  Placed over the stern end, clear of the hinge (outboard), the perimeter
+// skirt, and the snap locks; the underside stiffening ribs are notched clear of it.
+lid_switch   = true;
+lid_switch_d = 12;    // switch panel-mount hole -- MEASURE your switch (rocker/toggle/button); 12 = the old gland hole
+lid_switch_x = 0;     // athwartship (X): 0 = centreline
+lid_switch_z = -60;   // fore-aft (Z): near the stern/pylon end, clear of locks & skirt
 
 /* [Side & boat] -- one body, two hulls */
 beam_target = 260;  // hull centreline-to-centreline spacing (mm).  MUST exceed
@@ -117,8 +120,8 @@ lid_clearance = 0.1;   // per-side skirt-to-band clearance (inspo)
 lid_clearance_left = 0.25;  // hinge-side (outboard) skirt clearance, looser for the swing
 lock_zs       = [55, 15, 0, -15, -55];  // Z centers of the INBOARD-edge locks (long free edge).  Denser
                        // (was [55,0,-55]) so the 160 mm free edge is clamped every ~40 mm -> even gasket
-                       // squeeze, no bow-open between locks.  +/-15 (spans 7..23) clears the +/-35 gland
-                       // footprints (25.5..44.5); the amidships lock (Z=0) sits above the ports (different Y).
+                       // squeeze, no bow-open between locks.  The side glands sit at Y=port_y (24), the locks
+                       // at the rim (Y~lock_y=2), so a lock and a gland may share a Z without ever touching.
 n_locks       = 3;     // 1 = inboard edge (lock_zs), 2 = + bow end, 3 = + stern end
 bump_l        = 16;    // lock bump length along the wall
 bump_w        = 1.0;   // bump profile width
@@ -294,40 +297,50 @@ pylon_fillet   = 4;     // smooth-transition fillet radius at the mast/pad/base 
                         // leaving flat under the pad-top screw (with pad_top_pad) and the low foot bolt).
 foot_cbore_d   = 7.5;   // M4 socket-head counterbore in the foot aft face (recesses the head)
 foot_cbore_h   = 5;     // counterbore depth
-// Item 2 (2026-08-06) -- FORWARD GUSSET: a compression bracket on the mast's FORWARD face.  Its
-// underside is a flat face 90deg to the mast that BEARS ON TOP OF THE STERN BLOCK, sloping up to
-// the mast and reaching forward to the housing's stern wall.  When the motor thrusts, the pylon
-// tips forward and this face drives DOWN into the block top -- a direct compression path into the
-// body that off-loads the 4 attach bolts (see mm_bolt_y).  It is added to the SAME single flat
-// linear_extrude (crisp, like the register tongue), so it costs NOTHING in print supports.  It
-// bears on the BLOCK top (aft of the lid), never the box top, so the lid stays clear.
-fwd_gusset      = true;  // item 2: the forward compression bracket
-fwd_gusset_rise = 24;    // how far UP the mast (from the block top) the forward slope climbs
-fwd_gusset_gap  = 0.15;  // clearance under the bearing face so it never fights foot-seating; small so the
+// Item 2 -- FORWARD SLOPE / GUSSET: the mast's FORWARD face is a FULL-HEIGHT taper (mirroring the
+// aft buttress).  It runs from a flat bearing FOOT on the block top all the way up to just below
+// the motor pad.  The foot (90deg to the mast) sits ON TOP OF THE STERN BLOCK and reaches forward
+// to the housing's stern wall: when the motor thrusts, the pylon tips forward and this foot drives
+// DOWN into the block top -- a direct compression path into the body that off-loads the 4 attach
+// bolts (see mm_bolt_y).  Rev 2026-08-06 (Patrick): carry the slope the FULL height instead of
+// topping out mid-mast in a point -- the old short bracket ended in a stress-concentrating apex at
+// ~3/4 height; spreading the section change over the whole mast (like the aft taper) distributes
+// the bending stress evenly.  Added to the SAME single flat linear_extrude (crisp, like the tongue),
+// so it costs NOTHING in supports, and it stays aft of the lid (bears on the block top) -> lid clear.
+fwd_gusset      = true;  // item 2: the forward slope / compression bracket
+fwd_gusset_top_gap = 2;  // where the forward slope tops out BELOW the motor pad (was fwd_gusset_rise=24, a
+                         // mid-mast apex).  Small -> the slope climbs nearly the whole mast, just shy of the pad.
+fwd_gusset_gap  = 0.15;  // clearance under the bearing foot so it never fights foot-seating; small so the
                          // gusset engages after minimal deflection (it is a compression bracket for the
                          // dominant FORWARD thrust; aft/handling loads are carried by the deep tongue + bolts)
 
 // =====================================================================
-//  TASK 3 -- CABLE PORTS (inboard +X wall) -- PLAIN through-holes.
+//  TASK 3 -- CABLE GLANDS (inboard +X wall) -- PLAIN through-holes, role-based.
 //  The cable GLAND supplies its own shoulder/seal (threaded body seats in the
-//  hole, nut inside), so there is NO printed boss (Patrick, item 4).  port_*_d
+//  hole, nut inside), so there is NO printed boss (Patrick, item 4).  port_gland_d
 //  is the gland's PANEL-MOUNT hole; port_ftp is the installed gland's OUTER
 //  hex/dome footprint on the wall (this, NOT the hole, drives feature SPACING).
 //  Both MEASURED by Patrick (2026-08-04): hole = 12, installed footprint ~= 19.
+//
+//  box_role picks the gland SET (the two hulls carry different electronics):
+//    "rc"   (boat electronics): 2 motor glands AFT by the pylon (same-side +
+//           opposite-side motor, one 3-wire bundle each) + 1 control gland well
+//           FORWARD (stim control signal out), kept away from the motor phase wires.
+//    "stim" (stimulator):       2 glands, both well FORWARD (max distance from the
+//           external motor wiring that runs aft): signal-IN (from the RC receiver)
+//           + electrode-OUT.
+//  Every gland is the same 12 mm hole at Y=port_y on the inboard wall.
 // =====================================================================
-port_stern_d   = 12;    // stern port gland hole: 3 motor phase leads (RC box -> far motor) -- MEASURED
-port_bow_d     = 12;    // bow   port gland hole: opto->Teensy signal -- MEASURED
+port_gland_d   = 12;    // gland panel-mount hole -- MEASURED (every gland is the same)
 port_ftp       = 19;    // installed gland hex/dome OD on the wall (MEASURED) -- the spacing check uses THIS
-port_stern_z   = -35;   // stern port position along the length
-port_bow_z     = 35;    // bow port position along the length
-port_y         = 24;    // Y of the port centers (near the floor)
-
-// Item 6 -- a THIRD inboard port for the stimulator's own wires, on the STIM
-// hull ONLY.  stim_port is INDEPENDENT of side (set it true on whichever hull
-// you print as the stim box), so either physical hull can be the stim hull.
-stim_port      = false; // set true when printing the stim hull
-port_stim_d    = 12;    // stim port gland hole (stimulator electrode/output leads) -- MEASURED
-port_stim_z    = 0;     // amidships: clear of the two ports at +/-35
+port_y         = 24;    // Y of the gland centers (above the on-floor components)
+rc_motor_zs    = [-72, -48]; // RC: 2 aft motor glands by the pylon (same-side + opposite-side, 3 wires each)
+rc_ctrl_z      = 55;    // RC: control-signal gland, well forward (far from the motor wires for less EMI pickup)
+stim_in_z      = 55;    // STIM: signal-in from the RC receiver (forward)
+stim_out_z     = 30;    // STIM: stimulus electrode leads out (forward)
+// the gland Z set for THIS box (inboard +X wall); body.scad cuts one plain hole per Z
+gland_zs = (box_role == "stim") ? [stim_in_z, stim_out_z]
+                                : concat(rc_motor_zs, [rc_ctrl_z]);
 
 // =====================================================================
 //  FINISHING PASS  (edges, splash gasket, lid ribs, interior structure)
@@ -348,15 +361,19 @@ seal_groove_d= 0.9;   // channel depth (was 0.6).  GASKET SPEC: lay ~1.5 mm adhe
                       // the ~0.9 mm flat land strips either side of the groove (so the 0-interference lid
                       // seat + every snap lock are preserved -- the land IS the crush stop).  4.1 mm of lip
                       // stays below the groove; >=0.8 mm PLA to the void laterally (probe-verified 0 breach).
-// -- lid underside stiffening ribs (kill the panel bow that breaks the seal) --
+// -- lid underside stiffening waffle (kill the panel bow that breaks the seal) --
 lid_ribs     = true;
 rib_t        = 1.6;   // rib thickness
-rib_h        = 5;     // rib protrusion into the chamber when closed (< LiPo/boss headroom, Y=13.5/28)
+rib_h        = 3;     // rib protrusion into the chamber (was 5 -- Patrick: too deep/overkill).  3 mm on the
+                      // 3 mm panel still stiffens the long-axis bow, and clears the LiPo top (Y=13.5) with room.
 rib_inset    = 7;     // perimeter rib inset from the skirt inner face (was 5).  7 keeps the perimeter rib
                       // ~2 mm clear of the body seal lip (was a razor 0.3 mm) so print tolerance + lip droop
                       // can't make them clash and hold the lid off its seat.
-rib_xs       = [-28, 0, 28];   // longitudinal ribs (run fore-aft, along Z) at these X
-rib_zs       = [-55, 0, 55];   // transverse ribs (run athwartship, along X) at these Z
+// EVEN bays (was [-28,0,28]/[-55,0,55], which left ragged ends): every internal rib now runs ring-to-ring
+// (lid_ribs_mod terminates them on the perimeter ring -- no overshoot) and the spacing divides the field evenly.
+rib_xs       = [-20, 0, 20];   // longitudinal ribs (run fore-aft, along Z) at these X
+rib_zs       = [-42, 0, 42];   // transverse ribs (run athwartship, along X) at these Z -- clear of the switch bay (Z=-60)
+switch_clear = 6;     // radial clearance kept between the underside ribs and the switch hole (a clean disc, item 8)
 // -- lid deck shadow-gap panel line (looks) -- OFF: a recessed groove in the OUTER
 // (bed) face fights a clean flat bottom (Patrick: prints poorly flat on the bed).
 // The 45deg top-edge chamfer alone carries the finished-deck look. Flip true to restore.
@@ -521,10 +538,11 @@ pad_top_flat = pad_y1 - (pylon_rise + bp_bolt/2) - pylon_fillet; // FLAT above t
 // -- Item 3: low foot bolt now clears the base-corner fillet (counterbore bottom above the round) --
 foot_lowbolt_y   = foot_h/2 - mm_bolt_y/2;                 // local Y of the low foot bolt (up from the base)
 foot_bolt_base_clear = foot_lowbolt_y - foot_cbore_d/2 - pylon_fillet; // its cbore bottom above the base round
-// -- Item 2: forward gusset extents (pylon-local: X=fore-aft +aft, Y=up mast; bears on the block top) --
+// -- Item 2: forward slope extents (pylon-local: X=fore-aft +aft, Y=up mast; bears on the block top) --
 fg_reach   = mm_block_depth - fwd_gusset_gap;              // forward reach = to the stern wall, a hair shy so the foot seats first
-fg_y0      = foot_h + fwd_gusset_gap;                      // bearing face (a hair above the block top)
-fg_y1      = fg_y0 + fwd_gusset_rise;                      // apex, up the mast front
+fg_y0      = foot_h + fwd_gusset_gap;                      // bearing foot (a hair above the block top)
+fg_y1      = pad_y0 - fwd_gusset_top_gap;                  // apex tops out just below the motor pad -> FULL-HEIGHT taper
+fg_rise    = fg_y1 - fg_y0;                                // how far up the mast the forward slope climbs (echo/report)
 // overall stack height (waterline to prop top), for the hand-back report
 stack_height = float_freeboard + box_outer_height + hub_above_box_top + prop_radius;
 
@@ -606,10 +624,11 @@ echo(str("  pylon foot-bolt counterbore edge wall = ", round(10*foot_cbore_wall)
 echo(str("  (item 3) low foot-bolt counterbore clears the base fillet by ", round(10*foot_bolt_base_clear)/10,
          " mm ", foot_bolt_base_clear >= 1 ? "OK -- foot bolts on flat" : "  << WARNING: raise the bolt group / shrink pylon_fillet"));
 if (fwd_gusset)
-  echo(str("  (item 2) FORWARD GUSSET: bears on the block top, reaches ", fg_reach,
-           " mm fwd to the stern wall, climbs ", fwd_gusset_rise, " mm up the mast (apex Y=", fg_y1,
-           " < pad Y0=", pad_y0, " ", fg_y1 < pad_y0 ? "OK -- clear of the pad" : "<< WARNING: gusset hits the pad", ")"));
-else echo("  (item 2) forward gusset OFF");
+  echo(str("  (item 2) FORWARD SLOPE: bears on the block top, reaches ", fg_reach,
+           " mm fwd to the stern wall, climbs ", round(fg_rise), " mm up the mast (FULL-HEIGHT taper; apex Y=",
+           round(fg_y1), " vs pad Y0=", round(pad_y0), ") ",
+           fg_y1 <= pad_y0 + eps ? "OK -- tops out just below the motor pad" : "<< WARNING: slope overruns the pad"));
+else echo("  (item 2) forward slope OFF");
 echo(str("  OVERALL STACK (waterline -> prop top) = ", round(stack_height), " mm"));
 // prop is a FREE constant: warn when a big prop makes the mast tall enough that the
 // stern joint (fixed block/gussets/2.5 mm wall), not the mast, becomes the weak link.
@@ -689,17 +708,22 @@ if (show_foam) {
            round(bow_rake_setback), " mm at the keel"));
 } else echo("  foam body OFF");
 
-echo("--- Task 3: cable ports (inboard +X wall) -- PLAIN gland holes -");
-echo(str("  stern port ", port_stern_d, " mm at Z=", port_stern_z,
-         " (3 motor phases) ; bow port ", port_bow_d, " mm at Z=", port_bow_z, " (signal)",
-         stim_port ? str(" ; STIM port ", port_stim_d, " mm at Z=", port_stim_z) : " ; stim port OFF"));
-echo(str("  ports at Y=", port_y, " -- plain through-holes (gland provides the shoulder/seal, no boss)"));
+echo("--- Task 3: cable glands (inboard +X wall) -- role-based -------");
+echo(str("  box_role = ", box_role, " -> ", len(gland_zs), " glands, ", port_gland_d,
+         " mm holes at Z=", gland_zs, " (Y=", port_y, ") : ",
+         box_role=="stim" ? "signal-IN + electrode-OUT, both forward"
+                          : "2 aft motor glands (same-side + opposite-side) + 1 forward control"));
+echo("  plain through-holes (the gland's own body/nut is the shoulder/seal, no boss)");
 // smallest Z gap between installed gland FOOTPRINTS (port_ftp, NOT the 12 hole) on the inboard wall
-port_zs = concat([port_stern_z, port_bow_z], stim_port ? [port_stim_z] : []);
-min_port_gap = min([ for (i=[0:len(port_zs)-1], j=[i+1:len(port_zs)-1])
-                     abs(port_zs[i]-port_zs[j]) - port_ftp ]);
+min_port_gap = min([ for (i=[0:len(gland_zs)-1], j=[i+1:len(gland_zs)-1])
+                     abs(gland_zs[i]-gland_zs[j]) - port_ftp ]);
 echo(str("  min inboard gland-footprint (", port_ftp, " mm) Z gap = ", round(10*min_port_gap)/10,
          " mm ", min_port_gap >= 3 ? "OK" : "  << WARNING: glands crowd in Z"));
+// glands must land on the FLAT wall (clear of the rounded vertical corners)
+gland_z_edge = max([for (z=gland_zs) abs(z)]) + port_ftp/2;
+echo(str("  outermost gland footprint edge at |Z|=", round(gland_z_edge), " vs flat-wall limit ",
+         round(H/2 - corner_r), " ", gland_z_edge <= H/2 - corner_r ? "OK -- on the flat wall"
+                                                                     : "  << WARNING: a gland rides into the corner"));
 
 echo("--- lid hinge (outboard -X edge, axis along the length) --------");
 echo(str("  pin axis (x,y)=(", Ax, ", ", Ay, ") ; barrel d=", knuckle_d,
@@ -715,16 +739,16 @@ echo(str("  hinge-side swing gap = ", round(1000*swing_gap)/1000, " mm ",
          swing_gap >= 0.1 ? "OK" : "  << WARNING: skirt scrapes on the swing"));
 if (step >= wall - 1.0) echo("  WARNING: step band leaves < 1 mm of wall behind the dents");
 
-echo("--- lid gland (item 3: local motor leads route through the lid) -");
-if (lid_gland) {
-  g_edge = min(H/2 - abs(lid_gland_z), W/2 - abs(lid_gland_x)) - lid_gland_d/2;    // to nearest lid edge/skirt
-  g_lock = (n_locks>=3) ? abs(lid_gland_z + (H/2 - step)) - lid_gland_d/2 - bump_l/2 : 1e9; // to stern-end lock
-  echo(str("  gland ", lid_gland_d, " at (X=", lid_gland_x, ", Z=", lid_gland_z,
-           ") ; clear of lid edge/skirt by ", round(10*g_edge)/10, " mm ",
-           g_edge >= skirt_t+2 ? "OK" : "  << WARNING: too close to the skirt"));
-  echo(str("  clear of the stern-end snap lock by ", round(10*g_lock)/10, " mm ",
-           g_lock >= 2 ? "OK" : "  << WARNING: gland sits over a snap lock"));
-} else echo("  lid gland OFF");
+echo("--- lid on/off switch hole (motors now exit via the side glands) -");
+if (lid_switch) {
+  s_edge = min(H/2 - abs(lid_switch_z), W/2 - abs(lid_switch_x)) - lid_switch_d/2;   // to nearest lid edge/skirt
+  s_lock = (n_locks>=3) ? abs(lid_switch_z + (H/2 - step)) - lid_switch_d/2 - bump_l/2 : 1e9; // to stern-end lock
+  echo(str("  switch hole ", lid_switch_d, " at (X=", lid_switch_x, ", Z=", lid_switch_z,
+           ") ; clear of lid edge/skirt by ", round(10*s_edge)/10, " mm ",
+           s_edge >= skirt_t+2 ? "OK" : "  << WARNING: too close to the skirt"));
+  echo(str("  clear of the stern-end snap lock by ", round(10*s_lock)/10, " mm ",
+           s_lock >= 2 ? "OK" : "  << WARNING: switch sits over a snap lock"));
+} else echo("  lid switch OFF");
 
 echo("--- XT60 charge port -------------------------------------------");
 if (xt60 && xt60_face != "none") {

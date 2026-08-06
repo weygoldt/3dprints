@@ -148,10 +148,10 @@ table below; item 1 became a full pylon redesign (its own section, further down)
 | # | Ask | What changed |
 |---|---|---|
 | 2 | Pad mounts the **X BasePlate**, not the motor directly | `pylon_cut` now cuts 4× **M3** on the plate's **outer "+"** pattern (`bp_bolt=32` across each axis, holes at ±16) + a **⌀11.5 teardrop** central clearance for the motor boss. Pad grew to `pad_h=42` (backs the 39.5 plate, ≥3 mm wall at the M3s). Holes open **both sides** (flat-head from the plate, nut behind). Real `BasePlate.stl`/`Motor.stl` `import()` phantoms added (`show_hardware`). The old direct-2212 cuts and `motor_bolt_*`/`motor_slot`/`motor_screw_d`/`motor_bore` params were removed. |
-| 3 | Route the local motor leads through a **lid gland**, drop the pylon groove | `lid_gland` hole (⌀12.5, at X=0 Z=−60) pierces the lid panel only, clear of hinge/skirt/locks (≥9.5 mm to the stern lock). The pylon cable-groove is **removed** — mast face is solid again. |
+| 3 | Route the local motor leads through a **lid gland**, drop the pylon groove | `lid_gland` hole (⌀12.5, at X=0 Z=−60) pierces the lid panel only, clear of hinge/skirt/locks (≥9.5 mm to the stern lock). The pylon cable-groove is **removed** — mast face is solid again. *(Superseded 2026-08-06: motors now exit via the inboard side glands, so this lid hole became the on/off switch — `lid_switch*`. See the pre-print refinement round.)* |
 | 4 | Cable ports = **plain holes** (no gland boss) | `cable_port_boss` deleted; ports are clean ⌀12.5 through-holes (gland body + nut form the seal). `port_boss_t` gone. |
 | 5 | **BOSL2 metric threads** | `include ../BOSL2/threading.scad`; `tapped_hole()` helper. **M4** tapped in the 4 stern-block pylon-attach holes (teardrop crest, `spin=180` → apex prints up); **M3** tapped in the rod-socket grub holes (vertical axis). `use_threads=false` falls back to thread-forming pilots. |
-| 6 | **Third inboard port** for the stim wires, one hull only | `stim_port` (default off, **independent of `side`** — set it on whichever hull you print as the stim box) adds a ⌀12.5 port at Z=0, amidships (clear of both rod sockets and the two other ports). |
+| 6 | **Third inboard port** for the stim wires, one hull only | `stim_port` (default off, **independent of `side`** — set it on whichever hull you print as the stim box) adds a ⌀12.5 port at Z=0, amidships (clear of both rod sockets and the two other ports). *(Superseded 2026-08-06 by `box_role`, which selects the whole gland set per box — see the pre-print refinement round.)* |
 
 **Measured off the real `BasePlate.stl`** (exact cylinders): plate 39.49 sq × 2 mm; central bore ⌀10;
 outer "+" (plate→pylon) at (±16,0)/(0,±16) ⌀3 (M3), countersunk; inner 2212 (motor→plate) at
@@ -169,7 +169,7 @@ would droop — now teardropped.
 ### Toggles added this round
 
 ```
-stim_port = true      # print the stim hull (adds the 3rd inboard port)
+stim_port = true      # (superseded 2026-08-06 by box_role="stim") print the stim hull
 use_threads = false   # fall back to thread-forming pilots if BOSL2 threads print poorly
 show_hardware = false # hide the BasePlate/Motor import phantoms in the assembly preview
 ```
@@ -198,6 +198,21 @@ Trade noted: the 4-bolt envelope drops to ~38 mm (from 41), but the full-height 
 now carry the moment and the bolts mainly clamp. Still ONE `linear_extrude` → supportless, layers along
 the mast. Verified: 1 shell both sides, cavity-breach 0, all echo walls ≥3 mm.
 
+## Pre-print refinement round (2026-08-06) — three fixes before the first print
+
+Patrick's final pass on the printed pylon + lid before the first production print. All three are
+echo-verified and rendered.
+
+| # | Ask | What changed |
+|---|---|---|
+| 1 | **Forward pylon slope should start at the top**, like the aft face — not ¾ of the way up | The forward gusset was a *short* bracket topping out mid-mast in a **point** (a stress concentrator right where the slope started). It is now a **full-height taper**: `fg_y1 = pad_y0 − fwd_gusset_top_gap` carries the forward slope from the bearing foot on the block top all the way up to **just below the motor pad**, mirroring the aft buttress taper. Spreads the bending-section change over the whole mast instead of stepping it mid-span. `fwd_gusset_rise` (mid-mast apex height) is replaced by `fwd_gusset_top_gap` (clearance below the pad). Still one flat `linear_extrude` → supportless; still bears aft of the lid. |
+| 2 | **Lid underside ribs**: too deep, uneven (bars overshoot), and crowd the switch hole | Rib grid rebuilt as an **even waffle**: `rib_h` 5 → **3** (shallower — the ribs stiffen the panel, they don't fill the cavity); every internal rib now runs **ring-to-ring** (terminates on the perimeter ring → no overshooting/ragged free ends); `rib_xs`/`rib_zs` re-spaced (`[−20,0,20]`/`[−42,0,42]`) into even bays; a clean clearance disc (`switch_clear`=6) is kept around the switch hole (no rib crosses the switch bay except the notched centreline). |
+| 3 | **Role-based cable glands**; a body.scad switch for RC vs stim side | New **`box_role = "rc" \| "stim"`** (in `common.scad`'s `[What to render]`, included by `body.scad`) picks the gland SET, independent of `side`. **rc** (boat electronics): 2 motor glands **aft** by the pylon at Z=−72/−48 (same-side + opposite-side motor, one 3-wire bundle each) + 1 control gland **forward** at Z=55 (stim control signal, kept away from the motor phase wires). **stim**: 2 glands both **forward** — signal-IN (Z=55, from the RC receiver) + electrode-OUT (Z=30). All ⌀12 on the inboard +X wall at Y=24. The old `port_stern/bow/stim` params and `stim_port` are gone; `gland_zs` derives the set. The freed-up **lid hole is now the on/off switch** (`lid_switch*`, was `lid_gland*` — the local motor no longer routes through the lid). |
+
+**Verification:** all parts `NoError`; both `box_role` values pass the gland-spacing (≥3 mm footprint gap)
+and flat-wall (clear of the corner radius) echo checks; forward-slope echo confirms the apex tops out
+just below the pad; lid switch clears the skirt (26.5 mm) and the stern lock.
+
 ## Prop clearance (parametric)
 
 ```
@@ -216,9 +231,10 @@ Change `prop_diameter` to 254 (1045) and the pylon grows to ~110 mm above the bo
    `foot_cbore_*` to taste. See "Item 1 — pylon redesigned as a full-height buttress" above.
 2. **BasePlate holes** — the pad matches the plate's **outer "+"** (⌀3/M3 at ±16) measured off
    `BasePlate.stl`. Confirm your plate matches (`bp_bolt`, `bp_size`, `bp_bore`).
-3. **Gland sizes** — every gland hole is now **⌀12 (MEASURED by Patrick, 2026-08-04)**: `port_stern_d`,
-   `port_bow_d`, `port_stim_d`, `lid_gland_d`. The installed footprint `port_ftp=19` drives the inboard
-   spacing check (not the 12 hole). Confirm both against your glands.
+3. **Gland sizes** — every side gland hole is **⌀12 (`port_gland_d`, MEASURED by Patrick, 2026-08-04)**;
+   the lid **switch** hole is `lid_switch_d` (default 12 — **MEASURE your actual switch**, rocker/toggle/
+   button). The installed footprint `port_ftp=19` drives the inboard spacing check (not the 12 hole).
+   Confirm both against your glands/switch.
 4. **Threads print quality** — `use_threads=true` models real BOSL2 M4/M3. If they print poorly on
    the MK3S, set `use_threads=false` for thread-forming pilots (`mm_bolt_pilot` / `rod_grub_d`).
 5. **`beam_target`** (default 240 mm) must exceed `prop_diameter` or the two stern props collide —
@@ -226,7 +242,9 @@ Change `prop_diameter` to 254 (1045) and the pylon grows to ~110 mm above the bo
    how the two floats are cross-braced now the rods are removed** (float-level, outside the box).
 6. **Float dimensions** — `float_thickness` (60) and `float_freeboard` (42) at ~2 kg all-up are
    assumptions; they set the prop clearance. Confirm against the real float at load.
-7. **Which hull is the stim hull** — set `stim_port=true` on that print (independent of `side`).
+7. **Which box is which** — set `box_role="rc"` or `"stim"` per print (independent of `side`): `rc` = the
+   boat-electronics box (2 aft motor glands + 1 forward control), `stim` = the stimulator box (2 forward
+   glands: signal-in + electrode-out). Pick `side` to match the physical hull you're printing.
 8. **Screw mount** — 4× M4 at `screw_positions=[±27,±79]`, default `screw_method="insert"` (M4 heat-set
    brass, melted in from the bed face — install 4 before assembly). Confirm the count/positions clear your
    real component layout; printed-thread fallbacks exist (`selftap` = screw self-taps a stronger thread;

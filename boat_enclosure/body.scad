@@ -259,9 +259,7 @@ module body() {
     // through-features cut through the assembled solid: the screw bores pierce the
     // floor AND the boss together, leaving the sealed cap between bore top and chamber.
     if (screw_mount) for (p=screw_positions) screw_boss_cut(p);
-    cable_port_cut(port_stern_z, port_stern_d);     // plain gland holes (item 4)
-    cable_port_cut(port_bow_z, port_bow_d);
-    if (stim_port) cable_port_cut(port_stim_z, port_stim_d); // 3rd port, stim hull only (item 6)
+    for (z = gland_zs) cable_port_cut(z, port_gland_d); // plain gland holes, role-based set (box_role, Task 3)
     motor_mount_cut();
     xt60_cut();
     front_step_cut();                               // stepped band the lid skirt wraps
