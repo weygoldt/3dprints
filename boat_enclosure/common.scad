@@ -103,8 +103,11 @@ switch_ftp   = [30, 15]; // switch INNER-body footprint on the lid [X athwartshi
 switch_clear = 3;     // margin kept rib-free around the switch footprint (each side) -- the keep-out is ftp + 2*this
 
 /* [Side & boat] -- one body, two hulls */
-beam_target = 260;  // hull centreline-to-centreline spacing (mm).  MUST exceed
-                    // prop_diameter or the two stern props collide (echo-checked).
+beam_target = 234;  // hull centreline-to-centreline spacing (mm).  Set so the OUTERMOST point -- the lid
+                    // hinge at +/-(beam/2 + 58) -- lands on the 350 mm (35 cm) deck edge (+/-175): the boat
+                    // is exactly 35 cm wide and nothing overshoots.  100 mm skids then tuck +/-8 mm inside
+                    // the edge; clear gap between hulls ~13.5 cm; 203 mm prop clears 31 mm (234-203).
+                    // MUST exceed prop_diameter or the two stern props collide (echo-checked).
 
 /* [Knuckle hinge] -- hand-rolled, OUTBOARD long edge (-X), axis along the
    length (code Z), 1.75 mm filament pin.  Ported verbatim from the stim
@@ -234,7 +237,7 @@ thread_slop = 0.1;    // BOSL2 internal-thread clearance ($slop): adds ~4*slop t
 /* [Prop & clearance] -- the ONE knob the user asked for: set prop_diameter
    and the required pylon height falls out.  Default 8x4.5 (203 mm): shorter,
    stiffer, ~450 g static thrust/motor.  1045 (254 mm) is a one-line change. */
-prop_diameter        = 254;   // 8x4.5 = 203, 1045 = 254
+prop_diameter        = 203;   // 8x4.5 = 203 (SETTLED), 1045 = 254
 float_thickness      = 60;    // styrofoam float thickness
 float_freeboard      = 42;    // float top above the waterline at ~2 kg all-up
 prop_clearance_margin= 10;    // disc lowest point above the float top
@@ -443,7 +446,8 @@ deck_r          = 15;     // deck plan corner radius (stern corners; the bow is 
 deck_cut_w      = 120;    // central water-access cutout, athwartship (X)   ~12 cm
 deck_cut_len    = 300;    // central water-access cutout, fore-aft   (Z)   ~30 cm
 deck_cut_r      = 30;     // cutout corner radius
-skid_w          = 150;    // each skid athwartship width (X)                ~15 cm
+skid_w          = 100;    // each skid athwartship width (X)  ~10 cm -- matches the enclosure box (96 mm)
+                          // so the skids sit UNDER the boxes and don't overshoot the deck (was 150 = overhang)
 skid_len        = 550;    // each skid fore-aft length  (Z)  -- default shares the deck bow/stern
 skid_t          = 35;     // each skid thickness (Y)         -- deck_t+skid_t = float_thickness (60)
 skid_r          = 20;     // skid plan corner radius (stern; the bow is raked)
