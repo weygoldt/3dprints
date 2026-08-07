@@ -103,8 +103,10 @@ switch_ftp   = [30, 15]; // switch INNER-body footprint on the lid [X athwartshi
 switch_clear = 3;     // margin kept rib-free around the switch footprint (each side) -- the keep-out is ftp + 2*this
 
 /* [Side & boat] -- one body, two hulls */
-beam_target = 260;  // hull centreline-to-centreline spacing (mm).  MUST exceed
-                    // prop_diameter or the two stern props collide (echo-checked).
+beam_target = 274;  // hull centreline-to-centreline spacing (mm).  clearance across the beam =
+                    // beam_target - prop_diameter.  Sized for the LARGER 254 mm prop with 20 mm to spare
+                    // (274-254); the 203 mm prop then clears 71 mm -- so BOTH prop options keep >=20 mm.
+                    // MUST exceed prop_diameter or the two stern props collide (echo-checked).
 
 /* [Knuckle hinge] -- hand-rolled, OUTBOARD long edge (-X), axis along the
    length (code Z), 1.75 mm filament pin.  Ported verbatim from the stim
