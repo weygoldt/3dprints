@@ -103,10 +103,10 @@ switch_ftp   = [30, 15]; // switch INNER-body footprint on the lid [X athwartshi
 switch_clear = 3;     // margin kept rib-free around the switch footprint (each side) -- the keep-out is ftp + 2*this
 
 /* [Side & boat] -- one body, two hulls */
-beam_target = 223;  // hull centreline-to-centreline spacing (mm).  clearance across the beam =
-                    // beam_target - prop_diameter.  Sized for the settled 203 mm (8x4.5) prop with 20 mm
-                    // to spare (223-203).  Fits the 350 mm (35 cm) deck: enclosures reach +/-169.5 (within
-                    // the +/-175 edge); the 150 mm skids run a touch wider (+/-186.5) -> ~11 mm skid overhang.
+beam_target = 234;  // hull centreline-to-centreline spacing (mm).  Set so the OUTERMOST point -- the lid
+                    // hinge at +/-(beam/2 + 58) -- lands on the 350 mm (35 cm) deck edge (+/-175): the boat
+                    // is exactly 35 cm wide and nothing overshoots.  100 mm skids then tuck +/-8 mm inside
+                    // the edge; clear gap between hulls ~13.5 cm; 203 mm prop clears 31 mm (234-203).
                     // MUST exceed prop_diameter or the two stern props collide (echo-checked).
 
 /* [Knuckle hinge] -- hand-rolled, OUTBOARD long edge (-X), axis along the
@@ -446,7 +446,8 @@ deck_r          = 15;     // deck plan corner radius (stern corners; the bow is 
 deck_cut_w      = 120;    // central water-access cutout, athwartship (X)   ~12 cm
 deck_cut_len    = 300;    // central water-access cutout, fore-aft   (Z)   ~30 cm
 deck_cut_r      = 30;     // cutout corner radius
-skid_w          = 150;    // each skid athwartship width (X)                ~15 cm
+skid_w          = 100;    // each skid athwartship width (X)  ~10 cm -- matches the enclosure box (96 mm)
+                          // so the skids sit UNDER the boxes and don't overshoot the deck (was 150 = overhang)
 skid_len        = 550;    // each skid fore-aft length  (Z)  -- default shares the deck bow/stern
 skid_t          = 35;     // each skid thickness (Y)         -- deck_t+skid_t = float_thickness (60)
 skid_r          = 20;     // skid plan corner radius (stern; the bow is raked)
