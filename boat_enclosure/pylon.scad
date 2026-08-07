@@ -39,6 +39,14 @@ module pylon_2d() {
 
 module pylon() color("Tan") linear_extrude(pylon_width) pylon_2d();
 
+// teardrop clearance bore: axis +X (fore-aft, horizontal on the bed), APEX toward
+// +Z = the pylon's print-up (Z=0 face is on the bed) so the horizontal hole
+// self-supports instead of drooping.  Drop-in for `rotate([0,90,0]) cylinder(h,d)`;
+// ctr=true centers it along X (like cylinder(center=true)).
+module td_bore(h, d, ctr=false)
+  translate([ctr ? -h/2 : 0, 0, 0])
+    rotate([90,0,0]) rotate([0,90,0]) linear_extrude(h) teardrop2d(d=d, ang=45);
+
 module pylon_cut() {
   cz = pylon_width/2;
   // PAD mounts the X BasePlate (item 2): 4 M3 CLEARANCE holes on the plate's outer
@@ -53,8 +61,8 @@ module pylon_cut() {
   // 11.5 mm horizontal bore self-supports instead of drooping onto the boss.
   //translate([0, pylon_rise, cz]) rotate([0,0,-90]) teardrop(h=bp_hole_l, d=bp_bore+1.5);
   for (sy=[-1,1], sz=[-1,1])
-    translate([0, pylon_rise + sy*bp_axis, cz + sz*bp_axis]) rotate([0,90,0])
-      cylinder(h=bp_hole_l, d=bp_screw_d, center=true);           // 4x M3 plate-mount (X pattern)
+    translate([0, pylon_rise + sy*bp_axis, cz + sz*bp_axis])
+      td_bore(bp_hole_l, bp_screw_d, ctr=true);                   // 4x M3 plate-mount (X pattern) -- TEARDROP
   // 4 foot bolts (item 1 redesign): M4 CLEARANCE all the way through the thick
   // buttress into the block, plus a socket-head COUNTERBORE cut ~foot_cbore_h
   // in from the ACTUAL (tapered) aft surface, so the heads stay recessed and
@@ -68,10 +76,10 @@ module pylon_cut() {
     by = foot_h/2 + sy*mm_bolt_y/2;
     bz = cz + sz*mm_bolt_x/2;
     x_aft = base_aft + (pylon_root_t - base_aft) * (by/pylon_rise);
-    translate([-eps, by, bz]) rotate([0,90,0])
-      cylinder(h=x_aft + 2, d=pylon_bolt_d);                          // clearance: mating face -> aft
-    translate([x_aft - foot_cbore_h, by, bz]) rotate([0,90,0])
-      cylinder(h=foot_cbore_h + 2, d=foot_cbore_d);                   // head counterbore from the aft surface
+    translate([-eps, by, bz])
+      td_bore(x_aft + 2, pylon_bolt_d);                              // clearance: mating face -> aft -- TEARDROP
+    translate([x_aft - foot_cbore_h, by, bz])
+      td_bore(foot_cbore_h + 2, foot_cbore_d);                       // head counterbore from the aft surface -- TEARDROP
   }
   // (item 3) the pylon cable-groove is GONE: the local motor's leads route
   // through the LID gland and zip-tie to the mast, so the mast face stays solid.
