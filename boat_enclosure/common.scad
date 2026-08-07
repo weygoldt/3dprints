@@ -103,9 +103,10 @@ switch_ftp   = [30, 15]; // switch INNER-body footprint on the lid [X athwartshi
 switch_clear = 3;     // margin kept rib-free around the switch footprint (each side) -- the keep-out is ftp + 2*this
 
 /* [Side & boat] -- one body, two hulls */
-beam_target = 274;  // hull centreline-to-centreline spacing (mm).  clearance across the beam =
-                    // beam_target - prop_diameter.  Sized for the LARGER 254 mm prop with 20 mm to spare
-                    // (274-254); the 203 mm prop then clears 71 mm -- so BOTH prop options keep >=20 mm.
+beam_target = 223;  // hull centreline-to-centreline spacing (mm).  clearance across the beam =
+                    // beam_target - prop_diameter.  Sized for the settled 203 mm (8x4.5) prop with 20 mm
+                    // to spare (223-203).  Fits the 350 mm (35 cm) deck: enclosures reach +/-169.5 (within
+                    // the +/-175 edge); the 150 mm skids run a touch wider (+/-186.5) -> ~11 mm skid overhang.
                     // MUST exceed prop_diameter or the two stern props collide (echo-checked).
 
 /* [Knuckle hinge] -- hand-rolled, OUTBOARD long edge (-X), axis along the
@@ -236,7 +237,7 @@ thread_slop = 0.1;    // BOSL2 internal-thread clearance ($slop): adds ~4*slop t
 /* [Prop & clearance] -- the ONE knob the user asked for: set prop_diameter
    and the required pylon height falls out.  Default 8x4.5 (203 mm): shorter,
    stiffer, ~450 g static thrust/motor.  1045 (254 mm) is a one-line change. */
-prop_diameter        = 254;   // 8x4.5 = 203, 1045 = 254
+prop_diameter        = 203;   // 8x4.5 = 203 (SETTLED), 1045 = 254
 float_thickness      = 60;    // styrofoam float thickness
 float_freeboard      = 42;    // float top above the waterline at ~2 kg all-up
 prop_clearance_margin= 10;    // disc lowest point above the float top
