@@ -299,9 +299,9 @@ bp_size        = 39.5;  // BasePlate square (MEASURED) -- the pad backs this
 // BasePlate.stl is ILLUSTRATIVE ONLY (Patrick: ignore its dimensions) -- the pad follows the REAL
 // bracket, which measures 24-24.5 mm on the side.  bp_bolt (the across-axis / diagonal = bolt-circle
 // dia) is DERIVED from bp_pitch below for the echo; the assembly ghost plate is only a stand-in.
-bp_pitch       = 24.25; // MEASURED adjacent hole spacing (side of the 4-hole square).  24.25 = midpoint of
-                        // Patrick's 24-24.5; the snug 3.4 mm clearance below covers that whole band.  For the
-                        // tightest fit, caliper YOUR bracket and set this EXACTLY (then it's centred + snug).
+bp_pitch       = 24;    // MEASURED adjacent hole spacing (side of the 4-hole square) -- Patrick re-measured
+                        // his real bracket at EXACTLY 24.0 (2026-08-09).  The snug 3.4 mm clearance below now
+                        // sits centred on it (holes at +/-12.0 on each pad axis).
 bp_bore        = 10;    // BasePlate central bore -- pad clears the motor boss poking through
 bp_screw_d     = 3.4;   // STANDARD (snug) M3 clearance -- NOT widened.  A motor mount is vibration-loaded, so
                         // it wants a TIGHT hole, not a sloppy one: the 4 screws CLAMP the metal plate flat to
@@ -711,9 +711,9 @@ echo(str("  pad mounts BasePlate (", bp_size, " sq): 4x M3 in a SQUARE, side (ad
          bp_pitch, " mm (MEASURED bracket; bolts at +/-", round(10*bp_axis)/10, " on each pad axis) -- ",
          "= the plate's r", round(10*bp_bolt/2)/10, " circle turned 45deg to an X ; central boss clearance ", bp_bore+1.5));
 echo(str("  M3 clearance ", bp_screw_d, " mm = SNUG (radial slop ", round(100*(bp_screw_d-3)/2)/100,
-         " mm, standard M3) -> seats a bracket pitch of ", bp_pitch, " +/-", round(100*(bp_screw_d-3)/2*sqrt(2))/100,
-         " mm, covering the 24-24.5 band ", (bp_pitch-(bp_screw_d-3)/2*sqrt(2) <= 24 && bp_pitch+(bp_screw_d-3)/2*sqrt(2) >= 24.5) ? "OK" : " << CHECK",
-         " -- for a perfect fit set bp_pitch to YOUR measured spacing (tight round holes, not slots: the peg + clamp stop wobble)"));
+         " mm, standard M3) -> centred on the MEASURED ", bp_pitch, " mm pitch, accepts +/-",
+         round(100*(bp_screw_d-3)/2*sqrt(2))/100,
+         " mm of pattern error (register peg + clamp carry the load; tight round holes, not slots)"));
 echo(str("  pad face ", round(pad_y1-pad_y0), "(Y, incl. +", pad_top_pad, " top pad) x ", pylon_width,
          "(Z): the X bolts span only +/-", round(10*bp_axis)/10, " so the pad holds them + edge -- the ",
          bp_size, " plate OVERHANGS (rigid, free air at the mast tip) ",
