@@ -14,7 +14,8 @@ module cavity_solid() difference() {
 
 module fastener_bores() {
   if (screw_mount) for (p = screw_positions) screw_boss_cut(p);
-  motor_mount_cut();
+  both_ends() motor_mount_cut();                                          // pylon-attach bores, both ends (Task 2)
+  if (corner_mount) both_ends() { hold_down_lug_cut(-1); hold_down_lug_cut(1); } // hold-down bores (Task 3)
   if (probe_pos)   // positive control: an over-deep bore that DOES breach
     translate([screw_positions[0][0], D + eps, screw_positions[0][1]])
       rotate([90,0,0]) cylinder(h = boss_h + 5, d = insert_d);

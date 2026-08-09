@@ -151,7 +151,12 @@ bump_h        = 0.38;  // bump proudness / dent depth (dent = 5% wider, 0.1 deep
                        // = 1.02 mm PLA behind the dent (was a tight 0.82 at wall 2.5; the thicker wall now
                        // leaves real margin over the 0.8 bar -- room to deepen to ~0.5 later if it still pops).
                        // Guarded by the "wall behind the snap dents" echo below.
-grip          = true;  // thumb-grip wedge on the lid's inboard rim
+grip          = true;  // thumb-grip pry wedges on the lid's inboard (free) rim -- opposite the outboard hinge
+grip_zs       = [-55, 0, 55];  // Task 4 (2026-08-09, Patrick): was a SINGLE nub at Z=0 (middle of the long free
+                       // edge).  Add two more toward the fore/aft ENDS so the lid can be pried up EVENLY along its
+                       // ~186 mm free edge, not just at the middle.  Aligned with the outermost snap locks (+/-55):
+                       // proven on the FLAT rim (|Z|<=H/2-corner_r=86, clear of the rounded corners) and each 16 mm
+                       // (bump_l) nub stays discrete.  All sit at the very edge (X=lid_w/2), just outboard of the locks.
 
 /* [Through-board screw mount] -- REPLACES the lanyard ears AND the rod sockets.
    The box is rigidly screwed DOWN onto its XPS float: screws pass UP through the
@@ -165,7 +170,9 @@ grip          = true;  // thumb-grip wedge on the lid's inboard rim
    supported -> the blind bores are self-supporting (no teardrop needed).  Bosses
    sit in the free gaps between the floor components (echo-checked vs rc_parts).
    Mirrors with `side` (symmetric X pattern -> port/starboard land identically). */
-screw_mount     = true;
+screw_mount     = false;     // Task 3 (2026-08-09, Patrick): OFF -- these interior floor bosses stuck up INSIDE
+                             // the housing.  REPLACED by corner_mount (external hold-down lugs beside the end
+                             // blocks) in the [Hull hold-down] block below.  Code kept for reference/rollback.
 screw_method    = "insert";  // [insert(M4 heat-set brass, DEFAULT), thread(BOSL2 modeled M4 ->
                              //  screw straight into the PLA), selftap(thread-forming pilot)]
 // "insert" bores a plain 5.6 mm hole and you melt an M4 brass heat-set insert in from the bed
@@ -196,6 +203,38 @@ thread_len      = 10;        // modeled-thread engagement up from the underside 
 // -- (selftap) thread-forming pilot: a plain undersized hole, the screw cuts its own (stronger) thread --
 selftap_d       = 3.4;       // ~0.85 x major (M4)
 selftap_depth   = 9;         // pilot depth up from the underside
+
+/* [Hull hold-down] -- Task 3 (2026-08-09, Patrick): REPLACES the interior floor bosses.
+   The box now bolts to the XPS float through 4 external corner LUGS -- one on the LEFT and
+   one on the RIGHT of EACH end block (front + back of the box, because mount_both_ends puts a
+   block at both ends).  Each lug fills the otherwise-empty wedge BESIDE the block (between the
+   +/-mm_pad_w/2 block side and the +/-W/2 box edge), so it adds NO footprint -- the block
+   already reaches this Z and the box already this X.  A vertical M4 clearance hole runs down
+   through the lug to the foam; a hex NUT POCKET is recessed into the lug's TOP face (opens to
+   the sky -> supportless floor-down).  Drop an M4 nut in the top, run the hold-down bolt UP
+   from under the foam (fender washer / backing plate below the soft foam), and tightening seats
+   the nut on the pocket floor and clamps the box down.  Everything is OUTSIDE the sealed wall:
+   nothing sticks up inside the housing and no bore breaches the chamber (probe-checked).  Sitting
+   right at the ends (Z ~ +/-100) also gives a much WIDER hold-down base than the old +/-79 bosses,
+   which the old MOUNT NOTE flagged as too narrow vs the aft mast (less pitch, less bolt tension). */
+corner_mount    = true;      // ON: the new external corner-lug hold-down (screw_mount floor bosses default OFF)
+hd_post_h       = 16;        // lug height ABOVE the foam (Y) -- sets the (short) hold-down bolt length: foam + this
+hd_w            = 16;        // lug width (X): overlaps the block side for a weld AND stays INBOARD of the box's
+                             // rounded corner tangent (W/2-corner_r) so it merges into the FLAT wall, no corner notch
+hd_screw_d      = 4.5;       // M4 CLEARANCE through the lug (the bolt comes UP from under the foam)
+hd_nut_af       = 7.2;       // M4 nut ACROSS-FLATS pocket (DIN934 M4 ~7.0 + slop) -- MEASURE your nuts
+hd_nut_depth    = 3.6;       // hex pocket depth from the top face (M4 nut ~3.2 thick + a little capture)
+hd_inset        = 6;         // bolt X offset OUTBOARD of the block side (mm_pad_w/2): sets hd_x = mm_pad_w/2 + this.
+                             // With hd_w=16 the outboard edge lands at 39 < the corner tangent (W/2-corner_r=41).
+// -- lug SHAPE (2026-08-09, Patrick): merge the lug SMOOTHLY into the housing, no rounded-corner gap.
+// The box's own vertical corner (corner_r) rounds inward and away from a free-standing rounded post,
+// leaving a narrow notch.  So the lug's fore + inboard edges are SQUARE and OVERLAP into the stern/bow
+// wall + block (flush merge), its outboard edge caps at the box corner TANGENT (no notch), and only the
+// exposed AFT corners round.  hd_merge stays clear of the inner cavity face (wall is only `wall` thick).
+hd_merge        = 0.5;       // how far the lug's fore edge roots INTO the end wall (< wall, so clear of the cavity).
+                             // Small -> the lug's fore sits ~flush with the block/wall face, so it reads as a
+                             // seamless FLARE of the block base, not a post standing proud of it.
+hd_r            = 3;         // round radius on the EXPOSED (aft) lug corners only
 
 /* [XT60 charge port] -- KEPT (each hull has a cell to charge).  On the BOW end
    wall (+Z): the outboard wall is fully occupied by the lid hinge (the 35 mm
@@ -255,9 +294,22 @@ prop_z_offset        = 65;    // how far AFT of the stern wall the prop disc swe
    The motor's own pattern is the plate's problem; the pad only matches the "+"
    holes and clears the central boss.  Measure YOUR plate before printing. */
 bp_size        = 39.5;  // BasePlate square (MEASURED) -- the pad backs this
-bp_bolt        = 32;    // outer "+" hole spacing across each axis (holes at +/-16) -- MEASURED
+// (2026-08-09, Patrick) The pad's 4 plate-mount holes form a SQUARE; bp_pitch is its SIDE -- the
+// ADJACENT hole spacing you caliper on the X-bracket (top-left to top-right, NOT the diagonal).
+// BasePlate.stl is ILLUSTRATIVE ONLY (Patrick: ignore its dimensions) -- the pad follows the REAL
+// bracket, which measures 24-24.5 mm on the side.  bp_bolt (the across-axis / diagonal = bolt-circle
+// dia) is DERIVED from bp_pitch below for the echo; the assembly ghost plate is only a stand-in.
+bp_pitch       = 24;    // MEASURED adjacent hole spacing (side of the 4-hole square) -- Patrick re-measured
+                        // his real bracket at EXACTLY 24.0 (2026-08-09).  The snug 3.4 mm clearance below now
+                        // sits centred on it (holes at +/-12.0 on each pad axis).
 bp_bore        = 10;    // BasePlate central bore -- pad clears the motor boss poking through
-bp_screw_d     = 3.4;   // M3 clearance through the pad (flat-head from the plate, nut behind)
+bp_screw_d     = 3.4;   // STANDARD (snug) M3 clearance -- NOT widened.  A motor mount is vibration-loaded, so
+                        // it wants a TIGHT hole, not a sloppy one: the 4 screws CLAMP the metal plate flat to
+                        // the pad (friction carries it) and the register PEG + pad face take the shear/moment,
+                        // but if a screw ever backs off under vibration the hole play is what you feel -> keep
+                        // it tight.  At 3.4 the 0.2 mm radial clearance still spans the 24-24.25-24.5 band at
+                        // bp_pitch=24.25 (each hole shifts only 0.18 mm at the band edge).  Slotting would only
+                        // trade wobble in one axis for slide in the other -- worse for vibration; measure + tight.
 bp_edge        = 5;     // pad material beyond the bolt centres (keeps >=3 mm wall at the M3s)
 motor_pad_t    = 5;     // pad thickness aft of the mast (>=5)
 motor_body_d   = 28;    // motor can diameter (MEASURED off Motor.stl; pad + ghost sizing)
@@ -267,11 +319,16 @@ motor_body_d   = 28;    // motor can diameter (MEASURED off Motor.stl; pad + gho
 // (the bottom still merges into the buttress), so the mast + motor axis stay put.
 pad_top_pad    = 6;     // extra flat above the top "+" screw (>= pylon_fillet + ~1 keeps the screw off the round)
 
-/* [Motor mount + pylon] -- SEPARATE printed pylon bolts to an aft-protruding
-   BLOCK on the stern wall.  Every fastener stays inside that block, AFT of
-   the wall -- none enters the sealed cavity (echo-checked).  A register
-   socket takes the shear/moment so the M4s are not in pure shear.  The pylon
-   prints laid FLAT (layers along its length carry the bending load). */
+/* [Motor mount + pylon] -- SEPARATE printed pylon bolts to a protruding BLOCK on the
+   stern wall.  Every fastener stays inside that block, AFT of the wall -- none enters
+   the sealed cavity (echo-checked).  A register socket takes the shear/moment so the
+   M4s are not in pure shear.  The pylon prints laid FLAT (layers along its length carry
+   the bending load).  Task 2 (2026-08-09, Patrick): the SAME block is mirrored onto the
+   BOW wall too (mount_both_ends), so ONE pylon can bolt to EITHER end -- motor facing
+   AFT (pusher) or FORWARD (tractor).  Both blocks are identical; the assembly still shows
+   the pylon at the stern.  This grows the printed LENGTH to H + 2*mm_block_depth, so the
+   body now prints ROTATED (length along the long bed axis) -- see the body-fit echo. */
+mount_both_ends = true; // Task 2: add a second, identical pylon mount on the BOW wall (mount the pylon either way)
 mm_block_depth = 14;    // stern block aft protrusion (the insert / bolt thread lives here)
 mm_bolt_method = "insert"; // [insert(M4 heat-set brass, DEFAULT), thread(BOSL2 modeled M4), selftap(pilot)]
                         // how the 4 pylon-attach bolts engage the block.  "insert": bore insert_d and
@@ -550,6 +607,15 @@ mm_pad_top = ov_d + 1;                                     // block top Y (clear
 mm_pad_h   = D - mm_pad_top;                               // block spans down to the FLOOR (Y=D)
 mm_pad_yc  = (mm_pad_top + D)/2;                           // block/foot/bolt center in Y
 foot_h     = mm_pad_h;                                     // pylon foot height matches the block
+// --- Task 3 derived: hull hold-down lug (external, beside each end block; both_ends mirrors to the bow) ---
+hd_x         = mm_pad_w/2 + hd_inset;          // bolt X: outboard of the block side (mm_pad_w/2), inboard of the box edge (W/2)
+hd_z         = -H/2 - mm_block_depth/2;        // bolt Z: centered on the STERN end-block depth (both_ends mirrors to bow)
+hd_top_y     = D - hd_post_h;                  // lug top face Y (sky side; the hex nut pocket opens here, toward -Y)
+hd_screw_len = float_thickness + hd_post_h;    // hold-down bolt length est: foam + lug (nut seats near the lug top)
+hd_edge_wall = W/2 - (hd_x + hd_w/2);          // PLA from the lug OUTBOARD edge to the box side edge (>=0 -> within the footprint)
+hd_corner_clear = (W/2 - corner_r) - (hd_x + hd_w/2); // lug outboard vs the box corner TANGENT (>=0 -> merges into the FLAT wall, no notch)
+hd_block_weld= mm_pad_w/2 - (hd_x - hd_w/2);   // X overlap of the lug INTO the block side (>0 -> welds solidly to the block)
+hd_nut_wall  = hd_w/2 - hd_nut_af/2;           // PLA wall from the nut-pocket flat out to the lug side (X)
 // stern-block fastener bore (ROUND for insert/selftap; the modeled thread carries its own teardrop crest):
 // insert_d for heat-set, thread minor+slop for modeled (as the floor screw_bore_d), pilot for selftap.
 // wall = least PLA from the round bore edge to the block edges (X width, Y top/floor); ends vs cavity above.
@@ -564,12 +630,13 @@ mm_bolt_wall_min = min(mm_pad_w/2 - mm_bolt_x/2 - mm_bolt_bore_d/2,          // 
 // melt-EXPANDED insert OD (insert_od) for insert mode so a hot insert has PLA to reflow into, not the slot.
 mm_bolt_slot_bore_r = (mm_bolt_method=="insert") ? insert_od/2 : mm_bolt_bore_d/2;
 mm_bolt_slot_wall   = mm_bolt_y/2 - (reg_h+0.4)/2 - mm_bolt_slot_bore_r;
-// The 4 plate bolts sit on the same bolt CIRCLE (radius bp_bolt/2 = 16), but ROTATED 45deg to an "X"
-// (mount the BasePlate turned 45deg).  That pulls each bolt's reach along the pad AXES in from bp_bolt/2
-// (16) to bp_axis (~11.3), so the pad only has to be 2*bp_axis+edge tall -- shorter than the old "+" pad,
-// which raises pad_y0 and lets the sloped mast climb higher.  The (rigid metal) plate now overhangs the
-// smaller pad; it is bolted at 4 points and the overhang hangs in free air at the mast tip.
-bp_axis    = (bp_bolt/2) / sqrt(2);                        // X-pattern bolt offset along each pad axis (Y,Z)
+// The 4 plate bolts form an axis-aligned SQUARE on the pad (side = bp_pitch), which is the plate's
+// outer bolt circle ROTATED 45deg to an "X" (mount the BasePlate turned 45deg).  bp_axis is the half
+// side -- each bolt's reach along the pad AXES (Y,Z) -- so the pad only has to be 2*bp_axis+edge tall
+// (shorter than a "+" pad on the same circle), which raises pad_y0 and lets the sloped mast climb
+// higher.  The (rigid metal) plate overhangs the smaller pad, bolted at 4 points, free air at the tip.
+bp_axis    = bp_pitch/2;                                   // half the square side: bolts at +/-bp_axis on each pad axis (Y,Z)
+bp_bolt    = bp_pitch*sqrt(2);                             // across-axis / diagonal = bolt-circle dia (echo + central-bore talk)
 pad_h      = 2*bp_axis + 2*bp_edge;                        // pad backs the 4 X bolts + edge (>=3 mm wall at the M3s)
 pad_aft    = pylon_root_t + motor_pad_t;                   // pylon pad aft (motor) face, fore-aft
 pad_bolt_wall_y = pad_h/2 - bp_axis - bp_screw_d/2;        // pad edge wall at the X bolts (Y)
@@ -615,11 +682,14 @@ echo(str("OUTER  W(width) x H(length) x D(height) = ", W, " x ", H, " x ", D, " 
 echo(str("INNER  ", inner_w, " x ", inner_h, " x ", inner_d,
          " mm   (floor ", inner_w, " x ", inner_h, ", height ", inner_d, ")"));
 echo(str("  floor area = ", inner_w*inner_h, " mm^2"));
-// true printed extents: X = full width incl. bosses/hinge/ears; length = box + stern block
-body_len_ext = H + mm_block_depth;   // bow wall -> stern block aft face
-echo(str("  body prints FLOOR down: bed ", round(body_x_ext), "(X) x ", body_len_ext,
-         "(Y=length incl. stern block) x ~", D+ov_d, "(Z) ; fits 250x210x210 ",
-         (body_x_ext<=250 && body_len_ext<=210 && D+ov_d<=210)?"OK":"  << CHECK"));
+// true printed extents: X = full width incl. hinge/ears; length = box + end block(s) (both_ends adds the bow block)
+body_len_ext = H + (mount_both_ends ? 2 : 1)*mm_block_depth;  // block->block (both_ends) or bow wall->stern block
+echo(str("  body prints FLOOR down: extents ", round(body_x_ext), "(width) x ", body_len_ext,
+         "(length incl. ", mount_both_ends ? "BOTH end blocks" : "stern block", ") x ~", D+ov_d,
+         "(height) ; on a 250x210 bed ",
+         (max(body_x_ext,body_len_ext)<=250 && min(body_x_ext,body_len_ext)<=210 && D+ov_d<=210)
+           ? str("fits", body_len_ext>210 ? " (auto-ROTATE: length along the 250 axis)" : "")
+           : "  << CHECK: exceeds 250x210"));
 // honest nesting footprint: full X extents incl. inboard boss, outboard hinge/ears, grip
 body_x_ext = W/2 - (Ax - kr);                        // inboard wall -> outboard hinge barrel (screw bosses are internal)
 lid_x_ext  = (lid_w/2 + 1.5) - (Ax - kr);             // grip -> outboard barrel
@@ -637,9 +707,13 @@ echo(str("  hub above box top = ", hub_above_box_top,
          " ; pylon rise above floor = ", pylon_rise));
 echo(str("  prop disc lowest point clears the float top by ", disc_low_above_float,
          " mm ", disc_low_above_float >= 0 ? "OK" : "  << WARNING: prop dips below the float"));
-echo(str("  pad mounts BasePlate (", bp_size, " sq): 4x M3 on the outer bolt circle r", bp_bolt/2,
-         ", ROTATED 45deg to an X (mount the plate turned 45deg) -> bolts at +/-", round(10*bp_axis)/10,
-         " on each pad axis ; central boss clearance ", bp_bore+1.5));
+echo(str("  pad mounts BasePlate (", bp_size, " sq): 4x M3 in a SQUARE, side (adjacent-hole pitch) = ",
+         bp_pitch, " mm (MEASURED bracket; bolts at +/-", round(10*bp_axis)/10, " on each pad axis) -- ",
+         "= the plate's r", round(10*bp_bolt/2)/10, " circle turned 45deg to an X ; central boss clearance ", bp_bore+1.5));
+echo(str("  M3 clearance ", bp_screw_d, " mm = SNUG (radial slop ", round(100*(bp_screw_d-3)/2)/100,
+         " mm, standard M3) -> centred on the MEASURED ", bp_pitch, " mm pitch, accepts +/-",
+         round(100*(bp_screw_d-3)/2*sqrt(2))/100,
+         " mm of pattern error (register peg + clamp carry the load; tight round holes, not slots)"));
 echo(str("  pad face ", round(pad_y1-pad_y0), "(Y, incl. +", pad_top_pad, " top pad) x ", pylon_width,
          "(Z): the X bolts span only +/-", round(10*bp_axis)/10, " so the pad holds them + edge -- the ",
          bp_size, " plate OVERHANGS (rigid, free air at the mast tip) ",
@@ -712,14 +786,41 @@ if (screw_mount) {
            "), so thrust PITCHES the box -> the aft bolts take TENSION through the soft foam (creep -> loosen",
            " -> rattle).  Backing plate BOTH faces + consider an aft hold-down: this joint, not the mast,",
            " sets 'stable' in the field."));
-} else echo("  screw mount OFF");
+} else echo("  screw mount OFF (interior floor bosses) -- see the corner-lug hold-down below");
+
+echo("--- Task 3: hull hold-down (external corner lugs beside the end blocks) --");
+if (corner_mount) {
+  n_hd = (mount_both_ends ? 4 : 2);
+  echo(str("  ", n_hd, " x M4 lug", n_hd>1?"s":"", " at (X=+/-", hd_x, ", Z=+/-", round(-hd_z),
+           ")", mount_both_ends ? " (both ends)" : " (stern only)",
+           " ; ", hd_w, "(X) x ", mm_block_depth, "(Z) x ", hd_post_h, "(Y above foam)"));
+  echo(str("  lug within the box footprint: outboard PLA to the box edge = ", round(10*hd_edge_wall)/10,
+           " mm ", hd_edge_wall >= 0 ? "OK -- adds NO footprint (fills the wedge beside the block)"
+                                     : "  << WARNING: lug overhangs the box edge -- reduce hd_inset/hd_w"));
+  echo(str("  lug clears the box corner tangent by ", round(10*hd_corner_clear)/10,
+           " mm ", hd_corner_clear >= 0 ? "OK -- merges into the FLAT wall (smooth, no rounded-corner notch)"
+                                        : "  << WARNING: lug rides into the rounded corner -- reduce hd_inset/hd_w"));
+  echo(str("  lug welds to the block side: X overlap = ", round(10*hd_block_weld)/10, " mm ",
+           hd_block_weld >= 1 ? "OK" : "  << WARNING: lug detached from the block -- raise hd_w or lower hd_inset"));
+  echo(str("  nut-pocket wall to the lug side = ", round(10*hd_nut_wall)/10, " mm ",
+           hd_nut_wall >= 2 ? "OK (hex captured)" : "  << WARNING: thin wall around the nut pocket"));
+  echo(str("  M4 hold-down bolt ~", hd_screw_len, " mm (foam ", float_thickness, " + lug ", hd_post_h,
+           "): UP from under the foam into the top-captured nut ; fender washer / backing plate below the soft foam"));
+  echo(str("  wide base: lugs at Z +/-", round(-hd_z), " straddle the mast/block (Z ", round(mm_block_aft_z),
+           ") far better than the old +/-79 floor bosses -> less thrust-pitch, less bolt tension. ",
+           "ALL external to the sealed wall: nothing intrudes into the chamber (probe-checked)."));
+} else echo("  corner mount OFF");
 // consolidated heat-set BOM/tooling note (both PLA-threaded families default to inserts)
 n_floor_ins = (screw_mount && screw_method=="insert") ? len(screw_positions) : 0;
-n_block_ins = (mm_bolt_method=="insert") ? 4 : 0;
+n_block_ins = (mm_bolt_method=="insert") ? (mount_both_ends ? 8 : 4) : 0;
 if (n_floor_ins + n_block_ins > 0)
   echo(str("  HEAT-SET BOM: ", n_floor_ins + n_block_ins, "x M", screw_size, " brass inserts (",
-           n_floor_ins, " floor from the bed face + ", n_block_ins, " stern-block from the aft face)",
+           n_floor_ins, " floor from the bed face + ", n_block_ins, " end-block", n_block_ins==1?"":"s",
+           " from the aft face", mount_both_ends?" -- 4 stern + 4 bow":"", ")",
            " + a soldering-iron insert tip ; pylon-attach M4 socket-head ~30 mm (foot + ~8 mm insert, trim to fit)"));
+if (corner_mount)
+  echo(str("  HOLD-DOWN BOM: ", mount_both_ends?4:2, "x M4 bolt ~", hd_screw_len,
+           " mm + M4 nut + fender washer (per lug) ; bolt UP from under the foam into the top nut pocket"));
 
 echo("--- beam / stern-prop collision across the hulls ---------------");
 if (beam_target <= prop_diameter)
