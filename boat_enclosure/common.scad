@@ -219,11 +219,22 @@ selftap_depth   = 9;         // pilot depth up from the underside
    which the old MOUNT NOTE flagged as too narrow vs the aft mast (less pitch, less bolt tension). */
 corner_mount    = true;      // ON: the new external corner-lug hold-down (screw_mount floor bosses default OFF)
 hd_post_h       = 16;        // lug height ABOVE the foam (Y) -- sets the (short) hold-down bolt length: foam + this
-hd_w            = 18;        // lug width (X): overlaps the block side for a weld AND stays inboard of the box edge
+hd_w            = 16;        // lug width (X): overlaps the block side for a weld AND stays INBOARD of the box's
+                             // rounded corner tangent (W/2-corner_r) so it merges into the FLAT wall, no corner notch
 hd_screw_d      = 4.5;       // M4 CLEARANCE through the lug (the bolt comes UP from under the foam)
 hd_nut_af       = 7.2;       // M4 nut ACROSS-FLATS pocket (DIN934 M4 ~7.0 + slop) -- MEASURE your nuts
 hd_nut_depth    = 3.6;       // hex pocket depth from the top face (M4 nut ~3.2 thick + a little capture)
-hd_inset        = 7;         // bolt X offset OUTBOARD of the block side (mm_pad_w/2): sets hd_x = mm_pad_w/2 + this
+hd_inset        = 6;         // bolt X offset OUTBOARD of the block side (mm_pad_w/2): sets hd_x = mm_pad_w/2 + this.
+                             // With hd_w=16 the outboard edge lands at 39 < the corner tangent (W/2-corner_r=41).
+// -- lug SHAPE (2026-08-09, Patrick): merge the lug SMOOTHLY into the housing, no rounded-corner gap.
+// The box's own vertical corner (corner_r) rounds inward and away from a free-standing rounded post,
+// leaving a narrow notch.  So the lug's fore + inboard edges are SQUARE and OVERLAP into the stern/bow
+// wall + block (flush merge), its outboard edge caps at the box corner TANGENT (no notch), and only the
+// exposed AFT corners round.  hd_merge stays clear of the inner cavity face (wall is only `wall` thick).
+hd_merge        = 0.5;       // how far the lug's fore edge roots INTO the end wall (< wall, so clear of the cavity).
+                             // Small -> the lug's fore sits ~flush with the block/wall face, so it reads as a
+                             // seamless FLARE of the block base, not a post standing proud of it.
+hd_r            = 3;         // round radius on the EXPOSED (aft) lug corners only
 
 /* [XT60 charge port] -- KEPT (each hull has a cell to charge).  On the BOW end
    wall (+Z): the outboard wall is fully occupied by the lid hinge (the 35 mm
@@ -284,20 +295,21 @@ prop_z_offset        = 65;    // how far AFT of the stern wall the prop disc swe
    holes and clears the central boss.  Measure YOUR plate before printing. */
 bp_size        = 39.5;  // BasePlate square (MEASURED) -- the pad backs this
 // (2026-08-09, Patrick) The pad's 4 plate-mount holes form a SQUARE; bp_pitch is its SIDE -- the
-// ADJACENT hole spacing you actually caliper on the X-bracket (top-left to top-right, NOT the
-// diagonal).  The BasePlate.stl reference was a 32 mm "+" across each axis (= holes at +/-16, a
-// 22.6 mm SIDE once ROTATED 45deg to an X) -- but the REAL bracket measures 24-24.5 mm on the side,
-// so the pad now follows the physical part, not the STL.  bp_bolt (the across-axis / diagonal =
-// bolt-circle dia) is DERIVED from bp_pitch below for the echo + central-bore talk.
-bp_pitch       = 24.25; // MEASURED adjacent hole spacing (side of the 4-hole square) -- MEASURE YOURS.
-                        // 24.25 = midpoint of the 24-24.5 range; the widened bp_screw_d below seats it
-                        // anywhere in that band.
+// ADJACENT hole spacing you caliper on the X-bracket (top-left to top-right, NOT the diagonal).
+// BasePlate.stl is ILLUSTRATIVE ONLY (Patrick: ignore its dimensions) -- the pad follows the REAL
+// bracket, which measures 24-24.5 mm on the side.  bp_bolt (the across-axis / diagonal = bolt-circle
+// dia) is DERIVED from bp_pitch below for the echo; the assembly ghost plate is only a stand-in.
+bp_pitch       = 24.25; // MEASURED adjacent hole spacing (side of the 4-hole square).  24.25 = midpoint of
+                        // Patrick's 24-24.5; the snug 3.4 mm clearance below covers that whole band.  For the
+                        // tightest fit, caliper YOUR bracket and set this EXACTLY (then it's centred + snug).
 bp_bore        = 10;    // BasePlate central bore -- pad clears the motor boss poking through
-bp_screw_d     = 3.8;   // M3 clearance through the pad (was 3.4): WIDENED so the pattern seats over the
-                        // whole 24-24.5 measured band -- radial slop 0.4 covers +/-0.5 mm of spacing
-                        // error, well past the +/-0.25 the 24.25 nominal needs.  These are pass-through
-                        // clearance holes (flat-head from the plate, nut behind); the metal plate + nut
-                        // locate the pattern, so looser holes cost nothing and absorb the hand-measure.
+bp_screw_d     = 3.4;   // STANDARD (snug) M3 clearance -- NOT widened.  A motor mount is vibration-loaded, so
+                        // it wants a TIGHT hole, not a sloppy one: the 4 screws CLAMP the metal plate flat to
+                        // the pad (friction carries it) and the register PEG + pad face take the shear/moment,
+                        // but if a screw ever backs off under vibration the hole play is what you feel -> keep
+                        // it tight.  At 3.4 the 0.2 mm radial clearance still spans the 24-24.25-24.5 band at
+                        // bp_pitch=24.25 (each hole shifts only 0.18 mm at the band edge).  Slotting would only
+                        // trade wobble in one axis for slide in the other -- worse for vibration; measure + tight.
 bp_edge        = 5;     // pad material beyond the bolt centres (keeps >=3 mm wall at the M3s)
 motor_pad_t    = 5;     // pad thickness aft of the mast (>=5)
 motor_body_d   = 28;    // motor can diameter (MEASURED off Motor.stl; pad + ghost sizing)
@@ -601,6 +613,7 @@ hd_z         = -H/2 - mm_block_depth/2;        // bolt Z: centered on the STERN 
 hd_top_y     = D - hd_post_h;                  // lug top face Y (sky side; the hex nut pocket opens here, toward -Y)
 hd_screw_len = float_thickness + hd_post_h;    // hold-down bolt length est: foam + lug (nut seats near the lug top)
 hd_edge_wall = W/2 - (hd_x + hd_w/2);          // PLA from the lug OUTBOARD edge to the box side edge (>=0 -> within the footprint)
+hd_corner_clear = (W/2 - corner_r) - (hd_x + hd_w/2); // lug outboard vs the box corner TANGENT (>=0 -> merges into the FLAT wall, no notch)
 hd_block_weld= mm_pad_w/2 - (hd_x - hd_w/2);   // X overlap of the lug INTO the block side (>0 -> welds solidly to the block)
 hd_nut_wall  = hd_w/2 - hd_nut_af/2;           // PLA wall from the nut-pocket flat out to the lug side (X)
 // stern-block fastener bore (ROUND for insert/selftap; the modeled thread carries its own teardrop crest):
@@ -697,9 +710,10 @@ echo(str("  prop disc lowest point clears the float top by ", disc_low_above_flo
 echo(str("  pad mounts BasePlate (", bp_size, " sq): 4x M3 in a SQUARE, side (adjacent-hole pitch) = ",
          bp_pitch, " mm (MEASURED bracket; bolts at +/-", round(10*bp_axis)/10, " on each pad axis) -- ",
          "= the plate's r", round(10*bp_bolt/2)/10, " circle turned 45deg to an X ; central boss clearance ", bp_bore+1.5));
-echo(str("  M3 clearance ", bp_screw_d, " mm -> radial slop ", round(10*(bp_screw_d-3)/2)/10,
-         " seats a bracket pitch of ", bp_pitch, " +/-", round(10*(bp_screw_d-3)/2*sqrt(2))/10,
-         " mm (covers the 24-24.5 measured band ", (bp_pitch-(bp_screw_d-3)/2*sqrt(2) <= 24 && bp_pitch+(bp_screw_d-3)/2*sqrt(2) >= 24.5) ? "OK)" : " << CHECK)"));
+echo(str("  M3 clearance ", bp_screw_d, " mm = SNUG (radial slop ", round(100*(bp_screw_d-3)/2)/100,
+         " mm, standard M3) -> seats a bracket pitch of ", bp_pitch, " +/-", round(100*(bp_screw_d-3)/2*sqrt(2))/100,
+         " mm, covering the 24-24.5 band ", (bp_pitch-(bp_screw_d-3)/2*sqrt(2) <= 24 && bp_pitch+(bp_screw_d-3)/2*sqrt(2) >= 24.5) ? "OK" : " << CHECK",
+         " -- for a perfect fit set bp_pitch to YOUR measured spacing (tight round holes, not slots: the peg + clamp stop wobble)"));
 echo(str("  pad face ", round(pad_y1-pad_y0), "(Y, incl. +", pad_top_pad, " top pad) x ", pylon_width,
          "(Z): the X bolts span only +/-", round(10*bp_axis)/10, " so the pad holds them + edge -- the ",
          bp_size, " plate OVERHANGS (rigid, free air at the mast tip) ",
@@ -781,8 +795,11 @@ if (corner_mount) {
            ")", mount_both_ends ? " (both ends)" : " (stern only)",
            " ; ", hd_w, "(X) x ", mm_block_depth, "(Z) x ", hd_post_h, "(Y above foam)"));
   echo(str("  lug within the box footprint: outboard PLA to the box edge = ", round(10*hd_edge_wall)/10,
-           " mm ", hd_edge_wall >= 0 ? "OK -- adds NO footprint (fills the empty wedge beside the block)"
+           " mm ", hd_edge_wall >= 0 ? "OK -- adds NO footprint (fills the wedge beside the block)"
                                      : "  << WARNING: lug overhangs the box edge -- reduce hd_inset/hd_w"));
+  echo(str("  lug clears the box corner tangent by ", round(10*hd_corner_clear)/10,
+           " mm ", hd_corner_clear >= 0 ? "OK -- merges into the FLAT wall (smooth, no rounded-corner notch)"
+                                        : "  << WARNING: lug rides into the rounded corner -- reduce hd_inset/hd_w"));
   echo(str("  lug welds to the block side: X overlap = ", round(10*hd_block_weld)/10, " mm ",
            hd_block_weld >= 1 ? "OK" : "  << WARNING: lug detached from the block -- raise hd_w or lower hd_inset"));
   echo(str("  nut-pocket wall to the lug side = ", round(10*hd_nut_wall)/10, " mm ",

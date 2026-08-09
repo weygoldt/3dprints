@@ -213,17 +213,34 @@ module both_ends() {
 
 // =====================================================================
 //  TASK 3 -- HULL HOLD-DOWN LUG  (external corner post beside each end block).
-//  A solid rounded post fills the empty wedge between the block side (X=+/-mm_pad_w/2)
-//  and the box edge (X=+/-W/2), spanning the block's Z-depth, from the foam face (Y=D)
-//  up hd_post_h.  It welds into the block side (X overlap) for stiffness and bears
-//  straight down on the foam.  A VERTICAL M4 clearance hole runs top-to-foam; a hex NUT
-//  POCKET is recessed into the TOP (sky) face.  All OUTSIDE the sealed wall -> the bore
-//  never nears the chamber, and nothing rises inside the housing.  Prints floor-DOWN: the
-//  post stands on the bed, the vertical hole is vertical, and the top pocket opens up ->
-//  fully self-supporting, no teardrop.  sx = +1 right / -1 left; both_ends mirrors to the bow.
+//  A solid pad fills the empty wedge between the block side (X=+/-mm_pad_w/2) and the box
+//  edge, spanning the block's Z-depth, from the foam face (Y=D) up hd_post_h.  It welds into
+//  the block side + end wall and bears straight down on the foam.  A VERTICAL M4 clearance
+//  hole runs top-to-foam; a hex NUT POCKET is recessed into the TOP (sky) face.  All OUTSIDE
+//  the sealed wall -> the bore never nears the chamber, and nothing rises inside the housing.
+//  Prints floor-DOWN: the pad stands on the bed, the vertical hole is vertical, the top pocket
+//  opens up -> fully self-supporting, no teardrop.  sx = +1 right / -1 left; both_ends -> bow.
+//
+//  SMOOTH MERGE (Patrick): the box's own vertical corner (corner_r) rounds inward AWAY from a
+//  free-standing rounded post, leaving a narrow notch.  So the FORE + INBOARD edges are SQUARE
+//  and OVERLAP into the end wall (hd_merge, kept clear of the cavity) + the block side -> they
+//  merge flush; the OUTBOARD edge caps at the box corner TANGENT (X=hd_x+hd_w/2, no notch); and
+//  only the exposed AFT corners round (hd_r).  Built as a hull of Y-cylinders (a rounded polygon
+//  in the X-Z plan, extruded along the box height Y).  Plan coords (u,v): u = world X, v = -world Z
+//  (rotate([-90,0,0]) maps local +Y -> world -Z, local +Z(extrude) -> world +Y).
 // =====================================================================
 module hold_down_lug(sx) {
-  translate([sx*hd_x, hd_top_y, hd_z]) rprism(hd_w, mm_block_depth, hd_post_h, 3);
+  vf = H/2 - hd_merge;                 // fore edge, rooted INTO the end wall  (world Z = -(H/2-hd_merge))
+  va = -mm_block_aft_z;                // aft  edge = block aft face           (world Z = mm_block_aft_z)
+  ui = sx*(mm_pad_w/2 - 2);            // inboard edge, overlapping the block side (weld)
+  uo = sx*(hd_x + hd_w/2);             // outboard edge, at the box corner tangent (no notch)
+  translate([0, hd_top_y, 0]) rotate([-90,0,0]) linear_extrude(hd_post_h)
+    hull() {
+      translate([ui, vf])                circle(r=0.6, $fn=12);  // fore-inboard : square, merges into wall+block
+      translate([uo, vf])                circle(r=0.6, $fn=12);  // fore-outboard: square, merges into the box corner
+      translate([ui + sx*hd_r, va-hd_r]) circle(r=hd_r);         // aft-inboard : exposed, rounded
+      translate([uo - sx*hd_r, va-hd_r]) circle(r=hd_r);         // aft-outboard: exposed, rounded
+    }
 }
 module hold_down_lug_cut(sx) {
   translate([sx*hd_x, hd_top_y - eps, hd_z]) rotate([-90,0,0]) {
