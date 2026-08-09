@@ -49,13 +49,13 @@ module td_bore(h, d, ctr=false)
 
 module pylon_cut() {
   cz = pylon_width/2;
-  // PAD mounts the X BasePlate (item 2): 4 M3 CLEARANCE holes on the plate's outer
-  // bolt circle (radius bp_bolt/2 = 16), but ROTATED 45deg to an "X" -- mount the
-  // plate turned 45deg.  The X pulls each bolt's reach along the pad axes in from 16
-  // to bp_axis (~11.3), so the pad is shorter and the sloped mast climbs higher (the
-  // rigid plate overhangs the smaller pad, in free air at the tip).  Every hole runs
-  // along X through the whole pad -> open both sides (flat-head from the plate, nut
-  // on the forward face).  The pad face is the aft plane X=pad_aft.
+  // PAD mounts the X BasePlate (item 2): 4 M3 CLEARANCE holes in a SQUARE, side = bp_pitch
+  // (the MEASURED adjacent-hole spacing on the real bracket, 24.25), i.e. the plate's outer
+  // bolt circle ROTATED 45deg to an "X" -- mount the plate turned 45deg.  Each bolt sits at
+  // +/-bp_axis (= bp_pitch/2) along the pad axes, so the pad is short and the sloped mast climbs
+  // higher (the rigid plate overhangs the smaller pad, in free air at the tip).  Every hole runs
+  // along X through the whole pad -> open both sides (flat-head from the plate, nut on the
+  // forward face).  The pad face is the aft plane X=pad_aft.
   bp_hole_l = 2*(pad_aft + 2);   // spans the full pad depth, both sides open
   // central boss clearance -- TEARDROP (apex toward +Z = pylon print-up) so the
   // 11.5 mm horizontal bore self-supports instead of drooping onto the boss.

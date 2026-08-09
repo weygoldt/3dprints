@@ -40,10 +40,11 @@ module door_skirt() {
   for (z = lock_zs) translate([W/2-skirt_t+eps, lock_y, z]) lock_wedge(LEFT);
   if (n_locks >= 2) translate([0, lock_y,  H/2-skirt_t+eps])  lock_wedge(DOWN);
   if (n_locks >= 3) translate([0, lock_y, -(H/2-skirt_t)-eps]) lock_wedge(UP);
-  if (grip)
-    translate([lid_w/2, -lid_t, 0]) rotate([-90, 0, 0])
-      prismoid(size1=[3, bump_l], size2=[0.8, bump_l*0.75],
-               shift=[-1.1, 0], h=2);
+  if (grip)                                  // Task 4: pry nubs along the inboard free edge -- middle + both ends
+    for (z = grip_zs)
+      translate([lid_w/2, -lid_t, z]) rotate([-90, 0, 0])
+        prismoid(size1=[3, bump_l], size2=[0.8, bump_l*0.75],
+                 shift=[-1.1, 0], h=2);
 }
 
 // =====================================================================

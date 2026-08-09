@@ -56,14 +56,23 @@ module ghost_hardware() {
   }
 }
 
-// the 4 through-board hold-down screws: up through the foam into the blind bosses,
-// with a fender washer / head UNDER the soft foam (so the head cannot pull through)
+// hold-down screws: up through the foam, with a fender washer / head UNDER the soft foam.
+// (screw_mount) old floor bosses -- blind, from the underside.  (corner_mount) the new external
+// corner lugs -- the bolt rises into a nut CAPTURED in the lug top (Task 3), both ends (Task 2).
 module ghost_screws() {
   if (screw_mount) for (p = screw_positions) color([0.7,0.7,0.75,0.9]) {
     translate([p[0], D - screw_hole_depth, p[1]]) rotate([-90,0,0])
       cylinder(h=screw_hole_depth + float_thickness, d=screw_size);      // shaft: boss -> under the board
     translate([p[0], D + float_thickness, p[1]]) rotate([-90,0,0])
       cylinder(h=2.5, d=max(16, 3.5*screw_size));                        // fender washer + head under the foam
+  }
+  if (corner_mount) both_ends() for (sx=[-1,1]) {
+    color([0.7,0.7,0.75,0.9]) translate([sx*hd_x, hd_top_y + hd_nut_depth, hd_z]) rotate([-90,0,0])
+      cylinder(h=(D + float_thickness) - (hd_top_y + hd_nut_depth), d=4);   // M4 bolt: top nut -> under the foam
+    color([0.7,0.7,0.75,0.9]) translate([sx*hd_x, D + float_thickness, hd_z]) rotate([-90,0,0])
+      cylinder(h=2.5, d=16);                                                // fender washer + head under the foam
+    color([0.45,0.45,0.5,0.95]) translate([sx*hd_x, hd_top_y, hd_z]) rotate([-90,0,0])
+      cylinder(h=hd_nut_depth, r=hd_nut_af/sqrt(3), $fn=6);                 // M4 nut captured in the lug top
   }
 }
 

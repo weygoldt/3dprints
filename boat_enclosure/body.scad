@@ -200,6 +200,39 @@ module motor_mount_cut() {
 }
 
 // =====================================================================
+//  TASK 2 -- BOTH-ENDS mount.  Instantiate the children at the STERN (-Z) and, when
+//  mount_both_ends, mirror a copy to the BOW (+Z).  The block, its gussets, its bolt
+//  bores, and the hold-down lugs are all X-symmetric and Y-identical, so mirror([0,0,1])
+//  is EXACT -- the bow mount is the stern mount reflected across the athwartship midplane.
+//  ONE pylon can then bolt to either end (motor aft = pusher, or forward = tractor).
+// =====================================================================
+module both_ends() {
+  children();
+  if (mount_both_ends) mirror([0,0,1]) children();
+}
+
+// =====================================================================
+//  TASK 3 -- HULL HOLD-DOWN LUG  (external corner post beside each end block).
+//  A solid rounded post fills the empty wedge between the block side (X=+/-mm_pad_w/2)
+//  and the box edge (X=+/-W/2), spanning the block's Z-depth, from the foam face (Y=D)
+//  up hd_post_h.  It welds into the block side (X overlap) for stiffness and bears
+//  straight down on the foam.  A VERTICAL M4 clearance hole runs top-to-foam; a hex NUT
+//  POCKET is recessed into the TOP (sky) face.  All OUTSIDE the sealed wall -> the bore
+//  never nears the chamber, and nothing rises inside the housing.  Prints floor-DOWN: the
+//  post stands on the bed, the vertical hole is vertical, and the top pocket opens up ->
+//  fully self-supporting, no teardrop.  sx = +1 right / -1 left; both_ends mirrors to the bow.
+// =====================================================================
+module hold_down_lug(sx) {
+  translate([sx*hd_x, hd_top_y, hd_z]) rprism(hd_w, mm_block_depth, hd_post_h, 3);
+}
+module hold_down_lug_cut(sx) {
+  translate([sx*hd_x, hd_top_y - eps, hd_z]) rotate([-90,0,0]) {
+    cylinder(h=hd_post_h + 2*eps, d=hd_screw_d);                        // vertical M4 clearance: top -> foam face
+    linear_extrude(hd_nut_depth + eps) circle(r=hd_nut_af/sqrt(3), $fn=6); // hex nut pocket in the top face
+  }
+}
+
+// =====================================================================
 //  SPLASH SEAL  (item 6) -- a real perimeter COMPRESSION gasket on the top rim.
 //  The naive "groove in the existing rim" was refuted (only 1.3 mm of flat rim
 //  survives inboard of the skirt step, and thinning it eats the lock band).
@@ -247,20 +280,22 @@ module body(role = box_role) {
         union() {
           rprism(W, H, D, corner_r);
           hinge_housing();                          // outboard lid hinge
-          motor_mount_boss();                       // stern motor pad
-          if (block_sculpt) block_side_gussets();   // stern block -> wall gussets (item 5)
+          both_ends() motor_mount_boss();           // motor pad -- stern + bow (Task 2)
+          if (block_sculpt) both_ends() block_side_gussets(); // block -> wall gussets (item 5), both ends
         }
         translate([0,-eps,0]) rprism(inner_w, inner_h, inner_d+eps, corner_r-wall); // cavity (top open)
       }
-      if (screw_mount) for (p=screw_positions) screw_boss(p);   // solid hold-down bosses on the floor
+      if (screw_mount) for (p=screw_positions) screw_boss(p);   // (OFF) old interior hold-down bosses on the floor
+      if (corner_mount) both_ends() { hold_down_lug(-1); hold_down_lug(1); } // external hold-down lugs (Task 3), both ends
       if (seal_gasket) seal_lip();                  // inboard gasket land around the top rim (item 6)
       if (floor_cove)  floor_cove_mod();            // interior floor<->wall stiffening cove (item 4)
     }
     // through-features cut through the assembled solid: the screw bores pierce the
     // floor AND the boss together, leaving the sealed cap between bore top and chamber.
     if (screw_mount) for (p=screw_positions) screw_boss_cut(p);
+    if (corner_mount) both_ends() { hold_down_lug_cut(-1); hold_down_lug_cut(1); } // M4 hole + top nut pocket (Task 3)
     for (z = gland_set(role)) cable_port_cut(z, port_gland_d); // plain gland holes, THIS hull's role set (Task 3)
-    motor_mount_cut();
+    both_ends() motor_mount_cut();                  // 4 pylon-attach bores per end (Task 2)
     xt60_cut();
     front_step_cut();                               // stepped band the lid skirt wraps
     lock_dents();
