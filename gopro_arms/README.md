@@ -16,22 +16,32 @@ Measured straight off `inspiration/7.5cm_Gopro_Arm.stl`:
 | | original | this design | GoPro nominal |
 |---|---|---|---|
 | 3-prong: outer prongs | 2.70 | **3.40** (reinforced) | 3.00 |
-| 3-prong: middle prong | 2.50 | **2.80** | 3.00 |
-| 3-prong: slots | **4.00** | **3.20** | 3.00 |
-| 3-prong: stack width | 15.90 | 16.00 | 15.00 |
-| 2-prong: fingers | 3.40 | **2.80** | 3.00 |
-| 2-prong: central gap | 3.70 | **3.20** | 3.00 |
+| 3-prong: middle prong | 2.50 | **2.90** | 3.00 |
+| 3-prong: slots | **4.00** | **3.10** | 3.00 |
+| 3-prong: stack width | 15.90 | 15.90 | 15.00 |
+| 2-prong: fingers | 3.40 | **2.90** | 3.00 |
+| 2-prong: central gap | 3.70 | **3.10** | 3.00 |
 | pivot bore | 5.30 | 5.30 | M5 |
 | knuckle radius | 7.503 | 7.50 | 7.5 |
 | beam section | 9.30 × 14.93 rectangle | strut, 10.0 × 20.0 | — |
 
 A nominal 3.00 mm GoPro finger dropped into a **4.00 mm** slot has 1.0 mm of
-rattle, and the original's own 3.40 fingers sat in a 3.70 gap. That is the "does
-not hold well". Everything here is on a ±3.00 mm grid with 0.20 mm of clearance:
-slots are 3.20 (accept a 3.00 finger), fingers are 2.80 (enter a 3.00 slot).
+rattle, and the original's own 3.40 fingers sat in a 3.70 gap. With that much
+slop the prongs bottom out against each other before the faces ever grip, so the
+thumbscrew cannot clamp the joint no matter how hard you turn it.
+
+Everything here is on a ±3.00 mm grid with **0.10 mm** of clearance per feature:
+slots are 3.10 (accept a 3.00 finger), fingers are 2.90 (enter a 3.00 slot). That
+is a slip fit that still leaves the screw something to squeeze.
 
 The originals also **needed support material** — their knuckle is a full circle
 sitting tangent on the bed, i.e. a knife edge. This one is cut flat by the bed.
+
+> **Not backward-compatible with the old arms.** The originals' 2-prong fingers
+> measure **3.40 mm** and will not enter these **3.10 mm** slots. These arms chain
+> with each other and with real GoPro hardware; they do not chain onto an old
+> arm's 2-prong end. (The reverse works: our 2.90 fingers drop into their sloppy
+> 4.00 slots — loosely, which is the problem being fixed.)
 
 ## Print it
 
@@ -49,9 +59,11 @@ Parts: `gauge`, `arm50`, `arm75`, `arm100`, `arm140`, `set`, `section`.
 Arm names are **pivot-to-pivot** distance in mm.
 
 > **Print `gauge` first.** It is both ends with no beam, ~10 minutes, and it
-> tells you whether the 0.20 mm clearances land right on *your* PETG before you
-> commit to a plate of long arms. If it is tight, raise `slot_extra`; if it
-> rattles, lower it. Both live at the top of `arm.scad`.
+> tells you whether the 0.10 mm clearances land right on *your* PETG before you
+> commit to a plate of long arms — and it carries the nut pocket, so it checks
+> that fit too. If it is tight, raise `slot_extra`; if it rattles, lower it.
+> Both live at the top of `arm.scad`. 0.10 is deliberately tight because the
+> failure being fixed was too *much* clearance, not too little.
 
 Slicer notes:
 
@@ -59,6 +71,28 @@ Slicer notes:
 - Bump perimeters to **4–5**. The strut is only 10 mm thick, so perimeters do
   most of the structural work and the part comes out nearly solid.
 - Flat face on the bed — that is the only orientation this is designed for.
+
+## Captive M5 nut
+
+The 3-prong end carries a hex pocket for a standard **M5 DIN 934** nut (8.0 across
+flats, 4.0 thick), so the GoPro thumbscrew pulls up one-handed instead of needing
+a spanner on the back.
+
+The outer prong is only 3.40 thick — thinner than the nut — so that prong is
+locally thickened by **2.40 mm**. The boss reuses the knuckle silhouette, so it
+stands on the bed like everything else and fades to nothing at the edge of the
+R7.5 circle rather than leaving a step. Local stack width is **18.3 mm**; it sits
+outboard of any mating part, so it costs no articulation (measured: the ranges
+below are identical with and without it).
+
+The pocket is oriented with hex **flats top and bottom** — a vertex up would put
+the roof at 60° from vertical — and carries a 45° peak above the top flat so
+nothing droops into it while it bridges. Pocket floor leaves 1.50 mm before the
+slot breaks through.
+
+For a nyloc (DIN 985, 5.0 thick) set `nut_t = 5.0`; the boss grows to match.
+Because the nut sits at the far face, the thumbscrew needs roughly **18 mm** of
+thread under the head to engage it fully.
 
 ## Mount it
 
@@ -141,7 +175,8 @@ the other numbers mean nothing.
 
 ## Reinforcement, and where it is still weakest
 
-- outer prongs of the 3-prong end **3.40** vs 2.70 (+26 %); they carry the clamp
+- outer prongs of the 3-prong end **3.40** vs 2.70 (+26 %); they carry the clamp,
+  and the nut-side one is 5.80 thick where the boss is
 - **0.80 mm fillet** at the slot floor, placed *outside* the R7.5 mating envelope
   so it never eats into the slot width the mating knuckle needs
 - the flare from the 10 mm beam to the 16 mm stack is solid

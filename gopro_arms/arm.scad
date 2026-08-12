@@ -5,9 +5,12 @@
 //  Replaces the loose `inspiration/*.stl` arms with two changes:
 //    1. FIT.  The prong stack is rebuilt on the real GoPro 3 mm grid
 //       (prong 3, slot 3, five slots = 15 mm) instead of the inspiration's
-//       2.5 mm prongs in 4.0 mm slots, which left ~0.6-1.2 mm of rattle.
+//       2.5 mm prongs in 4.0 mm slots, which left ~0.6-1.2 mm of rattle and
+//       never clamped.  Slots are 3.10 and fingers 2.90: 0.10 per feature.
 //    2. FLOW. The square 9.3 x 14.9 beam becomes a streamlined strut
 //       section: flat trailing base, gentle taper, rounded leading edge.
+//    3. NUT.  A captive M5 hex nut in the 3-prong end, so the thumbscrew
+//       can actually be pulled up tight one-handed.
 //
 //  ------------------------------------------------------------------
 //  FRAME  (model axes -> boat axes, arm hanging UNDER the hull)
@@ -40,7 +43,7 @@
 //    * the chord ramps up as an upward-facing slope;
 //    * the pivot bore is a 45 deg teardrop, so nothing droops into it
 //      (PETG bridges worse than PLA).
-//  The only sub-45 surfaces left are the slot roofs, which bridge 3.2 mm.
+//  The only sub-45 surfaces left are the slot roofs, which bridge 3.1 mm.
 //
 //  ------------------------------------------------------------------
 //  ARTICULATION (measured, fitcheck.py, zero-interference range)
@@ -62,9 +65,13 @@ $fs = 0.4;
 
 // ---------------------------------------------------------------- joint
 // Measured off the user's current GoPro mounts: 3 mm prong, 3 mm gap.
+// TIGHT ON PURPOSE.  The arms these replace ran 4.00 slots on 3.00 fingers and
+// could not be clamped up -- the prongs bottomed out on each other before the
+// faces ever gripped.  0.10 per feature is a slip fit that still leaves the
+// thumbscrew something to squeeze.  Print `gauge` first and tune from there.
 u           = 3.00;   // GoPro nominal prong / slot unit
-slot_extra  = 0.20;   // slot   = u + slot_extra   -> 3.20 modelled
-fing_under  = 0.20;   // finger = u - fing_under   -> 2.80 modelled
+slot_extra  = 0.10;   // slot   = u + slot_extra   -> 3.10 modelled
+fing_under  = 0.10;   // finger = u - fing_under   -> 2.90 modelled
 tab_r       = 7.50;   // knuckle radius            (measured 7.503)
 bore_d      = 5.30;   // M5 GoPro thumbscrew clearance (measured 5.296)
 prong_out_t = 3.40;   // OUTER prong thickness, 3-prong end -- reinforcement
@@ -80,17 +87,38 @@ sec_fmax    = 0.70;   // z/chord of max thickness  == 30% chord behind the nose
 sec_tail_p  = 1.70;   // tail taper exponent
 nose_flat   = 0.40;   // tiny flat at the nose tip so the top layer is printable
 
+// ---------------------------------------------------------- nut trap
+// Captive M5 nut in one outer prong of the 3-prong end, so the GoPro
+// thumbscrew can be done up one-handed instead of needing a spanner.
+// The prong is only prong_out_t thick, which is less than a nut, so the
+// prong is locally thickened by boss_h -- the boss reuses the knuckle
+// silhouette, so it stands on the bed like everything else and fades out
+// to nothing at the edge of the R7.5 circle instead of leaving a step.
+nut_trap    = true;
+nut_af      = 8.00;   // M5 DIN 934 across flats
+nut_af_clr  = 0.20;   // snug; PETG pockets come out a touch narrow
+nut_t       = 4.00;   // DIN 934 thickness  (DIN 985 nyloc = 5.0)
+nut_seat    = 0.30;   // so the nut sits just below flush
+nut_wall    = 1.50;   // material between pocket floor and the slot
+nut_side    = -1;     // which outer prong carries it (-1 = -Y)
+
 // ------------------------------------------------------------ blending
-flare_len   = 14;     // 3-prong end: width flare  16.0 -> beam_t
-neck_len    = 10;     // 2-prong end: width neck   beam_t -> 8.8
-chord_len   = 12;     // chord ramp 2*tab_r -> beam_c
+flare_len   = 14;     // 3-prong end: width flare  15.9 -> beam_t
+neck_len    = 10;     // 2-prong end: width neck   beam_t -> 8.9
+chord_len   = 12;     // chord ramp tab_top -> beam_c
 n_station   = 22;     // loft stations per transition
 
 // ---------------------------------------------------------------- derived
-slot_w   = u + slot_extra;                 // 3.20  -- accepts a 3.00 finger
-fing_w   = u - fing_under;                 // 2.80  -- enters a 3.00 slot
-w3_half  = u + slot_w/2 + prong_out_t;     // 8.00  -> 16.0 mm 3-prong stack
-w2_half  = u + fing_w/2;                   // 4.40  ->  8.8 mm 2-prong stack
+slot_w   = u + slot_extra;                 // 3.10  -- accepts a 3.00 finger
+fing_w   = u - fing_under;                 // 2.90  -- enters a 3.00 slot
+w3_half  = u + slot_w/2 + prong_out_t;     // 7.95  -> 15.9 mm 3-prong stack
+w2_half  = u + fing_w/2;                   // 4.45  ->  8.9 mm 2-prong stack
+
+nut_depth = nut_t + nut_seat;                              // 4.30
+boss_h    = nut_trap                                        // local thickening
+              ? max(0, nut_depth + nut_wall - prong_out_t)  // 2.40
+              : 0;
+nut_r     = (nut_af + nut_af_clr)/sqrt(3);   // hex circumradius, 4.76
 
 // ---- knuckle style ---------------------------------------------------
 // "pad"  pivot sits one full radius up, so the knuckle circle is tangent to
@@ -213,6 +241,34 @@ module bore(px, span) {
         teardrop(h = span, d = bore_d, ang = oh_ang);
 }
 
+// Hex nut outline, flats TOP AND BOTTOM (a vertex up would put the roof at
+// 60 deg from vertical), plus a 45 deg peak so nothing droops into the pocket
+// where it bridges the top flat.
+module nut_profile2d() {
+    af = nut_af + nut_af_clr;
+    union() {
+        rotate(0) circle(r = nut_r, $fn = 6);          // vertex on +X -> flat on top
+        polygon([[-nut_r/2, af/2], [nut_r/2, af/2], [0, af/2 + nut_r/2]]);
+    }
+}
+
+// Local thickening of the nut-side outer prong.  Same silhouette as the
+// knuckle, so it prints off the bed identically and dies out at R7.5.
+module nut_boss() {
+    if (nut_trap && boss_h > 0)
+        tab_solid(nut_side < 0 ? -w3_half - boss_h : w3_half,
+                  nut_side < 0 ? -w3_half         : w3_half + boss_h);
+}
+
+// The pocket itself, opening on the outboard face.
+module nut_pocket() {
+    if (nut_trap)
+        mirror([0, nut_side < 0 ? 0 : 1, 0])
+            translate([0, -(w3_half + boss_h - nut_depth), pivot_z])
+                rotate([90, 0, 0])
+                    linear_extrude(height = nut_depth + 0.5) nut_profile2d();
+}
+
 // ---------------------------------------------------------------- the arm
 // L = pivot-to-pivot distance.
 module arm(L) {
@@ -221,14 +277,16 @@ module arm(L) {
     difference() {
         union() {
             tab_solid(-w3_half, w3_half);                    // 3-prong knuckle
+            nut_boss();
             translate([L, 0, 0]) tab_solid(-w2_half, w2_half); // 2-prong knuckle
             beam_loft(L);
         }
-        bore(0, 4*w3_half);
-        bore(L, 4*w3_half);
+        bore(0, 6*w3_half);
+        bore(L, 6*w3_half);
         pocket(0,  u);        // 3-prong: slots centred on +/- 3.00
         pocket(0, -u);
-        pocket(L,  0);        // 2-prong: central gap, same 3.20 width
+        pocket(L,  0);        // 2-prong: central gap, same width as a slot
+        nut_pocket();
     }
 }
 
@@ -240,16 +298,23 @@ module gauge() {
     difference() {
         union() {
             tab_solid(-w3_half, w3_half);
+            nut_boss();
             translate([Lg, 0, 0]) tab_solid(-w2_half, w2_half);
+            // Taper must finish BEFORE the 2-prong knuckle, otherwise the
+            // coupon presents fat fingers and measures the wrong thing.
             hull() {
-                translate([0,  0, tab_top/2]) cube([0.01, 2*w3_half, tab_top], center = true);
-                translate([Lg, 0, tab_top/2]) cube([0.01, 2*w2_half, tab_top], center = true);
+                translate([0, 0, tab_top/2])
+                    cube([0.01, 2*w3_half, tab_top], center = true);
+                translate([Lg - tab_r, 0, tab_top/2])
+                    cube([0.01, 2*w2_half, tab_top], center = true);
             }
+            translate([Lg - tab_r, -w2_half, 0]) cube([tab_r, 2*w2_half, tab_top]);
         }
-        bore(0,  4*w3_half);
-        bore(Lg, 4*w3_half);
+        bore(0,  6*w3_half);
+        bore(Lg, 6*w3_half);
         pocket(0,  u);
         pocket(0, -u);
         pocket(Lg, 0);
+        nut_pocket();
     }
 }
