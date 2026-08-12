@@ -16,6 +16,7 @@ include <common.scad>
 use <body.scad>
 use <lid.scad>
 use <pylon.scad>
+use <propguard.scad>
 use <float.scad>
 
 // =====================================================================
@@ -84,6 +85,8 @@ module pylon_at_stern() {
     rotate(a=180, v=[1,0,-1]) {
       difference() { pylon(); pylon_cut(); }
       ghost_hardware();
+      // prop guard bolted in the pad sandwich (drawn canonical; hull_assembly's mirror sets outboard per hull)
+      if (prop_guard) translate([pad_aft, pylon_rise, pylon_width/2]) rotate([0,90,0]) color("DarkSeaGreen") guard_full();
     }
 }
 

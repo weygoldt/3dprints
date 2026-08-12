@@ -304,58 +304,58 @@ Change `prop_diameter` to 254 (1045) and the pylon grows to ~110 mm above the bo
    melted in from the block aft face). Wide fender washer / backing
    plate under the soft foam so the head can't pull through.
 
-## Propeller guard — flat frontal arc grille (`propguard.scad`, 2026-08-13)
+## Propeller guard — flat arc grille + supportless shroud (`propguard.scad`, 2026-08-13)
 
-A best-effort **prop guard** for the 8×4.5 (203 mm) pusher prop, to keep reeds/grass/branches off the
-disc when the boat noses into vegetation. Standalone accessory (like `rail.scad`): its own params + echoes,
-pulls only `prop_radius` / the pad bolt pattern / `pad_aft` / `prop_disc_z` from `common.scad`.
+A best-effort **prop guard** for the 8×4.5 (203 mm) pusher prop, to keep reeds/grass/branches off the disc.
+Params + derived live in **`common.scad`** (search "PROP GUARD") so `main.scad` draws it on each hull; the
+geometry, echoes, and standalone render are in `propguard.scad`. Bolts into the motor-mount sandwich on the
+pad's 4× M3 (`bp_pitch` square, ±`bp_axis`) + 11.5 boss bore — no new holes; M3 screws get `guard_t` longer.
 
-**What it is (Patrick's two steers this session):**
-1. **Totally FLAT (2D), not a 3D cage.** The boat runs FORWARD ~99% of the time → vegetation comes at the
-   prop from the front, so a flat grille on the **intake side** intercepts it. A full wrap-around cage only
-   helps in reverse and was dropped. A prototype 3D "basket" was built first and killed on DFM: it needed
-   35–52 cm³ of support in *every* orientation and touched the bed on only ~4.6 cm² (a 231 mm PETG part →
-   warp/detach). The flat plate prints **face-down, supportless, ~128 cm² of bed contact**, layers in-plane.
-2. **Partial ring — cover the TOP + OUTBOARD only.** On the boat the exposed faces are the top and the
-   outboard side; the bottom sits low near the water/spray and the inboard side faces the sheltered channel
-   between the hulls. So the grille is an **arc** (`guard_arc`, default 210° = 42% removed), leaned
-   `guard_arc_bias`=25° off top toward outboard, and **mirrors with `side`** (port/starboard) so the bias
-   lands right on each hull. Cutting the ring also drops mass (→ less mast-tip resonance load) and intake
-   blockage (→ more thrust).
+**Design (Patrick's steers this session, in order):**
+1. **FLAT, not a 3D cage** — the boat runs FORWARD ~99% of the time, so a flat grille on the **intake side**
+   intercepts what comes head-on. A 3D "basket" was built first and killed on DFM (35–52 cm³ support in every
+   orientation, ~4.6 cm² bed contact → warp). The flat plate prints face-down, **supportless**.
+2. **PARTIAL arc — TOP + OUTBOARD only** (`guard_arc`=135° ⇒ 62% removed, `guard_arc_bias`=45° onto the
+   top-outboard diagonal). Bottom sits low near the water; inboard faces the sheltered channel between hulls.
+   **Mirrors with `side`.** NB the OUTBOARD side is guard-local −X/180° (verified through the assembly
+   transform — the model's +Y points at the water and the hull mirror flips the sign; an early rev had the
+   bias backwards, caught by rendering `main.scad`).
+3. **ROUNDED edges** — lives in turbulent air, so no sharp corners: `guard_round` rounds aft/top edges,
+   `guard_front_round` softens the frontal/intake edges, spokes are **tapered** (`guard_spoke_root` 8 →
+   `guard_bar` 3, ~2.7:1) via a hull of rounded cylinders.
+4. **SHROUD** (`guard_shroud`) — a short aft cowl LIP wrapping the tips: catches things swept in from the
+   **side**, not just head-on. It's a vertical wall off the flat grille ⇒ **prints supportless**; a filleted
+   inner FOOT (`guard_shroud_foot`) spreads the root stress across layers + adds bed contact.
 
-**Mount / stack (uses the existing pylon holes, as asked):** sandwiched at the pad —
-`pylon pad | PROP-GUARD grille (guard_t) | BasePlate (motor bracket) | motor`. The grille's **FULL** hub
-disc copies the pad's 4× M3 square (`bp_pitch`, ±`bp_axis`) + the 11.5 mm central boss clearance, so it
-drops on the existing pattern; only the outer grid is cut to the arc. The 4 M3 mount screws just get
-`guard_t` (6 mm) **longer**; nut still on the pad forward face. The grille sits **~34 mm in front of the
-prop** (its aft-face-to-prop gap = the flex-into-the-prop safety margin).
-
-**Defaults (all knobs):** `guard_arc`=210, `guard_arc_bias`=25, `guard_over`=1 (rim r = prop_r+1 → OD 205),
-`guard_t`=6, `guard_hub_r`=30, `guard_rings`=2, `guard_spokes`=7 (across the arc), `guard_bar`=4,
-`guard_outer_spokes`=true (halves the rim cells), `guard_fillet`=1.5. → **63 g** PETG, gates ~20 mm (radial)
-× ~27 mm (tangential rim) — a **branch/clump fender, not a fine reed screen** (a THRUST prop hates a blocked
-intake, so it errs open; raise `guard_bar`/`guard_rings` or narrow `guard_arc` if reeds still get through).
+**Numbers (defaults):** OD 221, arc 135°, hub r24, 1 ring + 5 tapered spokes, shroud r107.5–109.7 × 28 mm
+tall × 2.2 wall. → **47 g** PETG, single manifold shell, **supportless** (0.21 cm² off-bed overhang;
+PrusaSlicer auto-support = 0 cm³ at the 50° threshold), 50 cm² bed contact, 153×153×28 mm footprint.
 
 **Export / render** (from `boat_enclosure/`):
 ```
 openscad -o stl/airboat_propguard_arc_starboard.stl -D 'side="starboard"' -D '$fn=220' propguard.scad
 openscad -o stl/airboat_propguard_arc_port.stl      -D 'side="port"'      -D '$fn=220' propguard.scad
-openscad -D 'guard_part="onpylon"' propguard.scad   # fit check: grille in front of the real BasePlate+Motor+prop
+openscad -D 'guard_part="onpylon"' propguard.scad    # fit: guard in front of the real BasePlate+Motor+prop
+openscad -D 'preview_upright=true' -D 'show_foam=false' main.scad   # both guards on the boat (size check)
 ```
+**PRINT: add a ~5 mm brim** — a 153 mm PETG span with the shroud mass out at the rim; the brim is cheap
+warp insurance (AM-review must-do; not a model change).
 
-**Verification (this session):** manifold (OpenSCAD manifold backend; STL re-parse = **1 shell, 0
-non-manifold edges**); mounts on the exact pad pattern + clears the BasePlate corner (hub r30 ≥ 27.9);
-prints **supportless** flat (overhang = 0 above the bed face); fits the MK3 bed one-piece with brim room;
-4-lens adversarial review (DFM/structure/function/geometry) run on both the basket and this flat design.
+**Review:** an additive-manufacturing engineer (subagent) verified supportless/1-shell/weight and drove the
+elegance pass (smaller hub, exaggerated spoke taper, frontal-edge rounding, shroud foot). A 4-lens adversarial
+review (DFM/structure/function/geometry) covered the earlier basket + flat revs.
 
-**Open items to confirm before/after printing:**
-1. **OUTBOARD direction** — the arc is biased toward +X (`side="starboard"`); set `side` to match your boat
-   and *name the feature*, don't trust a bare left/right (a mirror is invisible to a probe).
-2. **Prop plane** — the 34 mm standoff uses the modelled `prop_disc_z`; confirm the real motor+prop puts the
-   disc where expected (same open item #6 as the pylon).
-3. **Thrust test** — measure the static-thrust penalty of the intake grille; open it up (`guard_bar`↓, drop
-   a ring, or widen the gates) if the boat is underpowered.
-4. **Flex-into-prop** — push the grille by hand toward the prop; `guard_t`=6 sets that stiffness (the
-   in-plane rings/spokes don't help that mode). Raise `guard_t` if it comes near the disc under a branch.
-5. **Mast resonance** — the guard adds ~63 g at the mast tip; BALANCE THE PROP (dominant 1P lever) and watch
-   a rev sweep for a resonance dwell.
+**Open items — confirm before/after printing:**
+1. **OUTBOARD direction** — set `side` to match your boat; *name a feature* (the side toward open water, away
+   from the centreline), don't trust a bare left/right — a mirror is invisible to a probe.
+2. **Reed coverage is COARSE** — outer cell ~40 (radial) × ~63 mm (tangential): a **branch/clump fender, not
+   a fine reed screen**. Adding `guard_rings`/`guard_spokes` closes it (rings add cheap central mass, spokes
+   add clutter) — a thrust-vs-protection call. Current is deliberately open per the "few spokes / elegant" steer.
+3. **Side gap** — the shroud lip stops at z=28 but the disc plane is `guard_standoff`=34 back, so an object in
+   the disc plane clears the lip by ~6 mm; raise `guard_shroud_h`→34 if in-plane side strikes matter (rim mass↑).
+4. **Flex-into-prop** — the disc cantilevers off the 4 M3 at r17; `guard_t`=5 alone sets stiffness toward the
+   prop (the in-plane grid sits in the neutral plane). It sits 34 mm forward of the disc; raise `guard_t` if a
+   push test brings it near the prop.
+5. **Mast resonance** — 47 g at the mast tip lowers the mast's 1st bending freq. Patrick is NOT balancing the
+   prop, so mass was kept low (arc + short/thin shroud); the shroud is the biggest remaining lever if a rev
+   sweep shows a resonance dwell (its mass sits at the worst radius).

@@ -926,6 +926,53 @@ if (xt60 && xt60_face != "none") {
 echo("---------------------------------------------------------------");
 
 // =====================================================================
+//  PROP GUARD  (flat frontal ARC grille + supportless aft SHROUD; bolt-on)
+//  Full geometry + echoes live in propguard.scad; the params + derived are here so
+//  the assembly (main.scad) can draw the guard on each pylon.  Patrick 2026-08-13:
+//  keep it FLAT (prints supportless, face-down); a PARTIAL arc (top + OUTBOARD only,
+//  the exposed faces on the boat -- bottom is near the water, inboard faces the
+//  sheltered channel between hulls); ALL edges ROUNDED (this lives in very turbulent
+//  air -- fewer sharp corners = less turbulence); plus a short aft SHROUD wall that
+//  protects the tips from the SIDE (not just head-on), printed as a vertical wall so
+//  it needs NO support.  Mounts in the motor-bracket sandwich on the pad's 4x M3.
+// =====================================================================
+prop_guard        = true;   // draw the guard in the assembly preview
+guard_arc         = 135;    // kept sweep (deg): top + outboard only (360 = full ring)
+guard_arc_bias    = 45;     // lean the kept arc off TOP toward the OUTBOARD side (deg; 0 = symmetric about top,
+                            // 45 = centred on the top-outboard diagonal).  In guard-local the OUTBOARD side is
+                            // -X / 180 deg (verified through the assembly transform), so the centre is 90 + this.
+guard_tip_gap     = 6;      // radial clearance: prop tip -> shroud INNER (the shroud must clear a flexing blade)
+guard_t           = 5;      // frontal grille thickness (Z / axial)
+guard_hub_r       = 24;     // FULL mount-hub radius -- backs the r17 bolt circle + margin; the rigid plate overhangs
+                            // (clamped at 4 bolts, like the pad).  Smaller than before so the bolt square isn't lost in a pancake.
+guard_round       = 1.6;    // edge-rounding radius on aft/top edges (low turbulence; no sharp corners)
+guard_front_round = 0.8;    // SMALL rounding on the FRONTAL (bed-side / intake) edges of the hub + spokes -- the faces the
+                            // airflow + debris hit first (the reviewer's low-turbulence point); kept small so bed contact holds
+guard_rings       = 1;      // intermediate frontal ring arcs (sparse -> low turbulence; the SHROUD is the main guard)
+guard_spokes      = 5;      // frontal spokes across the arc (fewer = cleaner; includes one at each end -> caps the ring arcs)
+guard_bar         = 3.0;    // frontal ring + spoke-TIP width (thin/elegant)
+guard_spoke_root  = 8;      // spoke width at the HUB -- spokes TAPER ~2.7:1 to guard_bar at the rim (reads intentional + strong root)
+guard_shroud      = true;   // the aft shroud wall (side protection; a vertical wall -> printed supportless)
+guard_shroud_h    = 28;     // shroud aft rise (Z) -- a short cowl LIP (light/elegant).  NOTE: the disc plane is guard_standoff
+                            // (34) back, so this lip stops ~6 mm short of it -- raise toward 34 if in-plane side strikes matter
+guard_shroud_wall = 2.2;    // shroud radial thickness (thinned)
+guard_shroud_foot = 2.5;    // filleted FOOT at the shroud's inner base -> spreads the root stress across layers (the reviewer's
+                            // main reliability fix: a side strike loads the wall root in tension ACROSS layers) + adds bed contact
+guard_bore_d      = bp_bore + 1.5;   // 11.5 central boss clearance (motor boss pokes forward; matches the pad)
+guard_bolt_d      = bp_screw_d;      // 3.4 M3 clearance (matches the pad -- a vibration mount wants tight holes)
+// -- derived --
+guard_r_tip    = prop_radius + guard_tip_gap;        // shroud inner / frontal rim radius
+guard_r_out    = guard_r_tip + guard_shroud_wall;    // shroud outer radius
+guard_od       = 2*guard_r_out;                      // guard outer diameter
+guard_standoff = (mm_block_aft_z - pad_aft) - prop_disc_z;  // pad face -> prop disc; the guard aft-to-prop gap
+guard_a_ctr    = 90 + guard_arc_bias;                // arc centre from +X (90 = top; +bias leans toward OUTBOARD = -X/180)
+guard_a0       = guard_a_ctr - guard_arc/2;          // arc start / end
+guard_a1       = guard_a_ctr + guard_arc/2;
+guard_full_ring = guard_arc >= 359.9;
+guard_ring_radii = [ for (i=[1:guard_rings]) guard_hub_r + i*(guard_r_tip - guard_hub_r)/(guard_rings+1) ];
+guard_mount_xy   = [ for (sx=[-1,1], sy=[-1,1]) [sx*bp_axis, sy*bp_axis] ];  // 4 M3 -> land on the pad pattern
+
+// =====================================================================
 //  HELPERS  (ported)
 // =====================================================================
 module rprism(w, h, d, r) {
