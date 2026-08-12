@@ -24,7 +24,22 @@ def run(test, ang, armL=100):
            '-D', f'ang={ang}', '-D', f'armL={armL}', '-D', f'test="{test}"',
            os.path.join(HERE, 'fitcheck.scad')]
     r = subprocess.run(cmd, capture_output=True, text=True, cwd=HERE)
+    # A render that FAILED also produces no file, which without a check is
+    # indistinguishable from "the parts do not intersect" -- every angle would
+    # silently certify as a perfect fit.  But openscad also exits NON-ZERO on a
+    # legitimately empty result, so returncode alone conflates the two.  The
+    # empty-object message is the discriminator; anything else is a real fault.
+    empty = 'Current top level object is empty' in r.stderr
+    broken = ("Can't open import file" in r.stderr
+              or "Can't find include file" in r.stderr
+              or 'ERROR:' in r.stderr)
+    if broken or (r.returncode != 0 and not empty):
+        raise RuntimeError(f"openscad failed ({test}, ang={ang}):\n{r.stderr[-800:]}")
     if not os.path.exists(out) or os.path.getsize(out) < 100:
+        if not empty:
+            raise RuntimeError(
+                f"no output and no empty-object message ({test}, ang={ang}) -- "
+                f"refusing to read that as zero interference")
         return 0.0, r.stderr
     try:
         v = volume(load(out))
@@ -60,14 +75,21 @@ def main():
     print("\n  clear articulation range (interference exactly 0.0000):")
     ok = True
     for k, v in results.items():
-        if v:
-            print(f"    {k:16s}  {min(v):+d} .. {max(v):+d} deg")
-        else:
-            print(f"    {k:16s}  NONE -- does not even mate straight!")
-            ok = False
         if 0 not in v:
-            print(f"    *** {k} FOULS AT 0 deg (collinear) -- it does not fit ***")
+            print(f"    {k:16s}  FOULS AT 0 deg (collinear) -- it does not fit")
             ok = False
+            continue
+        # CONTIGUOUS band through collinear.  min()..max() would paper over a
+        # hinge that jams solid part-way through its travel and report the
+        # whole span as clear.
+        lo = hi = 0
+        while lo - 10 in v:
+            lo -= 10
+        while hi + 10 in v:
+            hi += 10
+        gaps = [a for a in v if a < lo or a > hi]
+        note = f"   (also clear at {gaps} -- NOT reachable)" if gaps else ""
+        print(f"    {k:16s}  {lo:+d} .. {hi:+d} deg{note}")
 
     print()
     if ok and ctrl_ok:

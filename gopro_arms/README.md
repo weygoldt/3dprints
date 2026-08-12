@@ -67,7 +67,14 @@ Arm names are **pivot-to-pivot** distance in mm.
 
 Slicer notes:
 
-- **No support.** If your slicer wants to add some, something is wrong.
+- **Turn support OFF explicitly.** Do not just trust the default. The slot roofs
+  are legitimate 3.1 mm *bridges*, but a stock 45–55° support threshold can still
+  flag them, and auto-support will then pack PETG into the GoPro slots — exactly
+  the surfaces that must stay clean for the joint to close.
+- **Use a brim.** The strut stands 20 mm tall on a 5 mm wide foot over 155 mm of
+  length; that is a narrow footprint for PETG, whose shrinkage will lift the ends
+  given the chance. Bed contact is ~750 mm², about a third less than the arms
+  these replace, because the section is a strut instead of a slab.
 - Bump perimeters to **4–5**. The strut is only 10 mm thick, so perimeters do
   most of the structural work and the part comes out nearly solid.
 - Flat face on the bed — that is the only orientation this is designed for.
@@ -171,7 +178,25 @@ strut profile.
 `fitcheck.py` runs a boolean intersection against an ideal GoPro part and reports
 the volume. It includes a **control** that drives the mating part 1 mm off-axis
 and must report non-zero — if the control ever reads zero the probe is blind and
-the other numbers mean nothing.
+the other numbers mean nothing. `build.sh` gates on it.
+
+Both harnesses were themselves attacked by an adversarial review, which found
+three ways they could pass a bad part, now fixed:
+
+- the overhang classifier excused an **infinite cylinder in Y** around each pivot,
+  so any down-facing facet near a knuckle was waved through as a "slot roof". It
+  now also requires the facet to be inside an actual slot's Y band.
+- the bore check used `>=`, which a **plain round hole** satisfies; it now
+  requires the 45° teardrop apex to stand clearly above where a round hole stops.
+- `fitcheck.py` read a **failed render as zero interference**. OpenSCAD also exits
+  non-zero on a legitimately empty result, so returncode alone conflates the two;
+  it now discriminates on the empty-object message and raises on anything else.
+- the articulation summary printed `min..max` of the clear angles, which would
+  hide a hinge that **jams solid mid-travel**. It now reports the contiguous band
+  through collinear and names any unreachable islands.
+
+The checks are mutation-tested: a plain round bore, a 3.50 mm slot, and a `pad`
+knuckle each fail loudly.
 
 ## Reinforcement, and where it is still weakest
 

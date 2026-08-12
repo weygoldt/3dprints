@@ -245,8 +245,13 @@ def main():
             # the round part of the teardrop sits below the pivot axis
             check(abs(g[0] - (PIVOT_Z - BORE_D/2)) < TOL,
                   f"bore {name} floor at z={g[0]:.3f} == {PIVOT_Z-BORE_D/2:.3f} (M5 seats on the round)")
-            check(g[1] >= PIVOT_Z + BORE_D/2 - TOL,
-                  f"bore {name} roof at z={g[1]:.3f} >= {PIVOT_Z+BORE_D/2:.3f} (teardrop clears the bore)")
+            # A PLAIN ROUND hole tops out at PIVOT_Z + BORE_D/2.  Requiring
+            # merely ">= that" passes a round hole and verifies no teardrop at
+            # all; the 45 deg apex must stand clearly above it.
+            apex = PIVOT_Z + BORE_D/2*math.sqrt(2)
+            check(g[1] >= PIVOT_Z + BORE_D/2 + 0.8,
+                  f"bore {name} roof z={g[1]:.3f} is a TEARDROP apex "
+                  f"(a round hole would stop at {PIVOT_Z+BORE_D/2:.3f}, 45 deg apex {apex:.3f})")
             check(g[0] > 2.0, f"bore {name} floor leaves {g[0]:.3f} mm of material under the bore")
         # width across the bore in Y-free direction: probe X through the pivot
         ivx = ray_intervals(near_axis(tY, 2, PIVOT_Z), (-50.0, yprobe, PIVOT_Z), 0)
@@ -278,9 +283,14 @@ def main():
             continue
         ang_oh = math.degrees(math.asin(min(1, -n[2])))
         cen = [sum(p[k] for p in t)/3 for k in range(3)]
+        # A slot roof is the pocket cylinder AND one of the slot's Y bands.
+        # Testing the XZ radius alone exempted an INFINITE CYLINDER IN Y, so
+        # every down-facing facet anywhere near a knuckle was waved through.
         r0 = math.hypot(cen[0]-0.0, cen[2]-PIVOT_Z)
         r1 = math.hypot(cen[0]-L,   cen[2]-PIVOT_Z)
-        in_slot = min(r0, r1) <= POCKET_R + 0.15
+        yb = SLOT_W/2 + 0.05
+        in_slot = ((r0 <= POCKET_R + 0.15 and abs(abs(cen[1]) - U) <= yb) or
+                   (r1 <= POCKET_R + 0.15 and abs(cen[1]) <= yb))
         if not in_slot:
             worst_oh = max(worst_oh, ang_oh)
         if -n[2] <= lim:                  # within the 45 deg budget + faceting
@@ -303,6 +313,8 @@ def main():
             print(f"       at ({cen[0]:.2f},{cen[1]:.2f},{cen[2]:.2f})  {ang:.1f} deg  {a:.3f} mm^2")
     # the slot roof is only acceptable because it bridges a narrow slot
     check(SLOT_W <= 3.5, f"slot-roof bridge span is {SLOT_W} mm (PETG bridges this)")
+    check(slot_area < 40.0,
+          f"excused slot-roof area {slot_area:.2f} mm^2 stays small (cap 40)")
     check(worst_oh <= OH_ANG + FACET_TOL,
           f"steepest non-slot overhang {worst_oh:.2f} deg <= {OH_ANG} deg (+faceting)")
 
