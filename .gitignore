@@ -3,3 +3,4 @@ GoProScad/
 *.gcode
 *.stl
 .claude/
+__pycache__/
