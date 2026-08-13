@@ -81,21 +81,28 @@ module guard_shroud_wall_m()
     if (guard_full_ring) translate([0,0,-1]) cylinder(h=guard_shroud_h+2, r=guard_r_out+1); else guard_height_mask();
   }
 
-// MOUNT HUB -- a rounded disc CLIPPED to the pylon PAD footprint on the INNER (+X) and DOWN (-Y) sides, so the
-// guard base sandwiches flush on the pad (same outline -> reads as one part, not two) AND its lower edge no longer
-// protrudes below the pad into the sloped buttress.  The pad face is pad_h tall x pylon_width wide, its flat bottom
-// set back pylon_fillet by the pad->mast fillet; top + OUTBOARD stay round (that's where the spokes/arc flare out).
-guard_pad_inner  = pylon_width/2;                 // guard +X of the pad's inner width edge (pylon Z=0)
-guard_pad_bottom = -(pad_h/2 - pylon_fillet);     // guard -Y of the pad's flat bottom edge (fillet-set-back)
+// MOUNT HUB.
+//  motor mode (guard = WASHER): a plain rounded disc centred on the MOTOR AXIS -- its flat aft face is the bearing
+//    surface the four motor pads seat on, and its central bore is the boss recess.  (The one-sided offset is applied
+//    where the guard is PLACED on the pad, not in the hub, so the washer stays symmetric about the motor axis.)
+//  plate mode (legacy): the disc CLIPPED to the pad footprint on the inner (+X) and down (-Y) sides so it sat flush.
+guard_pad_inner  = pylon_width/2;                 // (plate) guard +X of the pad's inner width edge (pylon Z=0)
+guard_pad_bottom = -(pad_h/2 - pylon_fillet);     // (plate) guard -Y of the pad's flat bottom edge (fillet-set-back)
 module guard_hub()
-  intersection() {
+  if (mount_to == "motor")
     cyl(h=guard_t, r=guard_hub_r, rounding2=guard_round, rounding1=guard_front_round, anchor=BOTTOM);
-    translate([-500, guard_pad_bottom, -1]) cube([500 + guard_pad_inner, 1000, guard_t+2]);  // keep X<=inner, Y>=bottom
-  }
-// hub lightening holes -- in the round TOP + OUTBOARD band (clear of the clipped inner/down edges + the 4 bolts)
+  else
+    intersection() {
+      cyl(h=guard_t, r=guard_hub_r, rounding2=guard_round, rounding1=guard_front_round, anchor=BOTTOM);
+      translate([-500, guard_pad_bottom, -1]) cube([500 + guard_pad_inner, 1000, guard_t+2]);  // keep X<=inner, Y>=bottom
+    }
+// hub lightening holes.  plate mode: 2 holes in the round top+outboard band.  motor mode: the A2212 cross fills the
+// axes, so relieve in the 4 DIAGONAL gaps (clear of the on-axis bolts + the central boss bore).
 module guard_hub_lightening()
-  for (ha = [90,180]) rotate([0,0,ha]) translate([10, 0, -1])
-    cylinder(h=guard_t+2, d=6);
+  if (mount_to == "motor")
+    for (ha = [45,135,225,315]) rotate([0,0,ha]) translate([guard_hub_r-7, 0, -1]) cylinder(h=guard_t+2, d=5);
+  else
+    for (ha = [90,180]) rotate([0,0,ha]) translate([10, 0, -1]) cylinder(h=guard_t+2, d=6);
 
 module guard_full() {
   spoke_as = guard_full_ring
@@ -128,27 +135,49 @@ echo(str("  frontal grille: full hub r ", guard_hub_r, " + ", guard_rings, " rin
 echo(str("  SHROUD: ", guard_shroud ? str("on -- r ", guard_r_tip, "..", guard_r_out, " wall, rises ", guard_shroud_h,
          " mm AFT (spans the prop plane ", round(10*guard_standoff)/10, " mm back) -> guards the SIDE, prints as a vertical wall (SUPPORTLESS)")
          : "off"));
-echo(str("  mount: 4x M3 clearance ", guard_bolt_d, " on a ", bp_pitch, " mm square (+/-", bp_axis, ") + ", guard_bore_d,
-         " boss bore -- MATCHES the pad ; hub r ", guard_hub_r, " vs bolt-circle ", round(10*bp_axis*sqrt(2))/10,
-         " + edge ", guard_hub_r >= bp_axis*sqrt(2) + guard_bolt_d ? "OK (rigid plate overhangs, clamped at 4 bolts)" : "<< grow guard_hub_r"));
-echo(str("  SANDWICH: pad | grille (", guard_t, " mm) | BasePlate | motor -> M3 mount screws ~", guard_t, " mm longer"));
+if (mount_to == "motor") {
+  guard_bolt_r = motor_bolt_long/2;   // furthest bolt from the hub centre (long axis)
+  echo(str("  mount = WASHER: 4x M3 clearance ", guard_bolt_d, " on the A2212 CROSS (", motor_bolt_long, "x",
+           motor_bolt_short, ") + ", guard_bore_d, " central BOSS RECESS -- the 4 motor pads bear on the flat hub face ; ",
+           "hub r ", guard_hub_r, " vs furthest bolt ", guard_bolt_r, " + edge ",
+           guard_hub_r >= guard_bolt_r + guard_bolt_d ? "OK" : "<< grow guard_hub_r"));
+  echo(str("  SANDWICH: pad | GUARD-washer (", guard_t, " mm) | motor -> screws thread into the A2212, motor breathes OPEN aft ; ",
+           "M3 x ", motor_screw_len, " (seat ", motor_seat_t, " + guard ", guard_t, " + engage ", motor_engage, ")"));
+} else {
+  echo(str("  mount: 4x M3 clearance ", guard_bolt_d, " on a ", bp_pitch, " mm square (+/-", bp_axis, ") + ", guard_bore_d,
+           " boss bore -- MATCHES the pad ; hub r ", guard_hub_r, " vs bolt-circle ", round(10*bp_axis*sqrt(2))/10,
+           " + edge ", guard_hub_r >= bp_axis*sqrt(2) + guard_bolt_d ? "OK (rigid plate overhangs, clamped at 4 bolts)" : "<< grow guard_hub_r"));
+  echo(str("  SANDWICH: pad | grille (", guard_t, " mm) | BasePlate | motor -> M3 mount screws ~", guard_t, " mm longer"));
+}
 echo(str("  sits ", round(10*guard_standoff)/10, " mm in front of the disc ; prints FLAT face-down, SUPPORTLESS ",
          "(grille on the bed, shroud a vertical wall) ; OD ", guard_od, " fits the 250x210 MK3 one-piece"));
+echo(str("  DFM: run a BRIM -- the hub anchors the centre but the thin arc extremities (r~", round(guard_r_out),
+         ", 2.2 mm wall) are the PETG first-layer LIFT risk (both arc ends where the lip tapers to h_min)."));
 echo(str("  NOTE tip mass/resonance: guard hangs at the mast tip -- BALANCE THE PROP (dominant 1P lever), validate a rev sweep."));
-echo(str("  CONFIRM which way is OUTBOARD before printing (set side) -- don't trust a bare left/right."));
+echo(str("  CONFIRM which way is OUTBOARD before printing (", mount_to=="motor" ? "set motor_offset_dir" : "set side",
+         ") -- name a feature, don't trust a bare left/right."));
 echo("------------------------------------------------------------");
 
 // =====================================================================
 //  STANDALONE RENDER
 // =====================================================================
 if (guard_part == "onpylon") {
-  // fit check: the guard bolted to the real pylon pad, in front of the BasePlate + Motor STL
-  // ghosts + prop disc.  The guard (guard_t) shifts the motor stack AFT by guard_t (honest sandwich).
   color("Tan") difference() { pylon(); pylon_cut(); }
-  color([0.72,0.73,0.75,0.9]) translate([pad_aft+guard_t, pylon_rise, pylon_width/2]) rotate([45,0,0]) rotate([0,0,-90]) import("BasePlate.stl");
-  color([0.12,0.12,0.13,0.9]) translate([pad_aft+guard_t+2+1.6, pylon_rise, pylon_width/2]) rotate([45,0,0]) rotate([0,0,90]) import("Motor.stl");
-  color([0.85,0.2,0.2,0.30]) translate([pad_aft+guard_t+guard_standoff, pylon_rise, pylon_width/2]) rotate([0,90,0]) cylinder(h=1.5, r=prop_radius, center=true); // prop disc
-  color("DarkSeaGreen") translate([pad_aft, pylon_rise, pylon_width/2]) rotate([0,90,0]) apply_side() guard_full();
+  if (mount_to == "motor") {
+    // INTEGRATED fit check: guard = washer at the OFFSET motor axis, motor bolted straight to it (NO plate).
+    // rotate([0,0,90]) maps motor-local X (long axis) -> pylon Y (up-mast) and motor-local Z (short) -> pylon Z (width);
+    // the mount face (motor Y=0) sits at X=pad_aft+guard_t, the bell + prop extend AFT (+X), stub pokes into the guard bore.
+    color([0.12,0.12,0.13,0.9]) translate([pad_aft+guard_t, pylon_rise, motor_zc]) rotate([0,0,90]) import("Motor.stl");
+    color([0.85,0.2,0.2,0.30]) translate([pad_aft+guard_t+guard_standoff, pylon_rise, motor_zc]) rotate([0,90,0]) cylinder(h=1.5, r=prop_radius, center=true); // prop disc
+    color("DarkSeaGreen") translate([pad_aft, pylon_rise, motor_zc]) rotate([0,90,0]) guard_full();
+  } else {
+    // legacy fit check: guard on the pad, BasePlate + Motor STL ghosts, prop disc.
+    color([0.72,0.73,0.75,0.9]) translate([pad_aft+guard_t, pylon_rise, pylon_width/2]) rotate([45,0,0]) rotate([0,0,-90]) import("BasePlate.stl");
+    color([0.12,0.12,0.13,0.9]) translate([pad_aft+guard_t+2+1.6, pylon_rise, pylon_width/2]) rotate([45,0,0]) rotate([0,0,90]) import("Motor.stl");
+    color([0.85,0.2,0.2,0.30]) translate([pad_aft+guard_t+guard_standoff, pylon_rise, pylon_width/2]) rotate([0,90,0]) cylinder(h=1.5, r=prop_radius, center=true); // prop disc
+    color("DarkSeaGreen") translate([pad_aft, pylon_rise, pylon_width/2]) rotate([0,90,0]) apply_side() guard_full();
+  }
 } else {
-  color("DarkSeaGreen") apply_side() guard_full();   // the printable guard (side mirrors via common.scad's `side`)
+  // the printable guard.  motor mode: side-independent (L/R is motor_offset_dir, the arc lean).  plate mode: side mirrors.
+  color("DarkSeaGreen") if (mount_to=="motor") guard_full(); else apply_side() guard_full();
 }

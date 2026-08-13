@@ -47,13 +47,20 @@ module ghost_prop_and_motor() {
 // The plate's OUTER "+" holes (+/-16) must land on the pad's 4 M3 holes.
 module ghost_hardware() {
   if (show_hardware) {
-    // plate + motor mounted turned 45deg so the plate's outer "+" holes land on the pylon's X bores.
-    // The plate lies in the pad plane (normal = fore-aft X), so the 45deg CLOCK is about X (rotate([45,0,0])
-    // applied AFTER the base orientation) -- NOT about Z, which would tilt it out of the pad plane.
-    color([0.72,0.73,0.75,0.9])   // BasePlate flat on the pad aft face (X=pad_aft)
-      translate([pad_aft, pylon_rise, pylon_width/2]) rotate([45,0,0]) rotate([0,0,-90]) import("BasePlate.stl");
-    color([0.12,0.12,0.13,0.9])   // motor: mounting face on the plate, can aft (+X), clocked about its own axis (X)
-      translate([pad_aft+2+1.6, pylon_rise, pylon_width/2]) rotate([45,0,0]) rotate([0,0,90]) import("Motor.stl");
+    if (mount_to == "motor") {
+      // INTEGRATED: motor bolts straight to the guard-washer at the OFFSET motor axis (NO plate).  rotate([0,0,90])
+      // maps motor-local X (long axis) -> pylon Y (up-mast), Z (short) -> pylon Z (width); mount face at X=pad_aft+guard_t.
+      color([0.12,0.12,0.13,0.9])
+        translate([pad_aft+guard_t, pylon_rise, motor_zc]) rotate([0,0,90]) import("Motor.stl");
+    } else {
+      // legacy: plate + motor mounted turned 45deg so the plate's outer "+" holes land on the pylon's X bores.
+      // The plate lies in the pad plane (normal = fore-aft X), so the 45deg CLOCK is about X (rotate([45,0,0])
+      // applied AFTER the base orientation) -- NOT about Z, which would tilt it out of the pad plane.
+      color([0.72,0.73,0.75,0.9])   // BasePlate flat on the pad aft face (X=pad_aft)
+        translate([pad_aft, pylon_rise, pylon_width/2]) rotate([45,0,0]) rotate([0,0,-90]) import("BasePlate.stl");
+      color([0.12,0.12,0.13,0.9])   // motor: mounting face on the plate, can aft (+X), clocked about its own axis (X)
+        translate([pad_aft+2+1.6, pylon_rise, pylon_width/2]) rotate([45,0,0]) rotate([0,0,90]) import("Motor.stl");
+    }
   }
 }
 
@@ -85,8 +92,9 @@ module pylon_at_stern() {
     rotate(a=180, v=[1,0,-1]) {
       difference() { pylon(); pylon_cut(); }
       ghost_hardware();
-      // prop guard bolted in the pad sandwich (drawn canonical; hull_assembly's mirror sets outboard per hull)
-      if (prop_guard) translate([pad_aft, pylon_rise, pylon_width/2]) rotate([0,90,0]) color("DarkSeaGreen") guard_full();
+      // prop guard = washer in the pad sandwich, at the OFFSET motor axis (motor mode) or the pad centre (legacy).
+      if (prop_guard) translate([pad_aft, pylon_rise, mount_to=="motor" ? motor_zc : pylon_width/2])
+        rotate([0,90,0]) color("DarkSeaGreen") guard_full();
     }
 }
 

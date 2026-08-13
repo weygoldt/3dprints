@@ -49,20 +49,29 @@ module td_bore(h, d, ctr=false)
 
 module pylon_cut() {
   cz = pylon_width/2;
-  // PAD mounts the X BasePlate (item 2): 4 M3 CLEARANCE holes in a SQUARE, side = bp_pitch
-  // (the MEASURED adjacent-hole spacing on the real bracket, 24.25), i.e. the plate's outer
-  // bolt circle ROTATED 45deg to an "X" -- mount the plate turned 45deg.  Each bolt sits at
-  // +/-bp_axis (= bp_pitch/2) along the pad axes, so the pad is short and the sloped mast climbs
-  // higher (the rigid plate overhangs the smaller pad, in free air at the tip).  Every hole runs
-  // along X through the whole pad -> open both sides (flat-head from the plate, nut on the
-  // forward face).  The pad face is the aft plane X=pad_aft.
-  bp_hole_l = 2*(pad_aft + 2);   // spans the full pad depth, both sides open
-  // central boss clearance -- TEARDROP (apex toward +Z = pylon print-up) so the
-  // 11.5 mm horizontal bore self-supports instead of drooping onto the boss.
-  //translate([0, pylon_rise, cz]) rotate([0,0,-90]) teardrop(h=bp_hole_l, d=bp_bore+1.5);
-  for (sy=[-1,1], sz=[-1,1])
-    translate([0, pylon_rise + sy*bp_axis, cz + sz*bp_axis])
-      td_bore(bp_hole_l, bp_screw_d, ctr=true);                   // 4x M3 plate-mount (X pattern) -- TEARDROP
+  // --- MOTOR MOUNT on the pad face (aft plane X=pad_aft) -- item 2, switches on mount_to ---
+  if (mount_to == "motor") {
+    // Bolt STRAIGHT to the A2212 cross (LONG axis up-mast Y, SHORT across width Z), shifted OUTBOARD by
+    // motor_offset_z.  Each screw threads into the motor's blind hole; a thin motor_seat_t carries the clamp
+    // and a wider FRONT-access counterbore lets the socket head + hex driver reach in from the mast FRONT,
+    // so the screw stays short (M3 x ~16).  Every bore runs along X (horizontal on the bed) -> TEARDROP.
+    seat_x = pad_aft - motor_seat_t;                                   // head-seat shoulder (faces forward)
+    for (h = motor_holes) {
+      hy = pylon_rise + h[0];  hz = motor_zc + h[1];
+      translate([-2, hy, hz])   td_bore(seat_x + 2, motor_head_d);     // front access + head counterbore -- TEARDROP
+      translate([seat_x, hy, hz]) td_bore(motor_seat_t + 2, motor_screw_d); // screw clearance through the seat -- TEARDROP
+    }
+    if (motor_boss_reach > 0)   // central seat relief ONLY if a long boss pokes past the guard-washer (else seat stays flat)
+      translate([pad_aft - (motor_boss_reach + 1), pylon_rise, motor_zc])
+        td_bore(motor_boss_reach + 3, motor_boss_d);
+  } else {
+    // legacy: mount the metal X-plate on the pad SQUARE (holes at +/-bp_axis = the plate's outer "+" turned 45deg),
+    // every hole through the whole pad -> open both sides (flat-head from the plate, nut on the forward face).
+    bp_hole_l = 2*(pad_aft + 2);
+    for (sy=[-1,1], sz=[-1,1])
+      translate([0, pylon_rise + sy*bp_axis, cz + sz*bp_axis])
+        td_bore(bp_hole_l, bp_screw_d, ctr=true);                      // 4x M3 plate-mount (X pattern) -- TEARDROP
+  }
   // 4 foot bolts (item 1 redesign): M4 CLEARANCE all the way through the thick
   // buttress into the block, plus a socket-head COUNTERBORE cut ~foot_cbore_h
   // in from the ACTUAL (tapered) aft surface, so the heads stay recessed and

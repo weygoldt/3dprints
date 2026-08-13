@@ -319,6 +319,44 @@ motor_body_d   = 28;    // motor can diameter (MEASURED off Motor.stl; pad + gho
 // (the bottom still merges into the buttress), so the mast + motor axis stay put.
 pad_top_pad    = 6;     // extra flat above the top "+" screw (>= pylon_fillet + ~1 keeps the screw off the round)
 
+// =====================================================================
+//  [Motor mount MODE] -- INTEGRATED pylon + prop-guard rev (2026-08-13, Patrick's handoff).
+//  Bolt the motor STRAIGHT to its own A2212 threaded cross and DELETE the intermediate metal
+//  X-plate (BasePlate.stl).  The PROP GUARD doubles as the motor washer in the stack
+//        pylon pad | GUARD-washer | motor
+//  bolting on the same 4 M3 threads and carrying the central boss recess so the motor's four
+//  screw pads bear FLAT while its boss / shaft-stub drops into the pocket; the motor breathes
+//  open aft (no can wrap -- drone-motor cooling).
+//  A2212 own cross MEASURED off Motor.stl (2026-08-13): holes at (+/-9.49,0) & (0,+/-7.75)
+//    -> LONG axis 19.0, SHORT axis 15.5  (Patrick's "16" ~= the real 15.5);
+//    central protrusion above the flat seat is only a ~3 mm shaft stub, 1.6 mm proud
+//    (a 10 mm recess is generous -- MEASURE your motor if it carries a fat bearing hub).
+//  ONE-SIDED: the pattern shifts OUTBOARD along the pad WIDTH -> props farther apart + an L/R
+//  (mirror) pair.  The FOOT (buttress + register tongue + forward gusset + 4x M4) is FROZEN --
+//  only the pad-and-up changes, so the pylon stays bit-for-bit compatible with the housing block.
+// =====================================================================
+mount_to = "motor";       // "motor" = bolt to the A2212 cross (guard = washer) ; "plate" = legacy X-plate on the pad square
+motor_bolt_long  = 19.0;  // A2212 cross LONG axis span (MEASURED; Patrick ~19) -> assigned UP THE MAST (Y): the wider,
+                          // stiffer spread reacts the forward-thrust pitching moment (top/bottom bolt couple)
+motor_bolt_short = 15.5;  // A2212 cross SHORT axis span (MEASURED 15.5; Patrick said ~16 -- MEASURE yours) -> across the WIDTH (Z)
+motor_screw_d    = 3.4;   // M3 clearance for the 4 mount screws (snug -- a vibration mount wants a tight hole)
+motor_seat_t     = 5;     // THIN mount-face the screws thread through (a front-access counterbore keeps the screw short)
+motor_engage     = 4;     // thread engagement into the A2212's BLIND hole (~3-4 mm real -- MEASURE; sets screw length)
+motor_boss_d     = 10;    // central boss / shaft-stub clearance dia (STL stub ~3 mm -> generous).  CAPPED ~11 mm: the
+                          // 15.5 short-axis bolts sit at r7.75 (hole inner edge ~r6), so a bigger recess FOULS the bolts.
+                          // A real A2212 with a fat bearing hub >~11 mm dia can't be cleared by a flat washer on this
+                          // pattern -- MEASURE; if yours has one, tell me (needs a stepped hub, not a wider bore).
+motor_boss_h     = 4;     // boss protrusion to swallow (STL shaft stub 1.6 mm; MEASURE a fat bearing hub) -- if > guard_t
+                          // (5) a central seat relief is auto-cut in the pad; <= guard_t sits fully in the guard bore.
+motor_offset_z   = 6;     // how far the motor (hence prop) shifts OUTBOARD along the pad WIDTH (Z); 0 = centred (no L/R)
+motor_offset_dir = 1;     // +1 = OUTBOARD (pylon +Z -> body -X = the lid-HINGE side; VERIFIED in the assembly preview:
+                          // props swing wide, big centre gap).  -1 = inboard = the MIRROR part for the other hull.
+                          // Print BOTH (dir=+1 and dir=-1) -- one per hull.  CONFIRM the hinge is your outboard edge
+                          // before printing: name a feature, NEVER trust a bare left/right (a mirror is probe-invisible).
+motor_head_d     = 8.0;   // socket-cap head + hex-driver access bore dia (front-access counterbore).  8 (not 5.5) so a
+                          // METAL M3 washer (DIN125 ~7 mm OD) fits UNDER the head: it spreads the clamp load and slows
+                          // PLA/PETG cold-flow (the mount's real weak link -- both expert reviews flagged preload relaxation).
+
 /* [Motor mount + pylon] -- SEPARATE printed pylon bolts to a protruding BLOCK on the
    stern wall.  Every fastener stays inside that block, AFT of the wall -- none enters
    the sealed cavity (echo-checked).  A register socket takes the shear/moment so the
@@ -637,10 +675,23 @@ mm_bolt_slot_wall   = mm_bolt_y/2 - (reg_h+0.4)/2 - mm_bolt_slot_bore_r;
 // higher.  The (rigid metal) plate overhangs the smaller pad, bolted at 4 points, free air at the tip.
 bp_axis    = bp_pitch/2;                                   // half the square side: bolts at +/-bp_axis on each pad axis (Y,Z)
 bp_bolt    = bp_pitch*sqrt(2);                             // across-axis / diagonal = bolt-circle dia (echo + central-bore talk)
-pad_h      = 2*bp_axis + 2*bp_edge;                        // pad backs the 4 X bolts + edge (>=3 mm wall at the M3s)
+// --- pad SOLID is FROZEN (2026-08-13): its height is the legacy plate value in BOTH modes, so pad_y0/pad_y1 and
+// hence the forward-gusset apex fg_y1 (on the FREEZE list) are byte-identical to origin/main.  The motor cross
+// (LONG=19 up-mast) fits comfortably inside it -- what "shrinks" is the mount FOOTPRINT (cross < 39.5 plate), not
+// the pad solid.  (A future rev could shrink the pad IF the forward gusset is allowed to move; the freeze wins now.)
+pad_h      = 2*bp_axis + 2*bp_edge;                        // pad backs the 4 X bolts + edge -- FROZEN (both modes)
 pad_aft    = pylon_root_t + motor_pad_t;                   // pylon pad aft (motor) face, fore-aft
-pad_bolt_wall_y = pad_h/2 - bp_axis - bp_screw_d/2;        // pad edge wall at the X bolts (Y)
-pad_bolt_wall_z = pylon_width/2 - bp_axis - bp_screw_d/2;  // pad edge wall at the X bolts (Z/width)
+// motor-cross pattern on the pad face (Y = up-mast about pylon_rise, Z = width): LONG up-mast, SHORT across, one-sided.
+motor_zc   = pylon_width/2 + motor_offset_dir*motor_offset_z;   // pattern centre in the width (shifted OUTBOARD)
+motor_holes = [ [ motor_bolt_long/2, 0], [-motor_bolt_long/2, 0],
+                [0,  motor_bolt_short/2], [0, -motor_bolt_short/2] ]; // [dY (up-mast), dZ (width)] from the centre
+// edge walls (motor mode): the SHORT bolt nearest a width edge + its head-access counterbore (the motor shifts toward
+// whichever edge dir points to), and the top LONG bolt vs the pad top.  The bottom runs into solid buttress (no free edge).
+motor_edge_wall  = min(pylon_width - (motor_zc + motor_bolt_short/2) - motor_head_d/2,  // to the +Z (far-from-bed) width edge
+                       (motor_zc - motor_bolt_short/2) - motor_head_d/2);               // to the Z=0 (bed) width edge
+motor_top_wall   = (pylon_rise + pad_h/2 + pad_top_pad) - (pylon_rise + motor_bolt_long/2) - motor_head_d/2; // to pad top
+pad_bolt_wall_y = pad_h/2 - bp_axis - bp_screw_d/2;        // (plate) pad edge wall at the X bolts (Y)
+pad_bolt_wall_z = pylon_width/2 - bp_axis - bp_screw_d/2;  // (plate) pad edge wall at the X bolts (Z/width)
 base_aft   = pylon_root_t + pylon_gusset;                  // buttress fore-aft thickness at the foam BASE
 foot_cbore_wall = pylon_width/2 - mm_bolt_x/2 - foot_cbore_d/2; // pylon edge wall at the foot-bolt counterbores
 // -- Item 1: pad top extends ABOVE the top "+" screw so the fillet round lands clear of the plate --
@@ -707,21 +758,26 @@ echo(str("  hub above box top = ", hub_above_box_top,
          " ; pylon rise above floor = ", pylon_rise));
 echo(str("  prop disc lowest point clears the float top by ", disc_low_above_float,
          " mm ", disc_low_above_float >= 0 ? "OK" : "  << WARNING: prop dips below the float"));
-echo(str("  pad mounts BasePlate (", bp_size, " sq): 4x M3 in a SQUARE, side (adjacent-hole pitch) = ",
-         bp_pitch, " mm (MEASURED bracket; bolts at +/-", round(10*bp_axis)/10, " on each pad axis) -- ",
-         "= the plate's r", round(10*bp_bolt/2)/10, " circle turned 45deg to an X ; central boss clearance ", bp_bore+1.5));
-echo(str("  M3 clearance ", bp_screw_d, " mm = SNUG (radial slop ", round(100*(bp_screw_d-3)/2)/100,
-         " mm, standard M3) -> centred on the MEASURED ", bp_pitch, " mm pitch, accepts +/-",
-         round(100*(bp_screw_d-3)/2*sqrt(2))/100,
-         " mm of pattern error (register peg + clamp carry the load; tight round holes, not slots)"));
-echo(str("  pad face ", round(pad_y1-pad_y0), "(Y, incl. +", pad_top_pad, " top pad) x ", pylon_width,
-         "(Z): the X bolts span only +/-", round(10*bp_axis)/10, " so the pad holds them + edge -- the ",
-         bp_size, " plate OVERHANGS (rigid, free air at the mast tip) ",
-         (pad_h/2 >= bp_axis + bp_edge) ? "OK -- shorter pad, slopes climb higher" : "  << WARNING: pad too small for the X bolts"));
-echo(str("  pad X-bolt edge wall = ", round(10*min(pad_bolt_wall_y,pad_bolt_wall_z))/10,
-         " mm (need >= 3) ", min(pad_bolt_wall_y,pad_bolt_wall_z) >= 3 ? "OK" : "  << WARNING: grow pad_h/pylon_width"));
-echo(str("  (item 1) FLAT above the top X screws before the fillet = ", round(10*pad_top_flat)/10,
-         " mm ", pad_top_flat >= 2 ? "OK -- top screws seat on flat" : "  << WARNING: raise pad_top_pad or drop pylon_fillet"));
+if (mount_to == "motor")
+  echo(str("  pad mounts the MOTOR DIRECTLY (A2212 cross ", motor_bolt_long, "x", motor_bolt_short,
+           ", guard = washer) -- see the MOTOR MOUNT echo block below for pattern/offset/screw/boss/walls"));
+if (mount_to == "plate") {
+  echo(str("  pad mounts BasePlate (", bp_size, " sq): 4x M3 in a SQUARE, side (adjacent-hole pitch) = ",
+           bp_pitch, " mm (MEASURED bracket; bolts at +/-", round(10*bp_axis)/10, " on each pad axis) -- ",
+           "= the plate's r", round(10*bp_bolt/2)/10, " circle turned 45deg to an X ; central boss clearance ", bp_bore+1.5));
+  echo(str("  M3 clearance ", bp_screw_d, " mm = SNUG (radial slop ", round(100*(bp_screw_d-3)/2)/100,
+           " mm, standard M3) -> centred on the MEASURED ", bp_pitch, " mm pitch, accepts +/-",
+           round(100*(bp_screw_d-3)/2*sqrt(2))/100,
+           " mm of pattern error (register peg + clamp carry the load; tight round holes, not slots)"));
+  echo(str("  pad face ", round(pad_y1-pad_y0), "(Y, incl. +", pad_top_pad, " top pad) x ", pylon_width,
+           "(Z): the X bolts span only +/-", round(10*bp_axis)/10, " so the pad holds them + edge -- the ",
+           bp_size, " plate OVERHANGS (rigid, free air at the mast tip) ",
+           (pad_h/2 >= bp_axis + bp_edge) ? "OK -- shorter pad, slopes climb higher" : "  << WARNING: pad too small for the X bolts"));
+  echo(str("  pad X-bolt edge wall = ", round(10*min(pad_bolt_wall_y,pad_bolt_wall_z))/10,
+           " mm (need >= 3) ", min(pad_bolt_wall_y,pad_bolt_wall_z) >= 3 ? "OK" : "  << WARNING: grow pad_h/pylon_width"));
+  echo(str("  (item 1) FLAT above the top X screws before the fillet = ", round(10*pad_top_flat)/10,
+           " mm ", pad_top_flat >= 2 ? "OK -- top screws seat on flat" : "  << WARNING: raise pad_top_pad or drop pylon_fillet"));
+}
 if (motor_pad_t < 5) echo("  WARNING: motor pad < 5 mm");
 if (pylon_root_t < 4) echo("  WARNING: pylon root wall < 4 mm");
 echo(str("  stern block ", mm_pad_w, " x ", mm_pad_h, " x ", mm_block_depth,
@@ -962,21 +1018,72 @@ guard_shroud_wall = 2.2;    // shroud radial thickness (thinned)
 guard_shroud_foot = 2.5;    // filleted FOOT at the shroud's inner base -> spreads the root stress across layers (the reviewer's
                             // main reliability fix: a side strike loads the wall root in tension ACROSS layers) + adds bed contact
 guard_hub_light   = true;   // relieve the mount hub with lightening holes (save material/weight -- Patrick: it's a full disc)
-guard_bore_d      = bp_bore + 1.5;   // 11.5 central boss clearance (motor boss pokes forward; matches the pad)
-guard_bolt_d      = bp_screw_d;      // 3.4 M3 clearance (matches the pad -- a vibration mount wants tight holes)
+// mount pattern + boss recess switch on mount_to.  "motor": the guard is the WASHER -- it bolts the A2212 cross and
+// its central bore is the boss recess (the 4 motor pads bear on the flat hub face around it).  "plate": legacy pad square.
+guard_bore_d      = (mount_to=="motor") ? motor_boss_d + 1.5 : bp_bore + 1.5;   // central boss clearance (>=10 in motor mode)
+guard_bolt_d      = (mount_to=="motor") ? motor_screw_d : bp_screw_d;           // M3 clearance (snug -- a vibration mount)
 // -- derived --
 guard_r_tip    = prop_radius + guard_tip_gap;        // shroud inner / frontal rim radius
 guard_r_out    = guard_r_tip + guard_shroud_wall;    // shroud outer radius
 guard_od       = 2*guard_r_out;                      // guard outer diameter
 guard_standoff = (mm_block_aft_z - pad_aft) - prop_disc_z;  // pad face -> prop disc; the guard aft-to-prop gap
-guard_a_ctr    = 90 + guard_arc_bias;                // arc centre from +X (90 = top; +bias leans toward OUTBOARD = -X/180)
+// arc centre from +X (90 = top; bias leans toward OUTBOARD).  In motor mode OUTBOARD = the side the motor is offset
+// toward, so the lean sign follows motor_offset_dir (guard-local +X <-> pylon -Z ; see the assembly transform).
+guard_a_ctr    = 90 + guard_arc_bias * (mount_to=="motor" ? motor_offset_dir : 1);
 guard_a0       = guard_a_ctr - guard_arc/2;          // arc start / end
 guard_a1       = guard_a_ctr + guard_arc/2;
 guard_full_ring = guard_arc >= 359.9;
 guard_ring_radii = [ for (i=[1:guard_rings]) guard_hub_r + i*(guard_r_tip - guard_hub_r)/(guard_rings+1) ];
-guard_mount_xy   = [ for (sx=[-1,1], sy=[-1,1]) [sx*bp_axis, sy*bp_axis] ];  // 4 M3 -> land on the pad pattern
+// mount holes: "motor" = the A2212 cross (guard-local: LONG(19) along Y = up-mast, SHORT(15.5) along X = width),
+// SYMMETRIC about the hub centre (the one-sided offset is applied where the guard is PLACED, not in its pattern);
+// "plate" = the legacy pad square.
+guard_mount_xy   = (mount_to=="motor")
+   ? [ [0, motor_bolt_long/2], [0, -motor_bolt_long/2], [motor_bolt_short/2, 0], [-motor_bolt_short/2, 0] ]
+   : [ for (sx=[-1,1], sy=[-1,1]) [sx*bp_axis, sy*bp_axis] ];
 guard_shroud_ext = atan((guard_bar/2) / guard_r_tip);   // extend the shroud arc this far past each end spoke so the
                                                         // full spoke width backs it (no half-contact / dangling end spoke)
+
+// =====================================================================
+//  MOTOR MOUNT (integrated) -- derived + echo (needs guard_t, so it lives after the guard block)
+// =====================================================================
+motor_screw_len = motor_seat_t + guard_t + motor_engage;   // M3 length = thin seat + guard-washer + blind engagement
+motor_boss_reach = motor_boss_h - guard_t;                 // >0 -> a long boss would poke past the guard toward the seat
+if (mount_to=="motor") {
+  echo("=== MOTOR MOUNT (integrated: bolt to the A2212 cross; guard = washer) ===");
+  echo(str("  A2212 cross: LONG ", motor_bolt_long, " up-mast (Y) x SHORT ", motor_bolt_short,
+           " across width (Z) -- MEASURED off Motor.stl (Patrick's ~16 = 15.5).  4x M3 clearance ", motor_screw_d));
+  echo(str("  one-sided OFFSET ", motor_offset_z, " mm ", motor_offset_dir>0 ? "OUTBOARD" : "INBOARD",
+           " (dir ", motor_offset_dir, ": pylon +Z -> body -X = hinge/outboard side) -> motor/prop centre at width ",
+           round(10*motor_zc)/10, " (pad centre ", pylon_width/2, ")",
+           motor_offset_dir>0 ? " -- props swing WIDE (verified in preview)"
+                              : " -- INBOARD mirror part (props CLOSER; print for the OTHER hull)",
+           " ; CONFIRM the hinge is your outboard edge, don't trust bare L/R"));
+  echo(str("  pad face ", round(10*pad_h)/10, "(Y) x ", pylon_width, "(Z) -- FROZEN pad solid (= plate mode); the ",
+           motor_bolt_long, " up-mast cross fits inside with room; only the mount HOLES change vs origin/main"));
+  echo(str("  edge walls: outboard bolt access-bore -> width edge ", round(100*motor_edge_wall)/100,
+           " (need >=3) ", motor_edge_wall>=3 ? "OK" : "<< reduce motor_offset_z", " ; top bolt -> pad top ",
+           round(100*motor_top_wall)/100, " ", motor_top_wall>=3 ? "OK" : "<< grow pad_top_pad"));
+  echo(str("  SCREW LENGTH: seat ", motor_seat_t, " + guard ", guard_t, " = ", motor_seat_t+guard_t,
+           " mm of CLEARANCE before the motor face; the blind A2212 hole is only ~3-4 mm deep."));
+  echo(str("    -> M3 x ", motor_screw_len, " mm is the MAX (", motor_seat_t+guard_t, " + ", motor_engage,
+           " engage).  MEASURE your hole depth Hd, buy the nearest M3 <= ", motor_seat_t+guard_t,
+           "+Hd, and ROUND DOWN -- a too-long screw BOTTOMS on the hole floor, holds the head proud, and NEVER clamps",
+           " (motor departs).  Likely M3x12-14, NOT 16."));
+  echo(str("    ASSEMBLY: A2 STAINLESS socket cap (marine); a metal M3 washer (~7 mm) under each head (fits the ",
+           motor_head_d, " bore); THREAD-LOCK; torque MODEST (not to spec -- the head embeds PLA); RE-TORQUE after the",
+           " first runs (the ", motor_seat_t+guard_t, " mm PLA/PETG stack creeps under preload -- both reviews' weak link)."));
+  echo(str("  BOSS recess: guard central bore ", guard_bore_d, " (capped ~11 by the 15.5 short-axis bolts) ; ",
+           motor_boss_reach>0 ? str("boss ", motor_boss_h, " > guard ", guard_t, " -> a central seat relief is cut")
+                              : str("boss ", motor_boss_h, " <= guard ", guard_t, " -> fully in the guard, seat flat"),
+           " ;  << MEASURE your motor's boss dia+protrusion (STL is idealised: flat + a 1.6 mm stub)"));
+  echo(str("  << CONFIRM your A2212's 3 PHASE-WIRE exit: most exit RADIALLY at the can base (aft of the face) -> they",
+           " clear the open-aft pusher.  If yours exit the MOUNT FACE, they route through the ", guard_bore_d,
+           " guard bore then need a radial slot -- flag it, the guard hub can carry one."));
+  echo(str("  motor breathes OPEN aft (no can wrap -- cooling) ; guard is a FRONTAL debris screen, NOT a side/aft safety",
+           " guard at the disc ; STAINLESS + rinse/grease the counterbores (motor base is exposed at the waterline)."));
+  echo(str("  the FOOT (buttress+tongue+fwd gusset+4x M4) is FROZEN (byte-identical to origin/main)."));
+  echo("---------------------------------------------------------------");
+}
 
 // =====================================================================
 //  HELPERS  (ported)

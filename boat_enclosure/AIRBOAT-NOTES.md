@@ -381,3 +381,79 @@ review (DFM/structure/function/geometry) covered the earlier basket + flat revs.
 5. **Mast resonance** — 30 g at the mast tip lowers the mast's 1st bending freq. Patrick is NOT balancing the
    prop, so mass was kept low (arc + tiny lip); dropping to the frontal-only lip already shed the biggest
    remaining rim-mass lever (was 41 g), so a resonance dwell is less likely than the earlier tall-shroud rev.
+
+## Integrated mount — bolt to the A2212 threads, guard = washer (`mount_to="motor"`, 2026-08-13)
+
+**What changed.** The intermediate metal **X-plate (`BasePlate.stl`) is deleted**: the motor now bolts
+**straight to its own A2212 threaded cross**, and the **prop guard doubles as the motor washer**. Stack is
+`pylon pad | GUARD-washer | motor`. A `mount_to` toggle (`"motor"` default / `"plate"` legacy) switches the
+pad pattern, the guard, and the assembly phantoms; **the legacy plate design is preserved** behind it. This
+**supersedes** the "Hub matches the pad" and "4 mount holes = 24 mm square" paragraphs in the Propeller-guard
+section above — in motor mode the guard bolts the 2212 CROSS, not the pad square.
+
+**Measured off the real `Motor.stl`** (this session): A2212 mount cross = holes at (±9.49, 0) & (0, ±7.75) →
+**LONG axis 19.0 mm, SHORT axis 15.5 mm** (Patrick's "~16" = the real 15.5). Mount face is **flat**; the only
+central protrusion is a **~3 mm shaft stub, 1.6 mm proud** (so 10 mm recess is generous *for this idealised
+STL* — a real fat bearing hub must be measured). Can OD 27.75, base disc ~25.
+
+**Geometry / knobs (`common.scad`, `[Motor mount MODE]`):**
+- `motor_bolt_long=19`, `motor_bolt_short=15.5` — LONG assigned **up the mast (Y)** (wider spread reacts the
+  forward-thrust pitching couple), SHORT across the width (Z).
+- `motor_offset_z=6`, `motor_offset_dir=+1` — **one-sided OUTBOARD offset** (dir +1 = pylon +Z → body −X = the
+  **lid-hinge side**; verified in the top-down preview: props swing wide). Emits an **L/R mirror pair** (print
+  `dir=+1` and `dir=-1`, one per hull). `motor_offset_z=0` gives a single symmetric part if the wider prop
+  track isn't wanted (it only adds ~12 mm to the inter-prop gap, 31→43).
+- Short screws via a **front-access counterbore**: the 4 M3 thread into the motor's blind holes; a thin
+  `motor_seat_t=5` carries the clamp and a `motor_head_d=8` bore lets the socket head + a metal M3 washer +
+  a long 2.5 mm ball driver reach in from the mast FRONT.
+- Guard-washer: plain rounded disc hub (r24) centred on the motor axis, bolts the cross, central bore 11.5 =
+  the boss recess (4 motor pads bear on the flat hub aft face — verified flat at Z=5.000, no protrusions inside
+  r<12). Motor breathes **open aft** (no can wrap — drone-motor cooling). Arc leans outboard with `motor_offset_dir`.
+
+**FROZEN FOOT (invariant).** Only the pad-and-up changed; the buttress + register tongue + forward gusset +
+4× M4 foot pattern are **provably unchanged** — the foot solid (Y ≤ 93.5) has an **empty symmetric difference**
+vs `origin/main` (geometry-identical, both `A−B` and `B−A` render empty). `pad_h` is pinned to the legacy value
+so `pad_y0`/`fg_y1` don't move.
+
+**Verified:** all parts manifold single-shell (`NoError`), both L and R; pylon **supportless** (0 cm² of true
+>48° off-bed overhang — the 4 front-access counterbores/clearance bores/foot bores are all teardrop apex-up);
+guard 0 overhang. Pylon ~**170 g** PLA (43×134×44 bed), guard **31 g** PETG (153×153×8). Edge walls: outboard
+access-bore→width edge **4.25**, top bolt→pad top **9.5**, foot-bolt cbore **4.3**, min wall between bores
+~4.3 — all ≥3.
+
+**Two-harness adversarial review (RC/FPV + additive DFM) — no blockers; fixes applied:**
+- **Screw length rounds DOWN, not up.** Stack needs **M3×14 MAX** (seat 5 + guard 5 + ~4 engage); the blind
+  A2212 hole is only ~3–4 mm, so a longer screw **bottoms and never clamps** (motor departs). Echo now reports
+  the MAX and says *measure Hd, buy nearest ≤ 10+Hd, round down* (likely **M3×12–14**, NOT 16).
+- **Preload relaxation is THE weak link** (steel head → 5 mm PLA seat → 5 mm PETG guard → motor = ~10 mm of
+  polymer in series). Fixes: `motor_head_d` 6→**8** so a **metal M3 washer** fits under each head (spreads load,
+  slows cold-flow); build note = **A2 stainless**, **thread-lock**, **torque modest** (not to spec — the head
+  embeds PLA), **re-torque after the first runs**.
+- **Corrosion / exposed motor base** at the waterline → stainless screws, corrosion inhibitor on the windings,
+  fresh-water rinse, dab of grease/silicone in the counterbores after assembly.
+- **Boss recess is CAPPED ~11 mm** by the 15.5 short-axis bolts (a bigger central bore fouls them) — a real
+  fat bearing hub can't be cleared by a flat washer on this pattern; `motor_boss_h`>guard_t auto-cuts a central
+  seat relief for a proud hub. **MEASURE.**
+- **DFM confirmed sound:** teardrops all apex-up, layer-load is in-plane compression (no delamination path),
+  walls healthy, bearing face flat, both hands manifold, foot frozen, bed fit — **run a brim on the guard**
+  (thin PETG arc extremities are the lift risk).
+
+**Export / render (motor mode is the default):**
+```
+openscad -o stl/airboat_pylon_motormount_dirP.stl -D '$fn=128' -D 'motor_offset_dir=1'  pylon.scad
+openscad -o stl/airboat_pylon_motormount_dirN.stl -D '$fn=128' -D 'motor_offset_dir=-1' pylon.scad
+openscad -o stl/airboat_guardwasher_dirP.stl      -D '$fn=128' -D 'motor_offset_dir=1'  propguard.scad
+openscad -o stl/airboat_guardwasher_dirN.stl      -D '$fn=128' -D 'motor_offset_dir=-1' propguard.scad
+openscad -D 'guard_part="onpylon"' propguard.scad          # fit: guard-washer + motor bolted on the real pylon
+```
+
+**Confirm before printing (motor mode):**
+1. **Your A2212's real numbers** — the cross span (15.5 vs 16 short axis), the **blind hole depth Hd** (sets
+   screw length — round DOWN), and the **central boss dia + protrusion** (the recess is capped ~11 mm).
+2. **Phase-wire exit** — most A2212s exit RADIALLY at the can base (clear of the open-aft pusher). If yours exit
+   the **mount face**, they route through the 11.5 guard bore then need a radial slot in the hub — flag it.
+3. **OUTBOARD direction** — `motor_offset_dir=+1` puts the motor toward the **lid-hinge** edge (= outboard),
+   verified in the preview. Confirm the hinge is your outboard edge; print `+1` and `−1` for the two hulls.
+   A mirror is invisible to a probe — name a feature, not a bare left/right.
+4. **Screws** — A2 stainless M3 socket cap at the measured length, metal washers, thread-lock; re-torque after
+   the first runs.
