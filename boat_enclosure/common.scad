@@ -943,8 +943,8 @@ guard_arc_bias    = 45;     // lean the kept arc off TOP toward the OUTBOARD sid
                             // -X / 180 deg (verified through the assembly transform), so the centre is 90 + this.
 guard_tip_gap     = 6;      // radial clearance: prop tip -> shroud INNER (the shroud must clear a flexing blade)
 guard_t           = 5;      // frontal grille thickness (Z / axial)
-guard_hub_r       = 24;     // FULL mount-hub radius -- backs the r17 bolt circle + margin; the rigid plate overhangs
-                            // (clamped at 4 bolts, like the pad).  Smaller than before so the bolt square isn't lost in a pancake.
+guard_hub_r       = 24;     // guard baseplate radius = the barrel OD/2 (they stack flush).  The 4 mount screws pass
+                            // THROUGH the guard here (sandwich clamp), so it covers the r17 bolt circle + the barrel rim.
 guard_round       = 1.6;    // edge-rounding radius on aft/top edges (low turbulence; no sharp corners)
 guard_front_round = 0.8;    // SMALL rounding on the FRONTAL (bed-side / intake) edges of the hub + spokes -- the faces the
                             // airflow + debris hit first (the reviewer's low-turbulence point); kept small so bed contact holds
@@ -953,16 +953,35 @@ guard_spokes      = 5;      // frontal spokes across the arc (fewer = cleaner; i
 guard_bar         = 3.0;    // frontal ring + spoke-TIP width (thin/elegant)
 guard_spoke_root  = 8;      // spoke width at the HUB -- spokes TAPER ~2.7:1 to guard_bar at the rim (reads intentional + strong root)
 guard_shroud      = true;   // the aft shroud wall (side protection; a vertical wall -> printed supportless)
-guard_shroud_h    = 28;     // shroud aft rise (Z) at the arc MIDDLE (top-outboard) -- the max; tallest where the spokes best
-                            // support it and protection matters most.  NOTE: disc plane is guard_standoff (34) back.
-guard_shroud_h_min = 11;    // shroud rise at the arc ENDS -- the min (>= guard_t so the spokes still weld to it).  The top
+guard_shroud_h    = 20;     // shroud aft rise (Z) at the arc MIDDLE, measured from the GUARD baseplate.  The barrel bridges
+                            // guard_barrel_len, so the shroud tip reaches guard_barrel_len + this = 46 mm (covers the prop).
+guard_shroud_h_min = 12;    // shroud rise at the arc ENDS -- the min (>= guard_t so the spokes still weld to it).  The top
                             // tapers h_max(middle) -> this(ends): most mass/protection where best supported, least where not.
 guard_shroud_wall = 2.2;    // shroud radial thickness (thinned)
 guard_shroud_foot = 2.5;    // filleted FOOT at the shroud's inner base -> spreads the root stress across layers (the reviewer's
                             // main reliability fix: a side strike loads the wall root in tension ACROSS layers) + adds bed contact
-guard_hub_light   = true;   // relieve the mount hub with lightening holes (save material/weight -- Patrick: it's a full disc)
-guard_bore_d      = bp_bore + 1.5;   // 11.5 central boss clearance (motor boss pokes forward; matches the pad)
-guard_bolt_d      = bp_screw_d;      // 3.4 M3 clearance (matches the pad -- a vibration mount wants tight holes)
+// MOUNTING ORDER (Patrick 2026-08-13): pylon pad | X-BRACKET | PROP GUARD | motor.  The guard sits AFT of the metal
+// X-bracket (a few mm closer to the prop, so the shroud can reach it), and the MOTOR BARREL PASSES THROUGH a big
+// central bore in the guard's mount plate.  The 4 M3 holes still land on the pad's 24 mm square (bp_axis), now as a
+// thin ring AROUND the bore -- a big bore vs a 34 mm bolt circle leaves little wall (guard_hub_bore_wall echo guards it).
+guard_hub_light   = false;  // lightening holes -- OFF: the big motor bore now relieves the hub (holes would fall inside it)
+guard_motor_bore  = 28.5;   // central bore = MOTOR BARREL clearance so the motor passes through (Patrick: barrel 28 mm +
+                            // 0.5 mm so it spins free).  Bore r14.25 vs bolt circle r17 -> ~1.0 mm bore<->bolt wall.
+guard_bore_d      = guard_motor_bore;  // the guard mount-plate central bore (motor passes through)
+guard_bolt_d      = bp_screw_d;        // 3.4 M3 clearance (matches the pad -- a vibration mount wants tight holes)
+// -- 2-PIECE SANDWICH (Patrick 2026-08-13): a BARREL (standoff/spacer) + the GUARD (spokes + shroud), clamped as ONE
+//    stack by the SAME 4 motor-mount screws -- NO GLUE.  The screws run pad | X-bracket | barrel-flange | (down the
+//    barrel's open bore) | guard, so 4 long M3s hold everything.  Easier to assemble + a mechanical joint, not a bond.
+guard_barrel_len  = 26;     // barrel length: X-bracket face -> guard baseplate.  Bridges the ~28 mm motor so the short
+                            // guard shroud reaches the prop; total reach = guard_barrel_len + guard_shroud_h = 46 mm
+guard_barrel_wall = 3;      // barrel tube wall
+guard_flange_t    = 5;      // barrel front FLANGE thickness (bolts to the X-bracket; flange bore = guard_motor_bore)
+guard_barrel_bore = 42;     // barrel TUBE bore ABOVE the flange -- opened wide so a long hex key reaches the 4 bolt heads
+                            // (which sit at r17, inside a snug 28.5 bore -> unreachable).  The tube is a loose standoff collar.
+guard_joint_len   = 5;      // barrel<->guard glue overlap (barrel aft plugs into a socket in the guard baseplate)
+guard_joint_clear = 0.3;    // socket clearance for the glue film (per side)
+guard_barrel_od   = guard_barrel_bore + 2*guard_barrel_wall;  // barrel outer dia (= 48)
+guard_socket_id   = guard_barrel_od + 2*guard_joint_clear;    // guard socket bore that the barrel plugs into (= 48.6)
 // -- derived --
 guard_r_tip    = prop_radius + guard_tip_gap;        // shroud inner / frontal rim radius
 guard_r_out    = guard_r_tip + guard_shroud_wall;    // shroud outer radius

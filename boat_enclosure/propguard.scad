@@ -33,7 +33,7 @@ use <pylon.scad>       // for the "onpylon" fit check (draws the real pylon + ST
 $fn = 140;
 
 /* [What to render] */
-guard_part = "full";   // [full, onpylon] full = the printable guard ; onpylon = bolted to the real pylon in front of the BasePlate + Motor + prop ghosts (fit check)
+guard_part = "onpylon";   // [full, onpylon] full = the printable guard ; onpylon = bolted to the real pylon in front of the BasePlate + Motor + prop ghosts (fit check)
 
 // =====================================================================
 //  GEOMETRY  (flat in X-Y, extruded +Z = aft ; mount/frontal face at Z=0 -> pad/bed)
@@ -81,36 +81,42 @@ module guard_shroud_wall_m()
     if (guard_full_ring) translate([0,0,-1]) cylinder(h=guard_shroud_h+2, r=guard_r_out+1); else guard_height_mask();
   }
 
-// MOUNT HUB -- a rounded disc CLIPPED to the pylon PAD footprint on the INNER (+X) and DOWN (-Y) sides, so the
-// guard base sandwiches flush on the pad (same outline -> reads as one part, not two) AND its lower edge no longer
-// protrudes below the pad into the sloped buttress.  The pad face is pad_h tall x pylon_width wide, its flat bottom
-// set back pylon_fillet by the pad->mast fillet; top + OUTBOARD stay round (that's where the spokes/arc flare out).
-guard_pad_inner  = pylon_width/2;                 // guard +X of the pad's inner width edge (pylon Z=0)
-guard_pad_bottom = -(pad_h/2 - pylon_fillet);     // guard -Y of the pad's flat bottom edge (fillet-set-back)
+// MOUNT HUB -- a round RING: the big central motor bore (guard_motor_bore) is cut in guard_full, leaving an annulus
+// that carries the 4 M3 bolts (24 mm square, same as the pad) around it.  With the new order (guard AFT of the
+// X-bracket) the ring no longer protrudes forward into the sloped buttress, so it stays round (no pad-clip needed).
 module guard_hub()
-  intersection() {
-    cyl(h=guard_t, r=guard_hub_r, rounding2=guard_round, rounding1=guard_front_round, anchor=BOTTOM);
-    translate([-500, guard_pad_bottom, -1]) cube([500 + guard_pad_inner, 1000, guard_t+2]);  // keep X<=inner, Y>=bottom
-  }
-// hub lightening holes -- in the round TOP + OUTBOARD band (clear of the clipped inner/down edges + the 4 bolts)
-module guard_hub_lightening()
-  for (ha = [90,180]) rotate([0,0,ha]) translate([10, 0, -1])
-    cylinder(h=guard_t+2, d=6);
+  cyl(h=guard_t, r=guard_hub_r, rounding2=guard_round, rounding1=guard_front_round, anchor=BOTTOM);
+module guard_hub_lightening() { }
 
+// PIECE 1 -- the BARREL: bolts to the X-bracket (4 M3 on the pad's 24 mm square), bores clear for the motor barrel,
+// bridges guard_barrel_len so the guard's short shroud reaches the prop.  Prints as a tube on its flange, supportless.
+module guard_barrel() {
+  difference() {
+    union() {
+      linear_extrude(guard_flange_t) offset(r=3) offset(delta=-3) square(bp_size + 4, center=true); // front flange ~ X-bracket footprint
+      cylinder(h=guard_barrel_len, d=guard_barrel_od);                                               // standoff collar, aft to the guard
+    }
+    translate([0,0,-1]) cylinder(h=guard_flange_t+1, d=guard_motor_bore);                            // FLANGE bore (motor); the 4 bolts sit in this ring
+    translate([0,0,guard_flange_t]) cylinder(h=guard_barrel_len, d=guard_barrel_bore);               // wide TUBE bore -> a hex key reaches the bolt heads
+    for (p = guard_mount_xy) translate([p[0],p[1],-1]) cylinder(h=guard_flange_t+2, d=guard_bolt_d); // 4x M3 (socket-head, driven down the open tube) -> pad's 24 mm square
+  }
+}
+
+// PIECE 2 -- the GUARD: baseplate + spokes + shroud.  Butts the barrel's aft rim and is held by the SAME 4 motor
+// screws running through it (sandwich clamp -- no glue).  guard_bore_d clears the motor; the 4 holes land on the 24 mm square.
 module guard_full() {
   spoke_as = guard_full_ring
     ? [ for (i=[0:guard_spokes-1]) guard_a0 + (guard_a1-guard_a0)*i/guard_spokes ]
     : [ for (i=[0:guard_spokes-1]) guard_a0 + (guard_a1-guard_a0)*i/(guard_spokes-1) ];
   difference() {
     union() {
-      guard_hub();                                                                 // mount hub (round top/outboard, clipped flush to the pad on inner + down)
+      guard_hub();                                                                 // baseplate ring (OD = barrel OD -> flush stack)
       for (r = guard_ring_radii) guard_arc_bar(r, guard_bar, guard_t);              // intermediate frontal ring arcs
       for (a = spoke_as) guard_spoke(a);                                            // frontal spokes (end spokes cap the arc)
       if (guard_shroud) guard_shroud_wall_m();                                      // aft SHROUD wall (filleted foot + rounded lips)
     }
-    translate([0,0,-1]) cylinder(h=guard_t+2, d=guard_bore_d);                      // central boss bore
-    for (p = guard_mount_xy) translate([p[0],p[1],-1]) cylinder(h=guard_t+2, d=guard_bolt_d); // 4x M3 mount holes
-    if (guard_hub_light) guard_hub_lightening();                                    // relieve the hub disc
+    translate([0,0,-1]) cylinder(h=guard_t+2, d=guard_bore_d);                      // motor-barrel bore (through)
+    for (p = guard_mount_xy) translate([p[0],p[1],-1]) cylinder(h=guard_t+2, d=guard_bolt_d); // 4x M3 sandwich-clamp screws pass through
   }
 }
 
@@ -128,27 +134,40 @@ echo(str("  frontal grille: full hub r ", guard_hub_r, " + ", guard_rings, " rin
 echo(str("  SHROUD: ", guard_shroud ? str("on -- r ", guard_r_tip, "..", guard_r_out, " wall, rises ", guard_shroud_h,
          " mm AFT (spans the prop plane ", round(10*guard_standoff)/10, " mm back) -> guards the SIDE, prints as a vertical wall (SUPPORTLESS)")
          : "off"));
-echo(str("  mount: 4x M3 clearance ", guard_bolt_d, " on a ", bp_pitch, " mm square (+/-", bp_axis, ") + ", guard_bore_d,
-         " boss bore -- MATCHES the pad ; hub r ", guard_hub_r, " vs bolt-circle ", round(10*bp_axis*sqrt(2))/10,
-         " + edge ", guard_hub_r >= bp_axis*sqrt(2) + guard_bolt_d ? "OK (rigid plate overhangs, clamped at 4 bolts)" : "<< grow guard_hub_r"));
-echo(str("  SANDWICH: pad | grille (", guard_t, " mm) | BasePlate | motor -> M3 mount screws ~", guard_t, " mm longer"));
-echo(str("  sits ", round(10*guard_standoff)/10, " mm in front of the disc ; prints FLAT face-down, SUPPORTLESS ",
-         "(grille on the bed, shroud a vertical wall) ; OD ", guard_od, " fits the 250x210 MK3 one-piece"));
-echo(str("  NOTE tip mass/resonance: guard hangs at the mast tip -- BALANCE THE PROP (dominant 1P lever), validate a rev sweep."));
+echo(str("  mount: 4x M3 clearance ", guard_bolt_d, " on the pad's ", bp_pitch, " mm square (+/-", bp_axis,
+         ", bolt circle r ", round(10*bp_axis*sqrt(2))/10, ") AROUND a ", guard_motor_bore, " mm MOTOR BORE (barrel passes through)"));
+echo(str("  bore<->bolt WALL = ", round(100*((bp_axis*sqrt(2) - guard_bolt_d/2) - guard_motor_bore/2))/100,
+         " mm ", ((bp_axis*sqrt(2) - guard_bolt_d/2) - guard_motor_bore/2) >= 1.2 ? "OK"
+         : "  << VERY THIN: the bore nearly meets the bolts (fixed 24 mm square) -- confirm barrel dia / accept (plate clamps on the metal bracket)"));
+echo(str("  ORDER: pylon pad | X-BRACKET | GUARD (motor thru bore) | motor  -> guard sits aft of the bracket, nearer the prop"));
+echo(str("  2-PIECE SANDWICH: BARREL spacer (len ", guard_barrel_len, ", OD ", guard_barrel_od,
+         ") + GUARD, clamped by the SAME 4 motor screws (NO glue) ; shroud reaches ", guard_barrel_len + guard_shroud_h, " mm from the bracket"));
+echo(str("  print: BARREL on its flange (tube vertical -> supportless) ; GUARD face-down (spokes flat, shroud vertical) -- both supportless"));
+echo(str("  screws: 4x M3 ~", round(guard_barrel_len + guard_flange_t + guard_t + 8), " mm long -- pad | X-bracket | barrel flange | (down the ",
+         guard_barrel_bore, " open bore) | guard ; wide tube bore clears the screws at r", round(10*bp_axis*sqrt(2))/10));
 echo(str("  CONFIRM which way is OUTBOARD before printing (set side) -- don't trust a bare left/right."));
 echo("------------------------------------------------------------");
 
 // =====================================================================
-//  STANDALONE RENDER
+//  STANDALONE RENDER  (guard-local: Z=0 = the X-bracket face, +Z = aft)
 // =====================================================================
-if (guard_part == "onpylon") {
-  // fit check: the guard bolted to the real pylon pad, in front of the BasePlate + Motor STL
-  // ghosts + prop disc.  The guard (guard_t) shifts the motor stack AFT by guard_t (honest sandwich).
+module guard_2piece_ghosts() {   // motor barrel + prop disc phantoms for the assembly views
+  color([0.12,0.12,0.13,0.7]) cylinder(h=28, d=motor_body_d);                                  // motor barrel through the bores
+  color([0.85,0.2,0.2,0.30]) translate([0,0,32]) cylinder(h=1.6, r=prop_radius, center=true);  // prop disc (the shroud must cover this)
+}
+if (guard_part == "barrel") {
+  color([0.75,0.75,0.78]) guard_barrel();                                   // PIECE 1 alone (printable)
+} else if (guard_part == "assembly") {
+  color([0.75,0.75,0.78,0.92]) guard_barrel();                              // barrel
+  color("DarkSeaGreen") translate([0,0,guard_barrel_len]) apply_side() guard_full();  // guard glued at the barrel aft
+  guard_2piece_ghosts();
+} else if (guard_part == "onpylon") {
   color("Tan") difference() { pylon(); pylon_cut(); }
-  color([0.72,0.73,0.75,0.9]) translate([pad_aft+guard_t, pylon_rise, pylon_width/2]) rotate([45,0,0]) rotate([0,0,-90]) import("BasePlate.stl");
-  color([0.12,0.12,0.13,0.9]) translate([pad_aft+guard_t+2+1.6, pylon_rise, pylon_width/2]) rotate([45,0,0]) rotate([0,0,90]) import("Motor.stl");
-  color([0.85,0.2,0.2,0.30]) translate([pad_aft+guard_t+guard_standoff, pylon_rise, pylon_width/2]) rotate([0,90,0]) cylinder(h=1.5, r=prop_radius, center=true); // prop disc
-  color("DarkSeaGreen") translate([pad_aft, pylon_rise, pylon_width/2]) rotate([0,90,0]) apply_side() guard_full();
+  translate([pad_aft, pylon_rise, pylon_width/2]) rotate([0,90,0]) {         // guard-local Z -> pylon +X (aft)
+    color([0.75,0.75,0.78,0.95]) guard_barrel();
+    color("DarkSeaGreen") translate([0,0,guard_barrel_len]) apply_side() guard_full();
+    guard_2piece_ghosts();
+  }
 } else {
-  color("DarkSeaGreen") apply_side() guard_full();   // the printable guard (side mirrors via common.scad's `side`)
+  color("DarkSeaGreen") apply_side() guard_full();   // PIECE 2 (the guard) alone (printable; side mirrors via common's `side`)
 }
