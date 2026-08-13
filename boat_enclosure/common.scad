@@ -975,9 +975,7 @@ guard_bolt_d      = bp_screw_d;        // 3.4 M3 clearance (matches the pad -- a
 guard_barrel_len  = 26;     // barrel length: X-bracket face -> guard baseplate.  Bridges the ~28 mm motor so the short
                             // guard shroud reaches the prop; total reach = guard_barrel_len + guard_shroud_h = 46 mm
 guard_barrel_wall = 3;      // barrel tube wall
-guard_flange_t    = 5;      // barrel base depth with the SNUG bore (bolts sit in this ring; motor snug here)
-guard_loft_h      = 12;     // height over which the rounded-square base LOFTS (BOSL2 skin) up into the round tube -- a
-                            // smooth aerodynamic pedestal instead of a cylinder sitting on a plate
+guard_flange_t    = 5;      // barrel front FLANGE thickness (bolts to the X-bracket; flange bore = guard_motor_bore)
 guard_barrel_bore = 42;     // barrel TUBE bore ABOVE the flange -- opened wide so a long hex key reaches the 4 bolt heads
                             // (which sit at r17, inside a snug 28.5 bore -> unreachable).  The tube is a loose standoff collar.
 guard_joint_len   = 5;      // barrel<->guard glue overlap (barrel aft plugs into a socket in the guard baseplate)

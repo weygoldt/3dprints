@@ -378,11 +378,11 @@ The motor isn't flat: from the pylon pad to the prop is ~29 mm (X-bracket + moto
 the pad can't reach the disc. New scheme — **pylon pad | X-BRACKET | BARREL (spacer) | GUARD | motor**, all
 clamped by the **SAME 4 motor screws** (no glue, Patrick's call — easier + a mechanical joint):
 
-- **`guard_barrel()` (piece 1, spacer):** a rounded-square base **LOFTED (BOSL2 `skin()`) up into the round tube**
-  over `guard_loft_h`=12 mm -- a smooth aero pedestal, not a cylinder stepped onto a plate (still supportless: the
-  corner taper stays under 45°). 4 M3 clearance on the 24 mm square. `guard_barrel_len`=26 mm bridges the motor.
-  **Motor barrel = 28 mm → `guard_motor_bore` = 28.5** (0.5 to spin free) in the SNUG base ring where the bolts sit;
-  the bore opens wide (`guard_barrel_bore`=42) above so the 4 clamp screws (and the motor) pass through. OD 48. **22 g.**
+- **`guard_barrel()` (piece 1, spacer):** a flange (rounded square ≈ the X-bracket, 4 M3 clearance on the 24 mm
+  square) + a `guard_barrel_len`=26 mm tube that bridges the motor. **Motor barrel = 28 mm → `guard_motor_bore`
+  = 28.5** (0.5 to spin free) at the FLANGE. The tube bore opens wide (`guard_barrel_bore`=42) ABOVE the
+  flange so a long hex key reaches the 4 bolt heads (at r17 they'd otherwise be buried in a snug bore) and the
+  4 clamp screws pass through the open bore. OD 48. **20 g.**
 - **`guard_full()` (piece 2, the guard):** baseplate (OD = barrel OD = 48, flush stack) + the same tapered
   spokes + tapered shroud, now **`guard_shroud_h`=20** (barrel 26 + shroud 20 = **46 mm reach** = Patrick's
   measured cover-the-prop distance). 4 M3 holes on the 24 mm square (the sandwich screws pass through). **36 g.**
