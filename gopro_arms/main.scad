@@ -9,6 +9,8 @@
 //    arm50 / arm75 / arm100 / arm140   pivot-to-pivot length in mm
 //    set            all four arms laid out for one plate
 //    section        a slice of the strut profile, for eyeballing the shape
+//    clamp          2-prong pipe clamp -- holds a 12 mm pipe, squeezed shut
+//                   by the arm's own thumbscrew (no clamp screw of its own)
 //
 //  Print: PETG, 0.2 mm layers, 0.4 nozzle, NO SUPPORT, flat face on the bed.
 //  Bump perimeters to 4-5; the strut is only 10 mm thick, so perimeters do
@@ -16,8 +18,9 @@
 // =====================================================================
 
 include <arm.scad>
+use <clamp.scad>
 
-part = "arm100";   // [gauge, arm50, arm75, arm100, arm140, set, section]
+part = "arm100";   // [gauge, arm50, arm75, arm100, arm140, set, section, clamp]
 
 arm_lengths = [50, 75, 100, 140];
 
@@ -28,6 +31,7 @@ else if (part == "arm100")  arm(100);
 else if (part == "arm140")  arm(140);
 else if (part == "set")     arm_set();
 else if (part == "section") section_demo();
+else if (part == "clamp")   pipe_clamp();
 
 // All four arms, side by side, flat faces all on the bed.
 module arm_set() {

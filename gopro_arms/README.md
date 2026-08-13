@@ -187,12 +187,59 @@ deeper knuckle, but the pad sticks ~0.6 mm proud and jams the hinge mid-travel:
 | into a GoPro mount | −40 … +90° | **−100 … +90°** |
 | arm to arm | ±40° | **−90 … +40°** |
 
+## Pipe clamp (`part="clamp"`)
+
+A split collar for a **12 mm pipe** whose two flanges *are* the GoPro fingers.
+No clamp screw of its own: slip the collar over the pipe, push the flanges into
+a 3-prong end, tighten the arm's thumbscrew, and the collar closes on the pipe.
+
+> **`pipe_d` is the pipe's OUTSIDE diameter, assumed 12.0 mm.** If your "12 mm"
+> pipe is a nominal-*bore* size its OD is more like 16–18 mm. Measure it and
+> change the one line.
+
+**The thing that makes or breaks this design.** The 3-prong's **middle prong is
+a hard stop** sitting in the flange gap — the flanges can only move until they
+touch it. With standard 2.90 mm fingers in 3.10 mm slots that is 0.20 mm of
+squeeze, and the lever from the pivot down to the split turns it into ~0.10 mm
+at the bore. That would be a rattle, not a clamp.
+
+So the flanges are deliberately **undersize (2.40 mm) and sit outboard (outer
+face at ±4.35)**, which leaves the gap wider than the middle prong on purpose.
+Measured off the mesh:
+
+| mating 3-prong | flange travel | bore closure |
+|---|---|---|
+| real GoPro (3.00 prong, 4.50 wall) | 0.900 mm | **0.475 mm** |
+| our arm (2.90 prong, 4.55 wall) | 1.000 mm | **0.528 mm** |
+
+Against a 0.30 mm slip fit, so the pipe is gripped well before the flanges bottom
+out. Both failure directions are graceful: an oversize pipe means the flanges
+never reach the middle prong and the whole screw load goes into the grip; an
+undersize pipe means they bottom out and the joint still clamps.
+
+Bore closure is less than flange travel because the collar rotates about its far
+side — `closure = travel × 2a/(D + a)`, with `a` the bore radius and `D` the
+pivot-to-collar distance. Moving the collar closer to the pivot would improve the
+ratio, but it has to clear the mating knuckle's R7.5 sweep; it currently clears
+by 0.50 mm.
+
+The pipe axis runs along **Z, the build direction**, so the bore is a plain
+vertical hole — round where it matters, no support, 45° lead-ins both ends. That
+also fixes the orientation: the GoPro screw squeezes along Y, so the collar has
+to lie in the XY plane for the squeeze to close the split at all.
+
+Clear articulation in our own arm: **−110 … +90°**.
+
 ## Verifying
 
 ```sh
 python3 verify.py stl/gopro_arm_100mm.stl --length 100   # measures the MESH
 python3 fitcheck.py                                       # mating interference
 ```
+
+`verify_clamp.py` does the same for the clamp, and its most useful check is not
+a dimension: it computes the flange travel and resulting bore closure and fails
+if the closure does not beat the slip fit, i.e. if the clamp could never grip.
 
 `verify.py` measures the exported mesh by ray-casting, not the OpenSCAD source,
 so it catches modelling mistakes as well as parameter typos: prong grid at both

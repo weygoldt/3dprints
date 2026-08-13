@@ -20,6 +20,7 @@
 // =====================================================================
 
 include <arm.scad>
+use <clamp.scad>
 
 test = "male_in_ours";
 ang  = 0;      // 0 = arms collinear (fully extended)
@@ -83,6 +84,15 @@ else if (test == "insp_male")
             import("inspiration/7.5cm_Gopro_Arm.stl", convexity = 10);
         at_pivot(0, ang) ref_2prong();
     }
+// The pipe clamp plugged into our own 3-prong end.  The clamp is built with
+// its collar on +X, so mirror it to point away from the arm.
+else if (test == "clamp_in_arm")
+    intersection() {
+        arm(armL);
+        at_pivot(0, ang) mirror([1, 0, 0]) pipe_clamp();
+    }
+else if (test == "show_clamp")
+    { arm(armL); at_pivot(0, ang) mirror([1, 0, 0]) pipe_clamp(); }
 else if (test == "show_male")
     { arm(armL); at_pivot(0, ang) ref_2prong(); }
 else if (test == "show_female")

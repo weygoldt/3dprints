@@ -20,6 +20,11 @@ echo "--- set (all four on one plate)"
 openscad -o "stl/gopro_arms_set.stl" --export-format binstl --render -D 'x=0' -D 'part="set"' main.scad 2>&1 \
     | grep -E "Status|WARNING|ERROR" || true
 
+echo "--- pipe clamp"
+openscad -o "stl/gopro_pipe_clamp_12mm.stl" --export-format binstl --render -D 'x=0' -D 'part="clamp"' main.scad 2>&1 \
+    | grep -E "Status|WARNING|ERROR" || true
+python3 verify_clamp.py "stl/gopro_pipe_clamp_12mm.stl" | tail -4
+
 echo "--- mating / interference (a shipping gate that never checks FIT is no gate)"
 python3 fitcheck.py
 
