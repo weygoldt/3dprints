@@ -26,7 +26,7 @@ FING_T     = 2.40
 FING_OUT   = 4.35
 NECK_CLR   = 0.50
 
-SERRATE    = True
+SERRATE    = False     # mirror `serrate` in clamp.scad; [7] runs when it is on
 TOOTH_N    = 30
 TOOTH_W    = 0.70
 TOOTH_D    = 0.32

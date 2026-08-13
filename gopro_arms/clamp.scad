@@ -63,20 +63,32 @@ fing_t     = 2.40;
 fing_out   = 4.35;
 neck_clr   = 0.50;    // collar's clearance past the R7.5 knuckle circle
 
-// ----------------------------------------------------------- serrations
-// WHY THIS PART NEEDS THEM AND THE ARMS DO NOT.
-// A normal GoPro joint stacks solid at the pivot -- prong, finger, prong,
-// finger, prong -- so the screw squeezes FOUR friction interfaces.  This
-// clamp cannot: the flange gap has to stay wider than the middle prong or
-// the collar could never close, so the middle prong floats and only TWO
-// interfaces carry load.  Same screw force, half the holding torque, at the
-// one joint in the chain carrying the whole arm on the longest lever.  That
-// is why the pipe grips beautifully and the angle still creeps.
+// -------------------------------------------- serrations  (OFF by default)
+// OPTIONAL, and off because the current arm does not need them.  Keep them
+// here because the condition that makes them useful is real and specific.
 //
-// The fix cannot be to close that gap -- the travel it would remove is
-// exactly the travel that grips the pipe.  So instead of leaning harder on
-// friction, stop relying on it: radial grooves cut INTO the flange faces
-// bite into the mating prong and index the angle mechanically.
+// This joint is the marginal one in the whole chain.  A normal GoPro joint
+// stacks solid at the pivot -- prong, finger, prong, finger, prong -- so the
+// screw squeezes FOUR friction interfaces.  This clamp cannot: the flange gap
+// has to stay wider than the middle prong or the collar could never close, so
+// the middle prong floats and only TWO carry load.  Half the holding torque,
+// at the joint carrying the whole arm on the longest lever.
+//
+// What rescues it is the other half of the equation -- the RADIUS that torque
+// acts at.  Since the arm's slots run out to pocket_r = 11.05 rather than
+// stopping at the knuckle, the contact annulus is 2.65..11.05 and its
+// effective friction radius is 7.71 mm.  Measured against the earlier arm,
+// whose slots stopped near 8.55, that is 6.12 -> 7.71, about 26 % more
+// holding torque for the same screw force, at lower contact pressure.  On
+// the shallow-slot arm the angle crept; on the deep-slot one it does not.
+//
+// So turn these on only if the angle actually creeps -- most likely in a REAL
+// GoPro 3-prong, whose slots stop at R7.5 and whose friction radius is
+// therefore ~5.46, roughly 30 % down on our own arm's.
+//
+// They are not free: the grooves take ~39 % of the bearing area, index the
+// hinge in 360/tooth_n steps instead of continuously, and emboss their
+// pattern into the mating prong face -- that embossing IS the mechanism.
 //
 // Cut IN, never proud: the land stays at fing_out, so insertion clearance
 // and collar travel are both untouched and every number above still holds.
@@ -85,7 +97,8 @@ neck_clr   = 0.50;    // collar's clearance past the R7.5 knuckle circle
 // has its walls facing up and down, and a symmetric V is only within the
 // 45 deg budget while depth <= half-width.  0.32 deep on a 0.70 wide groove
 // puts them at 42.4 deg, so this stays supportless like the rest of the part.
-serrate    = true;
+// Set SERRATE in verify_clamp.py to match whatever this says.
+serrate    = false;
 tooth_n    = 30;      // -> 12 deg indexing
 tooth_w    = 0.70;    // groove width at the face
 tooth_d    = 0.32;    // depth below the land  (<= tooth_w/2, see above)

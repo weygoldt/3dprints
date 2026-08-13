@@ -383,10 +383,15 @@ to lie in the XY plane for the squeeze to close the split at all.
 
 Clear articulation in our own arm: **−110 … +90°**.
 
-### Serrated flanges — the joint held the pipe but not the angle
+### Optional serrated flanges (`serrate`, default **off**)
 
-First print held the pipe beautifully and the *hinge angle* still crept under
-load. The reason is structural, not a tolerance:
+An early print held the pipe beautifully and the *hinge angle* still crept under
+load — but that was against an **older arm whose slots did not run as deep**.
+Against the current arm the same clamp holds both the pipe and the angle fine,
+so the teeth are off by default. The reason the slot depth mattered is worth
+keeping, because it says exactly when you would want them back.
+
+This joint is the marginal one in the chain, structurally:
 
 ```
 at the pivot, across Y:  prong | flange | VOID | middle prong | VOID | flange | prong
@@ -402,10 +407,28 @@ good case: on a true 12.0 pipe the collar grips after ~0.28 mm of the 0.50 mm
 travel, so ~0.22 mm of that void never closes at all. *The better your pipe fits,
 the softer the joint.*
 
-Closing that void is not the fix — the travel it would remove is exactly the
-travel that grips the pipe. So the flanges stop relying on friction instead:
-**30 radial V-grooves cut into each face**, 12° indexing, biting into the mating
-prong to hold the angle mechanically.
+**What rescues it is the other half of the equation — the radius that torque
+acts at.** Friction torque is `μ·F·r_eff`, and because the arm's slots run out
+to `pocket_r` = 11.05 instead of stopping at the knuckle, the contact annulus is
+2.65…11.05 and `r_eff` = **7.71 mm**. On the older arm, whose slots stopped near
+8.55, it was **6.12** — about **26 % less holding torque** for the same screw
+force, at higher contact pressure. That is the whole difference between the
+angle creeping and not. The prong free length was added for spring, and it
+bought joint grip as a side effect.
+
+So: **turn the teeth on only if the angle actually creeps.** The likeliest case
+is a **real GoPro 3-prong**, whose slots stop at R7.5 and whose `r_eff` is
+therefore ~5.46 — roughly 30 % down on our own arm's.
+
+With `serrate = true` you get **30 radial V-grooves cut into each face**, 12°
+indexing, biting into the mating prong to hold the angle mechanically. Closing
+the void instead is *not* an option — the travel it would remove is exactly the
+travel that grips the pipe.
+
+They are not free. The grooves take **~39 % of the bearing area**, index the
+hinge in discrete steps instead of continuously, and emboss their pattern into
+the mating prong face — that embossing *is* the mechanism. Against a joint that
+already holds, that is three costs for no benefit.
 
 - **Cut in, never proud.** The land stays at `fing_out` = 4.35, so insertion
   clearance and collar travel are untouched and every number above still holds.
@@ -418,12 +441,16 @@ prong to hold the angle mechanically.
 - **61 % of the face is still bearing land**, so the teeth bite without throwing
   away the friction that was already there.
 
-The clamp remains supportless: 0.000 mm² unsupported, steepest facet 45.00°.
+Serrated or not, the clamp is supportless: 0.000 mm² unsupported, steepest
+facet 45.00°.
 
-Teeth are on the **clamp only**. The arms keep smooth slot walls, because real
-GoPro fingers are serrated at their own pitch and meshing two mismatched patterns
-seats worse than a tooth biting into a flat. Expect the clamp to emboss its
-pattern into the arm's prong face — that embossing *is* the mechanism.
+Teeth would go on the **clamp only**. The arms keep smooth slot walls, because
+real GoPro fingers are serrated at their own pitch and meshing two mismatched
+patterns seats worse than a tooth biting into a flat.
+
+To switch them on: set `serrate = true` in `clamp.scad` **and** `SERRATE = True`
+in `verify_clamp.py` — the verifier mirrors the model by hand here, as it does
+everywhere else, and check `[7]` only runs when it is on.
 
 ## Verifying
 
@@ -499,6 +526,10 @@ Ten mutants, each aimed at one claim, all caught:
 That last one is the useful kind: it proves the *depth ≤ half-width* rule that
 keeps the serrations printable is a real constraint the harness enforces, not a
 comment someone can quietly ignore.
+
+The three clamp mutants were run with `serrate` on. They stay valid, but check
+`[7]` is skipped while the teeth are off, so re-enable both flags before
+trusting it again.
 
 ## Reinforcement, and where it is still weakest
 
