@@ -304,7 +304,7 @@ Change `prop_diameter` to 254 (1045) and the pylon grows to ~110 mm above the bo
    melted in from the block aft face). Wide fender washer / backing
    plate under the soft foam so the head can't pull through.
 
-## Propeller guard — flat arc grille + supportless shroud (`propguard.scad`, 2026-08-13)
+## Propeller guard — freely-mounted flat arc grille, frontal-only (`propguard.scad`, 2026-08-13)
 
 A best-effort **prop guard** for the 8×4.5 (203 mm) pusher prop, to keep reeds/grass/branches off the disc.
 Params + derived live in **`common.scad`** (search "PROP GUARD") so `main.scad` draws it on each hull; the
@@ -323,18 +323,25 @@ pad's 4× M3 (`bp_pitch` square, ±`bp_axis`) + 11.5 boss bore — no new holes;
 3. **ROUNDED edges** — lives in turbulent air, so no sharp corners: `guard_round` rounds aft/top edges,
    `guard_front_round` softens the frontal/intake edges, spokes are **tapered** (`guard_spoke_root` 8 →
    `guard_bar` 3, ~2.7:1) via a hull of rounded cylinders.
-4. **SHROUD** (`guard_shroud`) — an aft cowl wall wrapping the tips: catches things swept in from the **side**,
-   not just head-on. It's a vertical wall off the flat grille ⇒ **prints supportless**; a filleted inner FOOT
-   (`guard_shroud_foot`) spreads the root stress across layers + adds bed contact. Its height **TAPERS** from
-   `guard_shroud_h` (28) at the arc MIDDLE to `guard_shroud_h_min` (11) at the ends — most mass/protection
-   where the spokes best support it, least where they don't (a single tilted-plane cut → smooth cosine taper).
-   The spoke tips **weld into the shroud's inner face** (never poke through the outer), and the shroud arc
-   extends `guard_shroud_ext` past each end spoke so the full spoke backs it (no half-contact/dangling end).
+4. **SHROUD → TINY STRUCTURAL LIP** (`guard_shroud`) — a short vertical rim off the flat grille. It's a wall
+   off the flat plate ⇒ **prints supportless**; a filleted inner FOOT (`guard_shroud_foot`) spreads the root
+   stress across layers + adds bed contact. Its height TAPERS from `guard_shroud_h` (**8**) at the arc MIDDLE
+   to `guard_shroud_h_min` (**6**) at the ends (a single tilted-plane cut → smooth cosine taper). The spoke
+   tips **weld into the lip's inner face**, and the arc extends `guard_shroud_ext` past each end spoke so the
+   full spoke backs it. **Deliberately does NOT reach the disc** (see "Motor cooling" below) — it's kept only
+   to stiffen the arc rim and give the grille a finished edge; protection is **frontal-only**.
+
+**Motor cooling — why the guard stays at the pad (2026-08-13, Patrick):** these are **drone outrunner motors**
+that cool by air moving over the spinning can. A rev bridged the ~34 mm pad→disc gap with a standoff **barrel**
+(a 2-piece screwed sandwich, then a lofted pedestal) so the shroud could actually cover the prop — but a tube
+around the can **chokes that airflow**. Reverted. The guard is **freely mounted flat on the pad**, the motor
+sits fully open behind it, and we accept **frontal-only** protection ("limited, but still better than nothing").
+The barrel modules + `airboat_propguard_barrel.stl` are gone.
 
 **Numbers (defaults):** OD 221, arc 135°, hub r24 **clipped to the pad footprint on the inner (+X) + down (−Y)
 sides** (`guard_hub` — round on top/outboard where the spokes flare, flat on inner/down where it meets the pad)
-+ 2 relief holes, 1 ring + 5 tapered spokes, shroud r107.5–109.7 × 28→11 mm tapered × 2.2 wall. → **41 g** PETG,
-single manifold shell, **supportless** (0.21 cm² off-bed overhang; PrusaSlicer 0 cm³ support at 50°), 153×153×28 mm.
++ 2 relief holes, 1 ring + 5 tapered spokes, lip r107.5–109.7 × 8→6 mm tapered × 2.2 wall. → **30 g** PETG,
+single manifold shell, **supportless** (0.21 cm² off-bed overhang; PrusaSlicer 0 cm³ support at 50°), 153×153×8 mm.
 
 **Hub matches the pad (2026-08-13, Patrick):** the round hub used to overhang the square pad and its lower edge
 protruded ~11 mm below the pad toward the sloped buttress (measured ~1 mm clearance — too tight). The hub is now
@@ -363,11 +370,14 @@ review (DFM/structure/function/geometry) covered the earlier basket + flat revs.
 2. **Reed coverage is COARSE** — outer cell ~40 (radial) × ~63 mm (tangential): a **branch/clump fender, not
    a fine reed screen**. Adding `guard_rings`/`guard_spokes` closes it (rings add cheap central mass, spokes
    add clutter) — a thrust-vs-protection call. Current is deliberately open per the "few spokes / elegant" steer.
-3. **Side gap** — the shroud lip stops at z=28 but the disc plane is `guard_standoff`=34 back, so an object in
-   the disc plane clears the lip by ~6 mm; raise `guard_shroud_h`→34 if in-plane side strikes matter (rim mass↑).
+3. **Frontal-only by design** — the lip is 8 mm and the disc plane is `guard_standoff`=34 back, so it does NOT
+   wrap the disc: it stops reeds/branches coming **head-on**, not swept in from the side/plane. This is the
+   accepted scope (motor cooling forced dropping the reach-the-disc barrel). Confirm the real pad→disc gap on
+   the built motor; if side strikes ever matter, the fix is a bracket-mounted ring off the airframe, not a pad
+   guard (which would re-choke the motor).
 4. **Flex-into-prop** — the disc cantilevers off the 4 M3 at r17; `guard_t`=5 alone sets stiffness toward the
    prop (the in-plane grid sits in the neutral plane). It sits 34 mm forward of the disc; raise `guard_t` if a
    push test brings it near the prop.
-5. **Mast resonance** — 47 g at the mast tip lowers the mast's 1st bending freq. Patrick is NOT balancing the
-   prop, so mass was kept low (arc + short/thin shroud); the shroud is the biggest remaining lever if a rev
-   sweep shows a resonance dwell (its mass sits at the worst radius).
+5. **Mast resonance** — 30 g at the mast tip lowers the mast's 1st bending freq. Patrick is NOT balancing the
+   prop, so mass was kept low (arc + tiny lip); dropping to the frontal-only lip already shed the biggest
+   remaining rim-mass lever (was 41 g), so a resonance dwell is less likely than the earlier tall-shroud rev.

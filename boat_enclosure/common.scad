@@ -952,11 +952,12 @@ guard_rings       = 1;      // intermediate frontal ring arcs (sparse -> low tur
 guard_spokes      = 5;      // frontal spokes across the arc (fewer = cleaner; includes one at each end -> caps the ring arcs)
 guard_bar         = 3.0;    // frontal ring + spoke-TIP width (thin/elegant)
 guard_spoke_root  = 8;      // spoke width at the HUB -- spokes TAPER ~2.7:1 to guard_bar at the rim (reads intentional + strong root)
-guard_shroud      = true;   // the aft shroud wall (side protection; a vertical wall -> printed supportless)
-guard_shroud_h    = 28;     // shroud aft rise (Z) at the arc MIDDLE (top-outboard) -- the max; tallest where the spokes best
-                            // support it and protection matters most.  NOTE: disc plane is guard_standoff (34) back.
-guard_shroud_h_min = 11;    // shroud rise at the arc ENDS -- the min (>= guard_t so the spokes still weld to it).  The top
-                            // tapers h_max(middle) -> this(ends): most mass/protection where best supported, least where not.
+guard_shroud      = true;   // a small aft LIP -- Patrick 2026-08-13: NOT reaching the prop (the barrel that bridged the
+                            // motor was dropped -- it choked the drone motor's cooling airflow).  Freely mounted at the pad,
+                            // motor breathes; this guard is FRONTAL protection only (the ~99% forward case).  The lip just
+                            // ties + stiffens the spoke rim and adds a hair of edge coverage.
+guard_shroud_h    = 8;      // lip rise (Z) at the arc MIDDLE -- tiny, structural (was a tall shroud when we tried to reach the prop)
+guard_shroud_h_min = 6;     // lip rise at the arc ENDS (>= guard_t so the spokes weld to it) -- nearly a constant rim
 guard_shroud_wall = 2.2;    // shroud radial thickness (thinned)
 guard_shroud_foot = 2.5;    // filleted FOOT at the shroud's inner base -> spreads the root stress across layers (the reviewer's
                             // main reliability fix: a side strike loads the wall root in tension ACROSS layers) + adds bed contact
