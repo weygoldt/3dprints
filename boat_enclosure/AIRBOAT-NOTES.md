@@ -371,25 +371,3 @@ review (DFM/structure/function/geometry) covered the earlier basket + flat revs.
 5. **Mast resonance** — 47 g at the mast tip lowers the mast's 1st bending freq. Patrick is NOT balancing the
    prop, so mass was kept low (arc + short/thin shroud); the shroud is the biggest remaining lever if a rev
    sweep shows a resonance dwell (its mass sits at the worst radius).
-
-### 2-PIECE SANDWICH — mounting rethink (2026-08-13, Patrick) — SUPERSEDES the single-piece mount above
-
-The motor isn't flat: from the pylon pad to the prop is ~29 mm (X-bracket + motor body), so a guard bolted at
-the pad can't reach the disc. New scheme — **pylon pad | X-BRACKET | BARREL (spacer) | GUARD | motor**, all
-clamped by the **SAME 4 motor screws** (no glue, Patrick's call — easier + a mechanical joint):
-
-- **`guard_barrel()` (piece 1, spacer):** a flange (rounded square ≈ the X-bracket, 4 M3 clearance on the 24 mm
-  square) + a `guard_barrel_len`=26 mm tube that bridges the motor. **Motor barrel = 28 mm → `guard_motor_bore`
-  = 28.5** (0.5 to spin free) at the FLANGE. The tube bore opens wide (`guard_barrel_bore`=42) ABOVE the
-  flange so a long hex key reaches the 4 bolt heads (at r17 they'd otherwise be buried in a snug bore) and the
-  4 clamp screws pass through the open bore. OD 48. **20 g.**
-- **`guard_full()` (piece 2, the guard):** baseplate (OD = barrel OD = 48, flush stack) + the same tapered
-  spokes + tapered shroud, now **`guard_shroud_h`=20** (barrel 26 + shroud 20 = **46 mm reach** = Patrick's
-  measured cover-the-prop distance). 4 M3 holes on the 24 mm square (the sandwich screws pass through). **36 g.**
-- **Assembly:** stack pad → X-bracket → barrel → guard, run **4× M3 ~44 mm** from the pad nut down through the
-  barrel's open bore into/through the guard, tighten. Both pieces **single-shell + supportless** (barrel stands
-  on its flange, guard face-down). The **bore↔screw wall is ~1.0 mm** (28.5 bore vs r17 screws) in both the
-  flange and the guard plate — thin, but clamped in compression in the sandwich, so acceptable.
-- Render: `-D guard_part="barrel"` / `"full"` (guard) / `"assembly"` (both + motor + prop ghosts) / `"onpylon"`.
-- **STILL OPEN:** confirm the OUTBOARD side (set `side`, name a feature); confirm the real guard-face-to-prop
-  distance sets `guard_shroud_h` right; the reed-coverage / resonance notes above still apply.
