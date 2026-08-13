@@ -14,13 +14,17 @@
 //  tests:
 //    male_in_ours    ideal GoPro 2-prong plugged into OUR 3-prong end
 //    ours_in_female  OUR 2-prong end plugged into an ideal GoPro 3-prong
+//    arm_in_arm      one of our arms into another
 //    ctrl_male       control: the same male driven 1.0 mm off-axis in Y,
 //                    which MUST report non-zero -- proves the probe can see
 //                    a collision at all
+//  ... and the same four against the SIMPLE variant, suffixed _simple.  The
+//  joint is identical between the two variants, so any difference in the
+//  measured range is the BODY getting in the way and nothing else.
 // =====================================================================
 
-lib = true;          // suppress arm.scad's standalone preview
-include <arm.scad>
+lib_s = true;        // arm_simple.scad sets `lib` itself and includes arm.scad
+include <arm_simple.scad>
 use <clamp.scad>
 
 test = "male_in_ours";
@@ -75,6 +79,18 @@ else if (test == "arm_in_arm")
     intersection() {
         arm(armL);
         at_pivot(0, ang) translate([-armL, 0, 0]) arm(armL);
+    }
+// ---- the same four, against the simple variant ----------------------
+else if (test == "male_in_simple")
+    intersection() { arm_simple(armL); at_pivot(0, ang) ref_2prong(); }
+else if (test == "simple_in_female")
+    intersection() { arm_simple(armL); at_pivot(armL, ang) mirror([1,0,0]) ref_3prong(); }
+else if (test == "ctrl_simple")
+    intersection() { arm_simple(armL); translate([0, 1.0, 0]) at_pivot(0, ang) ref_2prong(); }
+else if (test == "simple_in_simple")
+    intersection() {
+        arm_simple(armL);
+        at_pivot(0, ang) translate([-armL, 0, 0]) arm_simple(armL);
     }
 // Baseline: the SAME reference male swung against an unmodified inspiration
 // arm, so the articulation range can be compared like for like.  Its pivot A

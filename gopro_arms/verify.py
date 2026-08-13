@@ -6,6 +6,12 @@ OpenSCAD source, so it catches modelling mistakes as well as parameter typos.
 
 Usage:  python3 verify.py <arm.stl> --length 100
         python3 verify.py <gauge.stl> --length 21   (gauge Lg = 2*tab_r + 6)
+        python3 verify.py <simple.stl> --length 100 --simple
+
+--simple switches the expectations to arm_simple.scad: a slab body instead of
+a strut, and a screw pocket in BOTH outer prongs instead of a nut trap in one.
+Everything about the GoPro interface itself is checked identically either way,
+because it IS identical -- that is the point of the variant.
 """
 import argparse
 import math
@@ -40,11 +46,62 @@ NUT_SEAT    = 0.30
 NUT_WALL    = 1.50
 NUT_DEPTH   = NUT_T + NUT_SEAT             # 4.30
 BOSS_H      = max(0.0, NUT_DEPTH + NUT_WALL - PRONG_OUT_T)   # 2.40
-NUT_R       = (NUT_AF + NUT_AF_CLR)/math.sqrt(3)             # 4.734
 # knuckle style "trim": the circle is cut by the bed at R/sqrt(2), which is the
 # deepest the pivot can sit while the flanks still leave the bed at 45 deg.
 PIVOT_Z     = TAB_R/math.sqrt(2)           # 5.303
 TAB_TOP     = PIVOT_Z + TAB_R              # 12.803
+# An M5 nut's own circumradius.  This is the number that decides whether a
+# pocket is a nut TRAP or just a hole the nut spins in.
+NUT_CORNER  = NUT_AF/math.sqrt(3)          # 4.619
+
+# ---- the SIMPLE variant (arm_simple.scad) ----------------------------
+HEAD_D      = 8.50     # M5 DIN 912 socket cap head, across
+HEAD_H      = 5.00     # ... and tall
+HEAD_CLR    = 0.30
+HEAD_SEAT   = 0.30
+S_PKT_AF    = max(NUT_AF + NUT_AF_CLR, HEAD_D + HEAD_CLR)      # 8.80
+S_PKT_DEPTH = max(NUT_T + NUT_SEAT, HEAD_H + HEAD_SEAT)        # 5.30
+S_BOSS_H    = max(0.0, S_PKT_DEPTH + NUT_WALL - PRONG_OUT_T)   # 3.40 per side
+SB_H        = TAB_TOP          # body height == knuckle height, so no chord ramp
+SB_T        = 2*W2_HALF        # 8.90 -- body width == the 2-prong stack
+SB_CHAM     = 1.50             # 45 deg bottom chamfer
+SB_RT       = 2.50             # top edge rounding
+
+# ---- mode-dependent spec, filled in by configure() --------------------
+BOSS_M      = BOSS_H     # local thickening of the -Y outer prong
+BOSS_P      = 0.0        # ... and the +Y one
+PKT_AF      = NUT_AF + NUT_AF_CLR
+PKT_R       = PKT_AF/math.sqrt(3)
+PKT_DEPTH   = NUT_DEPTH
+PKT_SIDES   = (-1,)
+PKT_HEAD_D  = None       # the screw head the pocket must also swallow
+SECTION     = 'strut'
+XPROBE      = 5.0        # X to probe the 3-prong grid along Y
+
+
+def configure(simple):
+    """Point the spec at one variant or the other.
+
+    Only the body section and the screw pockets move; every GoPro interface
+    number stays exactly where it is, which is what makes the two variants
+    interchangeable in a chain.
+    """
+    global BOSS_M, BOSS_P, PKT_AF, PKT_R, PKT_DEPTH, PKT_SIDES
+    global PKT_HEAD_D, SECTION, XPROBE
+    if not simple:
+        return
+    BOSS_M = BOSS_P = S_BOSS_H
+    PKT_AF = S_PKT_AF
+    PKT_R = PKT_AF/math.sqrt(3)
+    PKT_DEPTH = S_PKT_DEPTH
+    PKT_SIDES = (-1, +1)
+    PKT_HEAD_D = HEAD_D
+    SECTION = 'slab'
+    # The grid probe has to clear the pocket's across-corners radius, which on
+    # this variant is 5.081 -- x=5.0 would land INSIDE the pocket and read the
+    # 1.50 mm floor wall as the whole outer prong.
+    XPROBE = 6.0
+
 
 TOL = 0.05     # mm, mesh/faceting tolerance
 FAIL = []
@@ -132,10 +189,8 @@ def volume(tris):
 
 
 # ---- ray casting -----------------------------------------------------
-def ray_intervals(tris, origin, axis):
-    """Occupied intervals along `axis` through `origin` (Moller-Trumbore)."""
-    d = [0.0, 0.0, 0.0]
-    d[axis] = 1.0
+def ray_hits(tris, origin, d):
+    """Sorted, deduped surface crossings along direction `d` from `origin`."""
     hits = []
     for a, b, c in tris:
         e1 = [b[k]-a[k] for k in range(3)]
@@ -161,6 +216,14 @@ def ray_intervals(tris, origin, axis):
     for h in hits:
         if not ded or abs(h-ded[-1]) > 1e-6:
             ded.append(h)
+    return ded
+
+
+def ray_intervals(tris, origin, axis):
+    """Occupied intervals along `axis` through `origin` (Moller-Trumbore)."""
+    d = [0.0, 0.0, 0.0]
+    d[axis] = 1.0
+    ded = ray_hits(tris, origin, d)
     return [(ded[i], ded[i+1]) for i in range(0, len(ded)-1, 2)]
 
 
@@ -169,7 +232,10 @@ def main():
     ap.add_argument('stl')
     ap.add_argument('--length', type=float, required=True)
     ap.add_argument('--gauge', action='store_true')
+    ap.add_argument('--simple', action='store_true',
+                    help='expect arm_simple.scad: slab body, pocket both sides')
     args = ap.parse_args()
+    configure(args.simple)
     L = args.length
 
     tris = load(args.stl)
@@ -181,9 +247,11 @@ def main():
     print(f"volume {volume(tris):.1f} mm^3")
 
     # ---------------------------------------------------------------- 1
-    # x=5 sits inside the R7.5 knuckle but outboard of both the 2.65 bore
-    # radius and the 4.73 nut-hex radius, so the ray sees nothing but prongs.
-    XP = 5.0
+    # The probe X sits inside the R7.5 knuckle but outboard of both the 2.65
+    # bore radius and the pocket's across-corners radius, so the ray sees
+    # nothing but prongs.  Land it inside the pocket and the 1.50 mm floor
+    # wall reads as the whole outer prong -- see configure().
+    XP = XPROBE
     print(f"\n[1] GoPro prong grid -- 3-prong end, probed along Y at x={XP}, z={PIVOT_Z:.3f}")
     tA = near_axis(tris, 0, XP)
     iv = ray_intervals(tA, (XP, -50.0, PIVOT_Z), 1)
@@ -199,13 +267,17 @@ def main():
         check(abs((o1b+mA)/2 + U) < TOL, f"slot 1 centred on {-U} (got {(o1b+mA)/2:+.3f})")
         check(abs((mB+o2a)/2 - U) < TOL, f"slot 2 centred on {+U} (got {(mB+o2a)/2:+.3f})")
         check(abs((mB-mA)-FING_W) < TOL, f"middle prong {mB-mA:.3f} == {FING_W} (enters a 3.00 slot)")
-        check(abs((o1b-o1a)-(PRONG_OUT_T+BOSS_H)) < TOL,
-              f"nut-side outer prong {o1b-o1a:.3f} == {PRONG_OUT_T}+{BOSS_H} boss")
-        check(abs((o2b-o2a)-PRONG_OUT_T) < TOL,
-              f"plain outer prong {o2b-o2a:.3f} == {PRONG_OUT_T} (reinforced from 2.70)")
-        check(abs(o2b - W3_HALF) < TOL, f"stack outer face at {o2b:+.3f} == {W3_HALF}")
-        check(abs(o1a + W3_HALF + BOSS_H) < TOL,
-              f"boss outer face at {o1a:+.3f} == {-(W3_HALF+BOSS_H):.2f}")
+        check(abs((o1b-o1a)-(PRONG_OUT_T+BOSS_M)) < TOL,
+              f"-Y outer prong {o1b-o1a:.3f} == {PRONG_OUT_T}+{BOSS_M} boss")
+        check(abs((o2b-o2a)-(PRONG_OUT_T+BOSS_P)) < TOL,
+              f"+Y outer prong {o2b-o2a:.3f} == {PRONG_OUT_T}+{BOSS_P} boss "
+              f"(reinforced from the original's 2.70)")
+        check(abs(o2b - (W3_HALF+BOSS_P)) < TOL,
+              f"+Y outer face at {o2b:+.3f} == {W3_HALF+BOSS_P:.2f}")
+        check(abs(o1a + W3_HALF + BOSS_M) < TOL,
+              f"-Y outer face at {o1a:+.3f} == {-(W3_HALF+BOSS_M):.2f}")
+        print(f"     stack width {o2b-o1a:.3f} mm "
+              f"(the {2*W3_HALF:.1f} GoPro stack plus {BOSS_M}+{BOSS_P} of boss)")
         # the real acceptance test: does a nominal 3.00 GoPro finger fit?
         check(slot1 >= U and slot2 >= U, "a 3.00 mm GoPro finger enters both slots")
         warn(slot1-U <= 0.35 and slot2-U <= 0.35,
@@ -362,7 +434,57 @@ def main():
               f"to flex on (got {free:.2f})")
 
     # ---------------------------------------------------------------- 5
-    if not args.gauge:
+    if not args.gauge and SECTION == 'slab':
+        print("\n[5] slab section at mid-beam")
+        xm = L/2
+        tM = near_axis(tris, 0, xm)
+        prof = []
+        for i in range(1, 512):
+            z = i*SB_H/512
+            iv2 = ray_intervals(tM, (xm, -50.0, z), 1)
+            if iv2:
+                prof.append((z, iv2[0][1]-iv2[0][0]))
+        wmax = max(w for _, w in prof)
+        height = hi[2] - lo[2]
+        base = prof[0][1] - 2*prof[0][0]        # unwind the 45 deg chamfer to z=0
+        print(f"     height (Z extent)       {height:.3f} mm")
+        print(f"     max width               {wmax:.3f} mm")
+        print(f"     base width at z=0       {base:.3f} mm")
+        check(abs(height-SB_H) < 0.05,
+              f"body height {height:.3f} == knuckle height {SB_H:.3f} (no chord ramp)")
+        check(abs(wmax-SB_T) < 0.15, f"max width {wmax:.3f} == {SB_T}")
+        check(abs(base-(SB_T-2*SB_CHAM)) < 0.15,
+              f"bottom chamfer leaves a {base:.3f} mm bed footing == {SB_T-2*SB_CHAM}")
+        # bottom chamfer angle: the flank must not lean past the overhang budget
+        rise = [(z, w) for z, w in prof if w < SB_T - 0.02 and z < SB_H/2]
+        worst = 0.0
+        for i in range(1, len(rise)):
+            dz = rise[i][0]-rise[i-1][0]
+            dw = (rise[i][1]-rise[i-1][1])/2
+            if dz > 0:
+                worst = max(worst, math.degrees(math.atan2(dw, dz)))
+        print(f"     bottom chamfer angle    {worst:.1f} deg from vertical")
+        check(worst <= OH_ANG + 0.5,
+              f"bottom edge is a {worst:.1f} deg CHAMFER, not a fillet "
+              f"(a fillet turns down through vertical and overhangs)")
+        # Top edge rounding, measured off the top FACE itself.  A ray one
+        # sample below the apex is still on the fillet and reads ~0.6 mm wide;
+        # the flat is only flat exactly at z = SB_H.
+        ys = [p[1] for t in tM for p in t if abs(p[2]-SB_H) < 1e-3]
+        wtop = (max(ys) - min(ys)) if ys else 0.0
+        rt = (SB_T - wtop)/2
+        print(f"     top flat {wtop:.3f} mm -> edge radius {rt:.3f} mm")
+        check(abs(rt-SB_RT) < 0.15,
+              f"top edges are eased r{rt:.2f} == r{SB_RT} (smoothed, not knife-edged)")
+        # THE section requirement: smoothed edges, but explicitly NOT an ellipse.
+        # An ellipse has no straight flank anywhere; this must have a long one.
+        straight = sum(1 for _, w in prof if abs(w-SB_T) < 0.05)/len(prof)
+        print(f"     straight flank          {100*straight:.0f}% of the height")
+        check(straight >= 0.40,
+              f"{100*straight:.0f}% of the section is a STRAIGHT vertical flank "
+              f"(>=40%) -- edges are smoothed, the section is not an ellipse")
+
+    if not args.gauge and SECTION == 'strut':
         print("\n[5] strut section at mid-beam")
         xm = L/2
         tM = near_axis(tris, 0, xm)
@@ -405,43 +527,104 @@ def main():
         check(worst <= OH_ANG, f"section flanks {worst:.1f} deg <= {OH_ANG} deg")
 
     # ---------------------------------------------------------------- 6
-    print("\n[6] captive M5 nut pocket (3-prong side)")
-    y_out = -(W3_HALF + BOSS_H)
-    y_mid = y_out + NUT_DEPTH/2
-    tN = near_axis(tris, 1, y_mid)
-    # across corners, measured along X through the pivot
-    ivx = ray_intervals(near_axis(tN, 2, PIVOT_Z), (-50.0, y_mid, PIVOT_Z), 0)
-    ivx = [(a-50, b-50) for a, b in ivx]
-    gx = [(ivx[i][1], ivx[i+1][0]) for i in range(len(ivx)-1)]
-    if gx:
-        ac = gx[0][1]-gx[0][0]
-        print(f"     across corners {ac:.3f} mm")
-        check(abs(ac - 2*NUT_R) < 0.08, f"hex across corners {ac:.3f} == {2*NUT_R:.3f}")
-    # across flats + teardrop peak, measured along Z
-    ivz = ray_intervals(near_axis(tN, 0, 0.0), (0.0, y_mid, -50.0), 2)
-    ivz = [(a-50, b-50) for a, b in ivz]
-    gz = [(ivz[i][1], ivz[i+1][0]) for i in range(len(ivz)-1)]
-    if gz:
-        lo_z, hi_z = gz[0]
-        af = NUT_AF + NUT_AF_CLR
-        print(f"     pocket Z void {lo_z:.3f} .. {hi_z:.3f}")
-        check(abs(lo_z - (PIVOT_Z - af/2)) < 0.06,
-              f"hex bottom flat at {lo_z:.3f} == {PIVOT_Z-af/2:.3f} (across flats {af})")
-        check(hi_z >= PIVOT_Z + af/2 + 0.5,
-              f"45 deg peak at {hi_z:.3f} clears the top flat {PIVOT_Z+af/2:.3f} (no droop)")
-        check(lo_z > 0.8, f"{lo_z:.3f} mm of material under the pocket")
-    # depth: probe along Y outboard of the bore but inside the hex
-    tD = near_axis(tris, 0, 3.5)
-    ivd = ray_intervals(tD, (3.5, -50.0, PIVOT_Z), 1)
+    print("\n[6] screw pocket(s) in the 3-prong end")
+    ivd = ray_intervals(near_axis(tris, 0, 3.5), (3.5, -50.0, PIVOT_Z), 1)
     ivd = [(a-50, b-50) for a, b in ivd]
     print("     solid spans at x=3.5:",
           ", ".join(f"[{a:+.3f},{b:+.3f}]={b-a:.3f}" for a, b in ivd))
-    if ivd:
-        wall = ivd[0][1]-ivd[0][0]
-        check(abs(wall - NUT_WALL) < TOL,
-              f"pocket floor leaves {wall:.3f} mm before the slot == {NUT_WALL}")
-        check(abs(ivd[0][0] - (y_out + NUT_DEPTH)) < TOL,
-              f"pocket depth {ivd[0][0]-y_out:.3f} == {NUT_DEPTH} (M5 nut {NUT_T} + seat)")
+    turns = {}
+    for side in PKT_SIDES:
+        tag = '-Y' if side < 0 else '+Y'
+        boss = BOSS_M if side < 0 else BOSS_P
+        y_out = side*(W3_HALF + boss)
+        y_mid = y_out - side*PKT_DEPTH/2
+        print(f"\n   pocket {tag}  (outer face y={y_out:+.3f}, probed at y={y_mid:+.3f})")
+        tN = near_axis(tris, 1, y_mid)
+
+        # across corners, measured along X through the pivot
+        ivx = ray_intervals(near_axis(tN, 2, PIVOT_Z), (-50.0, y_mid, PIVOT_Z), 0)
+        ivx = [(a-50, b-50) for a, b in ivx]
+        gx = [(ivx[i][1], ivx[i+1][0]) for i in range(len(ivx)-1)]
+        if gx:
+            ac = gx[0][1]-gx[0][0]
+            print(f"     across corners {ac:.3f} mm")
+            check(abs(ac - 2*PKT_R) < 0.08,
+                  f"pocket {tag} across corners {ac:.3f} == {2*PKT_R:.3f}")
+
+        # across flats + 45 deg roof peak, measured along Z
+        ivz = ray_intervals(near_axis(tN, 0, 0.0), (0.0, y_mid, -50.0), 2)
+        ivz = [(a-50, b-50) for a, b in ivz]
+        gz = [(ivz[i][1], ivz[i+1][0]) for i in range(len(ivz)-1)]
+        if gz:
+            lo_z, hi_z = gz[0]
+            crown = TAB_TOP - hi_z
+            print(f"     Z void {lo_z:.3f} .. {hi_z:.3f}, crown above the peak {crown:.3f}")
+            check(abs(lo_z - (PIVOT_Z - PKT_AF/2)) < 0.06,
+                  f"pocket {tag} bottom flat at {lo_z:.3f} == {PIVOT_Z-PKT_AF/2:.3f} "
+                  f"(across flats {PKT_AF})")
+            check(hi_z >= PIVOT_Z + PKT_AF/2 + 0.5,
+                  f"pocket {tag} 45 deg peak at {hi_z:.3f} clears the top flat "
+                  f"{PIVOT_Z+PKT_AF/2:.3f} (no droop)")
+            check(lo_z > 0.8, f"pocket {tag} leaves {lo_z:.3f} mm of material to the bed")
+            check(crown >= 0.45,
+                  f"pocket {tag} peak stays {crown:.3f} mm inside the knuckle crown "
+                  f"(a fatter screw head would burst out of the top)")
+
+        # depth and floor wall
+        if ivd:
+            span = ivd[0] if side < 0 else ivd[-1]
+            wall = span[1]-span[0]
+            floor_y = span[0] if side < 0 else span[1]
+            depth = abs(floor_y - y_out)
+            check(abs(wall - NUT_WALL) < TOL,
+                  f"pocket {tag} floor leaves {wall:.3f} mm before the slot == {NUT_WALL}")
+            check(abs(depth - PKT_DEPTH) < TOL,
+                  f"pocket {tag} depth {depth:.3f} == {PKT_DEPTH}")
+
+        # --- what the pocket is FOR: hold a nut, swallow a head ------------
+        # Measuring "across flats == 8.80" proves nothing on its own -- a plain
+        # round hole of the same width passes it and lets the nut spin.  So
+        # sweep the pocket's radius and ask the two questions directly.
+        # The outline (hex + 45 deg peak) is convex, so a hex nut is inside it
+        # exactly when its six corners are; a corner sweep is sound, not an
+        # approximation.
+        step = 2.0
+        prof_r = {}
+        for k in range(int(360/step)):
+            th = 0.5 + step*k
+            c, s = math.cos(math.radians(th)), math.sin(math.radians(th))
+            hs = [h for h in ray_hits(tN, (0.0, y_mid, PIVOT_Z), (c, 0.0, s))
+                  if h > 1e-6]
+            prof_r[th] = hs[0] if hs else float('inf')
+        ths = sorted(prof_r)
+
+        def r_at(a, _p=prof_r, _t=ths):
+            a %= 360.0
+            return _p[min(_t, key=lambda t: min(abs(t-a), 360-abs(t-a)))]
+
+        rmin = min(prof_r.values())
+        psis = [0.5*i for i in range(120)]          # one 60 deg hex period
+        fits = [p for p in psis
+                if all(r_at(p + 60*j) >= NUT_CORNER for j in range(6))]
+        turn = 60.0*len(fits)/len(psis)
+        turns[side] = turn
+        print(f"     inscribed radius {rmin:.3f} mm  (M5 nut corner {NUT_CORNER:.3f}, "
+              f"cap head {HEAD_D/2:.3f})")
+        print(f"     a centred M5 nut can turn {turn:.1f} deg before it wedges")
+        check(turn > 0.5, f"pocket {tag}: an M5 nut actually DROPS IN "
+                          f"(free orientation span {turn:.1f} deg > 0)")
+        check(turn < 45.0, f"pocket {tag}: the nut is TRAPPED, not just loose -- "
+                           f"it wedges after {turn:.1f} deg (a round hole would "
+                           f"read 60.0)")
+        if PKT_HEAD_D is not None:
+            check(rmin >= PKT_HEAD_D/2 + 0.05,
+                  f"pocket {tag}: an M5 socket cap head ({PKT_HEAD_D}) seats in it "
+                  f"(inscribed {2*rmin:.3f})")
+    if len(turns) == 2:
+        print()
+        check(abs(turns[-1] - turns[+1]) < 1.0,
+              f"both pockets are the same pocket ({turns[-1]:.1f} vs "
+              f"{turns[+1]:.1f} deg) -- the nut can go on either side")
 
     print()
     if FAIL:

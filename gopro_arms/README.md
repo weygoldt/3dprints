@@ -1,11 +1,21 @@
-# GoPro extension arms — tight fit, streamlined
+# GoPro extension arms — tight fit, two bodies
 
 Parametric replacement for the third-party arms in `inspiration/`. Two things
 changed: the prong stack now sits on the **real GoPro 3 mm grid** so a camera
-actually clamps, and the square beam became a **streamlined strut** because these
-hang under a boat and have water flowing past them.
+actually clamps, and the square beam was rebuilt — twice. There are two arms
+here. They share every millimetre of the GoPro joint and differ only in the body
+and the screw pockets, so they chain freely with each other:
 
-PETG · Prusa MK3S · 0.4 nozzle · 0.2 mm layers · **no support**.
+| | `arm.scad` — **streamlined** | `arm_simple.scad` — **simple** |
+|---|---|---|
+| body | Kamm-tail strut, 20.0 mm chord | slab, 12.8 mm, chamfered + rounded |
+| for | under the boat, water flowing past it | everything else |
+| 100 mm arm | 16.0 cm³, 100 layers | **12.8 cm³, 64 layers** |
+| stack width | 18.3 mm | 22.7 mm |
+| screw | GoPro thumbscrew + captive nut, one side | nut **or** a flush M5 cap head, **either** side |
+| articulation | −100…+90° into a GoPro mount | identical |
+
+PETG · Prusa MK3S · 0.4 nozzle · 0.2 mm layers · **no support** — both of them.
 
 ---
 
@@ -53,8 +63,8 @@ Opening a file in the OpenSCAD GUI:
 
 - **`main.scad`** is the entry point — pick the part from the `part` dropdown in
   the customizer.
-- `arm.scad` and `clamp.scad` now also render their own part when you open them
-  directly, so neither comes up as an empty scene any more. They are libraries
+- `arm.scad`, `arm_simple.scad` and `clamp.scad` also render their own part when
+  you open them directly, so none comes up as an empty scene. They are libraries
   though, so `main.scad` is still the place to choose parts.
 
 Or one at a time:
@@ -63,15 +73,20 @@ Or one at a time:
 openscad -o out.stl --render -D 'x=0' -D 'part="arm100"' main.scad
 ```
 
-Parts: `gauge`, `arm50`, `arm75`, `arm100`, `arm140`, `set`, `section`.
-Arm names are **pivot-to-pivot** distance in mm.
+Parts, streamlined: `gauge`, `arm50`, `arm75`, `arm100`, `arm140`, `set`,
+`section`. Simple: `sgauge`, `simple50`, `simple75`, `simple100`, `simple140`,
+`sset`, `ssection`. Plus `clamp`. Arm names are **pivot-to-pivot** distance in mm.
 
-> **Print `gauge` first.** It is both ends with no beam, ~10 minutes, and it
+> **Print a gauge first.** It is both ends with no beam, ~10 minutes, and it
 > tells you whether the 0.10 mm clearances land right on *your* PETG before you
 > commit to a plate of long arms — and it carries the nut pocket, so it checks
 > that fit too. If it is tight, raise `slot_extra`; if it rattles, lower it.
 > Both live at the top of `arm.scad`. 0.10 is deliberately tight because the
 > failure being fixed was too *much* clearance, not too little.
+>
+> `gauge` is the streamlined one; **`sgauge`** is the simple variant's, and it
+> carries *both* pockets — print that one if you intend to use a cap screw, so
+> you find out whether your nut and your head actually drop in.
 
 Slicer notes:
 
@@ -82,10 +97,12 @@ Slicer notes:
 - **Use a brim.** The strut stands 20 mm tall on a 5 mm wide foot over 155 mm of
   length; that is a narrow footprint for PETG, whose shrinkage will lift the ends
   given the chance. Bed contact is ~750 mm², about a third less than the arms
-  these replace, because the section is a strut instead of a slab.
-- Bump perimeters to **4–5**. The strut is only 10 mm thick, so perimeters do
+  these replace, because the section is a strut instead of a slab. The simple
+  arm is less exposed — shorter and a wider footing, 878 mm² on the 100 mm — but
+  still brim it.
+- Bump perimeters to **4–5**. Neither body is over 10 mm thick, so perimeters do
   most of the structural work and the part comes out nearly solid.
-- Flat face on the bed — that is the only orientation this is designed for.
+- Flat face on the bed — that is the only orientation either is designed for.
 
 ## Prong flex
 
@@ -185,6 +202,10 @@ fairing gives that up. Collinear (0°) has wide clearance either side, which is
 where an arm hanging under a boat actually sits, so this is a deliberate cost of
 the streamlining rather than a defect.
 
+**The simple arm measures the same range**, angle for angle, despite being a
+12.8 mm slab. That is not a rounding artefact — see *What it does not buy* above
+for why the nose fairing was never what limited it.
+
 The knuckle style matters here. `tab_style = "trim"` (default) puts the pivot at
 R/√2 so the circle is *cut* by the bed; nothing pokes outside the R7.5 joint
 envelope. The alternative `"pad"` hulls a flat pad under a full-height circle —
@@ -194,6 +215,113 @@ deeper knuckle, but the pad sticks ~0.6 mm proud and jams the hinge mid-travel:
 |---|---|---|
 | into a GoPro mount | −40 … +90° | **−100 … +90°** |
 | arm to arm | ±40° | **−90 … +40°** |
+
+## The simple arm (`arm_simple.scad`)
+
+The streamlined arm pays for its section. Under the boat that is the right
+trade; on a tripod, a handlebar or a bench it is just cost. This variant spends
+the budget differently. **The joint is byte-for-byte the same** — same 3 mm grid,
+same 0.10 clearances, same trimmed knuckle, same teardrop bore, same 3.3 mm of
+prong free length — so the two chain with each other and with real GoPro
+hardware without a thought.
+
+### The body
+
+A constant slab **exactly as tall as the knuckle** (12.803 mm). That one choice
+removes the chord ramp entirely: the top face is a single flat plane from knuckle
+to knuckle and the loft only has to flare the *width*, 15.9 → 8.9 mm.
+
+Edges are smoothed but the section is **not an ellipse** — that is what the
+streamlined arm is for, and an ellipse is unprintable here anyway:
+
+- bottom edges: **45° chamfer**, 1.5 mm. Not a fillet — a fillet turns down
+  through vertical as it approaches the bed and overhangs. The chamfer sits
+  exactly on the 45° budget the rest of the part already spends.
+- top edges: **r2.5 rounding**, leaving a 3.9 mm flat on top. Upward-facing, so
+  it costs nothing.
+- **72 % of the section height is a dead-straight vertical flank.** `verify.py`
+  measures that fraction and fails under 40 %, which is the check that encodes
+  "smoothed, not faired".
+
+Bed contact goes *up*, 772 → 878 mm² on a 100 mm arm, because a 5.9 mm chamfered
+footing is wider than the strut's 5.0 mm Kamm base.
+
+### One pocket, two jobs
+
+Both outer prongs carry a pocket, so the nut goes on **whichever side you can
+reach** and the other pocket swallows a screw head. Both parts bear on the pocket
+**floor**, which is the inboard end, so screw tension pulls each onto solid
+material rather than trying to lift it out.
+
+The pocket has to be one shape doing two jobs, and the two jobs disagree:
+
+|  | across | so the pocket needs |
+|---|---|---|
+| M5 DIN 934 nut | 8.00 flats, 9.24 corners | flats ≥ 8.0, corners ≥ 9.24 |
+| M5 DIN 912 cap head | 8.50 round | flats ≥ 8.5 |
+
+The head is *wider across its flats than the nut is*, so a pocket that swallows
+the head cannot also be a zero-slop nut trap. It is sized to the head — **8.80
+across flats** — and the nut then has some rotational play in it. How much is the
+number that matters, and it is measured off the mesh, not asserted:
+
+```
+pocket   8.80 flats -> flat at r4.400, corner at r5.081
+M5 nut   8.00 flats -> flat at r4.000, corner at r4.619
+```
+
+The nut's **corners stand outside the pocket's flats**, so it wedges after
+**24°**. That is all a nut trap has to do — hold it still while the screw is
+driven. The nut also floats ~0.4 mm sideways, which is a feature: the screw pulls
+it into line instead of fighting a pocket too tight to move.
+
+> **A button head does not fit, and the geometry says so rather than taste.**
+> ISO 7380 M5 is 9.50 across, so its pocket would need 9.80 across flats, and the
+> 45° roof peak over that flat lands at z = 13.03 against a knuckle crown of
+> 12.80 — the pocket would burst out of the top of the knuckle. `arm_simple.scad`
+> asserts on it at render time. Use a **socket cap head**. As built, the peak
+> clears by 0.56 mm and the pocket floor leaves 0.90 mm to the bed.
+
+### What to put through it
+
+Stack is 22.70 mm wide; each pocket is 5.30 deep, which swallows a 5.0 mm cap
+head flush and leaves an M5 nut 1.3 mm below the face.
+
+| | |
+|---|---|
+| **M5×16 socket cap + M5 nut** | nothing protrudes at either face — the low-profile mount |
+| M5×18 socket cap + M5 nut | 0.6 mm of thread proud of the far face |
+| M5 hex-head bolt + free nut | the bolt head is 8.0 AF, so the pocket traps *it* — drive from the nut end |
+| GoPro thumbscrew + M5 nut | as `arm.scad`, but now with a choice of side |
+
+### What it actually saves
+
+Measured off the exported meshes, so the second boss is paid for in these
+numbers, not hidden:
+
+| arm | streamlined | simple | saved |
+|---|---|---|---|
+| 50 mm | 7973 mm³ | 7305 mm³ | 8 % |
+| 75 mm | 11994 mm³ | 10029 mm³ | 16 % |
+| 100 mm | 16016 mm³ | 12754 mm³ | **20 %** |
+| 140 mm | 22450 mm³ | 17113 mm³ | **24 %** |
+
+The saving grows with length because the two bosses are a fixed cost paid at one
+end: on the 50 mm arm they eat most of it. **If you want a short arm, the
+streamlined one is barely heavier** — pick the simple one there for the screw
+arrangement, not for the mass. Print time falls further than volume does: 12.8 mm
+tall instead of 20.0 is **64 layers instead of 100**, each with a shorter
+perimeter loop, and on a nearly-solid part that is where the time goes.
+
+### What it does *not* buy
+
+**Articulation is unchanged** — identical to the streamlined arm at every angle
+tested (−100…+90 into a GoPro mount, −110…+80 arm to arm). This looks like it
+should have improved, so it is worth saying why it did not: what limits the swing
+is the full-height, full-width block between the pivot and the end of the slots,
+and that block is *identical* in both arms because the slots have to run out to
+`pocket_r` either way. The 20 mm chord was never the binding constraint; it only
+starts ramping up once it is already clear of it.
 
 ## Pipe clamp (`part="clamp"`)
 
@@ -241,9 +369,16 @@ Clear articulation in our own arm: **−110 … +90°**.
 ## Verifying
 
 ```sh
-python3 verify.py stl/gopro_arm_100mm.stl --length 100   # measures the MESH
-python3 fitcheck.py                                       # mating interference
+python3 verify.py stl/gopro_arm_100mm.stl --length 100            # measures the MESH
+python3 verify.py stl/gopro_arm_simple_100mm.stl --length 100 --simple
+python3 fitcheck.py                                               # mating interference
+python3 fitcheck.py --simple
+python3 fitcheck.py --simple --chain     # also arm-to-arm, which is slower
 ```
+
+`--simple` swaps in the slab-section and two-pocket expectations. Everything
+about the GoPro interface is checked identically either way, because it *is*
+identical — that is the claim the shared checks exist to defend.
 
 `verify_clamp.py` does the same for the clamp, and its most useful check is not
 a dimension: it computes the flange travel and resulting bore closure and fails
@@ -277,10 +412,32 @@ three ways they could pass a bad part, now fixed:
 The checks are mutation-tested: a plain round bore, a 3.50 mm slot, and a `pad`
 knuckle each fail loudly.
 
+The simple variant's checks were built the same way, because the obvious ones are
+the blind ones. Measuring "pocket is 8.80 across flats" proves nothing on its own
+— **a plain round hole of the same width passes it and lets the nut spin.** So
+the pocket check does not measure a dimension, it answers the two questions the
+pocket exists for: it sweeps the pocket's radius by ray-casting and reports how
+far a centred M5 nut can turn before its corners bind (24.0° as built; a round
+hole reads 60.0°, i.e. free), and whether the inscribed circle really admits a
+Ø8.5 cap head. The outline is convex, so testing the nut's six corners is a sound
+test of containment rather than an approximation.
+
+Six mutants, each aimed at one new claim, all caught:
+
+| mutant | caught by |
+|---|---|
+| pocket sized to the nut alone (the naive design) | cap head no longer seats |
+| pocket turned into a round hole of the same width | nut turns 60.0°, i.e. not trapped |
+| section replaced with a true ellipse | straight flank falls to 10 % (<40 %) |
+| bottom edge filleted instead of chamfered | 82.5° overhang, 157 mm² unsupported |
+| only one pocket, as `arm.scad` has | every `+Y` pocket check |
+| button head instead of a cap head | `assert` at render time — it never builds |
+
 ## Reinforcement, and where it is still weakest
 
 - outer prongs of the 3-prong end **3.40** vs 2.70 (+26 %); they carry the clamp,
-  and the nut-side one is 5.80 thick where the boss is
+  and the nut-side one is 5.80 thick where the boss is — **6.80 on both sides**
+  on the simple arm, which carries two
 - **0.80 mm fillet** at the slot floor, placed *outside* the R7.5 mating envelope
   so it never eats into the slot width the mating knuckle needs
 - the flare from the 10 mm beam to the 16 mm stack is solid

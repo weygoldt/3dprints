@@ -5,11 +5,17 @@ Interference against an exactly-nominal GoPro reference must be 0.000 mm^3
 at every angle inside the working range.  The ctrl_* test must be non-zero:
 if the control reads zero, the probe is blind and the other results mean
 nothing.
+
+  python3 fitcheck.py                 the streamlined arm (arm.scad)
+  python3 fitcheck.py --simple        the simple variant (arm_simple.scad)
+  python3 fitcheck.py --chain         also swing one of our arms against
+                                      another, which is the pairing the body
+                                      shape actually limits
 """
+import argparse
 import os
 import subprocess
 import sys
-import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from verify import load, volume            # noqa: E402
@@ -50,18 +56,36 @@ def run(test, ang, armL=100):
 
 
 def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--simple', action='store_true',
+                    help='test arm_simple.scad instead of arm.scad')
+    ap.add_argument('--chain', action='store_true',
+                    help='also swing one of our arms against another')
+    args = ap.parse_args()
     armL = 100
-    print(f"interference volume vs hinge angle   (arm L={armL}, "
+    if args.simple:
+        ctrl = 'ctrl_simple'
+        tests = ['male_in_simple', 'simple_in_female']
+        chain = 'simple_in_simple'
+    else:
+        ctrl = 'ctrl_male'
+        tests = ['male_in_ours', 'ours_in_female']
+        chain = 'arm_in_arm'
+    if args.chain:
+        tests.append(chain)
+
+    print(f"interference volume vs hinge angle   "
+          f"({'SIMPLE' if args.simple else 'streamlined'} arm, L={armL}, "
           f"ang=0 is collinear / fully extended)\n")
 
-    print("  CONTROL -- male driven 1.0 mm off-axis in Y; must be NON-zero")
-    v, _ = run('ctrl_male', 0, armL)
-    print(f"    ctrl_male   ang=  0   {v:10.4f} mm^3   "
+    print(f"  CONTROL -- male driven 1.0 mm off-axis in Y; must be NON-zero")
+    v, _ = run(ctrl, 0, armL)
+    print(f"    {ctrl:12s} ang=  0   {v:10.4f} mm^3   "
           + ("OK (probe can see collisions)" if v > 0.1 else "*** BLIND PROBE ***"))
     ctrl_ok = v > 0.1
 
     results = {}
-    for test in ('male_in_ours', 'ours_in_female'):
+    for test in tests:
         print(f"\n  {test}")
         rng = []
         for ang in range(-120, 121, 10):
