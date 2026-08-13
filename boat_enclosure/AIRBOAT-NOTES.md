@@ -451,6 +451,13 @@ bed-hugging mast band → layers shrink as they rise; verified 0 cm² true overh
 motor cross + flat pad seat intact.  KEY: `skin()` takes 3D X-Z profiles directly and lofts along Y; `method="reindex"`
 keeps the rectangles aligned (no twist); pre-generate smoothstep profiles and call `skin(profiles, slices=0)`.
 
+**Edge smoothing (follow-up):** the loft cross-sections are now **rounded rectangles** (`rprof`) with the corner radius
+easing 0→`rmax`=2.5 up the mast (sharp at the block, rounded up top) + a quarter-circle **top-edge roll-off**.  The two
+corners on the **bed-contact width edge stay sharp** (rounding a bed edge lifts it → overhang) — keeps it supportless
+(≈0.05 cm² residual, just the top roll-off).  The connector **block's exposed edges are rounded a bit** via a
+morphological OPEN (`foot_round`=1.5) of the buttress silhouette — the flat X=0 **mating face stays flat** (an open
+leaves straight edges unchanged) and the **register tongue stays crisp** (unioned after the offsets).  ~152 g.
+
 **Two-harness adversarial review (RC/FPV + additive DFM) — no blockers; fixes applied:**
 
 **Two-harness adversarial review (RC/FPV + additive DFM) — no blockers; fixes applied:**

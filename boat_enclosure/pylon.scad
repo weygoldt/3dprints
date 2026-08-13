@@ -24,6 +24,10 @@ include <common.scad>
 // =====================================================================
 module pylon_2d() {
   union() {
+    // OPEN (offset +r then -r, applied inner-first) rounds the CONVEX corners a bit -> the connector block has no super-
+    // sharp aft edges; the flat X=0 mating face stays flat (a straight edge is unchanged by an open) with only its corners
+    // eased.  The CLOSE (r then -delta) below still fillets the concave junctions.  The tongue is unioned AFTER (crisp).
+    offset(r=foot_round) offset(r=-foot_round)
     offset(r=pylon_fillet) offset(delta=-pylon_fillet) union() {
       polygon([[0,0], [base_aft,0], [pylon_root_t, pylon_rise], [0, pylon_rise]]); // full-height buttress
       translate([0, pad_y0]) square([pad_aft, pad_y1 - pad_y0]);                   // motor pad (item 1: top extended)
@@ -47,19 +51,39 @@ function smoothstep(t) = t*t*(3 - 2*t);
 function aft_at(Y) = base_aft + (pylon_root_t - base_aft)*(Y/pylon_rise);           // buttress aft face X at height Y
 function fwd_at(Y) = (!fwd_gusset || Y >= fg_y1) ? 0 : (Y <= fg_y0) ? -fg_reach     // forward (gusset) reach at height Y
                      : -fg_reach*(fg_y1 - Y)/(fg_y1 - fg_y0);
+// rounded X-Z rectangle profile at height Y with corner radius r.  FIXED point count (4 corners x MSEG+1) so skin() can
+// loft between profiles of different r -- lets the rounding EASE from ~0 at the foot (sharp, matches the frozen block) to
+// full at the pad, and roll the top edge off.  Corners = the mast's 4 long edges + the pad rim, so this rounds them all.
+MSEG = 6;
+// The two corners on the BED-CONTACT width edge stay ~sharp (rounding a bed edge would lift it off the bed -> overhang);
+// the other two round to r.  Bed side = the width edge the mast hugs: low-Z (-h) for dir<=0, high-Z (+h) for dir>0.
+function rprof(xf, xa, z0, z1, Y, r) =
+  let(w = xa-xf, h = z1-z0, cx = (xf+xa)/2, cz = (z0+z1)/2, bed_lo = motor_offset_dir <= 0,
+      rc = bed_lo ? [r, r, 0.1, 0.1] : [0.1, 0.1, r, r],                            // c0,c1 = +h (z1) ; c2,c3 = -h (z0)
+      cs = [[w/2, h/2], [-w/2, h/2], [-w/2, -h/2], [w/2, -h/2]])
+  [ for (c=[0:3]) let(rr = max(0.1, min(rc[c], w/2-0.05, h/2-0.05)),
+                      cc = [cs[c].x - sign(cs[c].x)*rr, cs[c].y - sign(cs[c].y)*rr])
+      for (k=[0:MSEG]) let(a = 90*c + 90*k/MSEG)
+        [ cc.x + cx + rr*cos(a), Y, cc.y + cz + rr*sin(a) ] ];
 module pylon_mast_loft() {
-  N = 28;
+  N = 34;  rmax = 2.5;  Mtop = 6;
   fwd0 = fwd_at(flare_y);  aft0 = aft_at(flare_y);                                  // foot cross-section at flare_y
-  profiles = [ for (i = [0:N])
-    let(t = i/N, s = smoothstep(t), Y = flare_y + (pad_y0 - flare_y)*t,
-        xf = fwd0*(1 - s), xa = aft0*(1 - s) + pad_aft*s,                           // forward -> 0 ; aft -> pad_aft
-        z0 = mast_z0*s,   z1 = pylon_width*(1 - s) + mast_z1*s)                     // width narrows to the mast band
-    [ [xf, Y, z0], [xa, Y, z0], [xa, Y, z1], [xf, Y, z1] ] ];                       // X-Z rectangle at height Y
-  skin(profiles, slices = 0, method = "reindex");
-  translate([0, pad_y0, mast_z0]) cube([pad_aft, pad_y1 - pad_y0, mast_w]);         // flat MOTOR PAD (caps the loft)
+  // MAIN loft: flare_y -> pad_y1.  The X-Z shape reaches the pad profile by pad_y0 then stays constant (flat motor
+  // seat over the bolt span); the corner radius eases 0 -> rmax by pad_y0 (sharp at the block, rounded up the mast).
+  main = [ for (i = [0:N])
+    let(Y = flare_y + (pad_y1 - flare_y)*i/N,
+        u = min(1, (Y - flare_y)/(pad_y0 - flare_y)), s = smoothstep(u),
+        xf = fwd0*(1 - s), xa = aft0*(1 - s) + pad_aft*s,
+        z0 = mast_z0*s,    z1 = pylon_width*(1 - s) + mast_z1*s,
+        r  = rmax*s)
+    rprof(xf, xa, z0, z1, Y, r) ];
+  // TOP roll-off: a quarter-circle rounds the top rim (shrink the pad profile in as it rises the last rmax).
+  top = [ for (j = [1:Mtop]) let(a = 90*j/Mtop, sh = rmax*(1 - cos(a)), Y = pad_y1 + rmax*sin(a))
+          rprof(0 + sh, pad_aft - sh, mast_z0 + sh, mast_z1 - sh, Y, rmax*cos(a)) ];
+  skin(concat(main, top), slices = 0, method = "reindex");
 }
 module pylon() color("Tan") union() {
-  intersection() { linear_extrude(pylon_width) pylon_2d();                          // FOOT (Y<=flare_y), FROZEN
+  intersection() { linear_extrude(pylon_width) pylon_2d();                          // FOOT (Y<=flare_y), FROZEN, sharp
                    translate([-100, -50, 0]) cube([300, 50 + flare_y, pylon_width]); }
   pylon_mast_loft();
 }

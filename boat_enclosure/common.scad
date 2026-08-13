@@ -415,6 +415,9 @@ pylon_gusset   = 18;    // fore-aft thickness added at the BASE (was 16; base_af
                         // an unbalanced prop.
 pylon_bolt_d   = 4.4;   // M4 CLEARANCE through the foot (the block holes take an M4 heat-set insert by
                         // default; thread/selftap fallbacks) -- the bolt threads into brass, not the foot
+foot_round     = 1.5;   // Patrick 2026-08-13: round the connector BLOCK's back-facing (exposed) edges a bit so it has no
+                        // super-sharp corners.  A morphological OPEN of the buttress silhouette -> convex corners get an r
+                        // this size; the flat X=0 mating FACE and the register tongue stay crisp (tongue unioned after).
 pylon_fillet   = 2;     // fillet radius at the mast/pad/base junctions in the fore-aft silhouette.  Was 4 -- Patrick
                         // 2026-08-13: the top/bottom rounding read as excessive, make it SUBTLE.  r2 keeps a clean
                         // eased junction without a bulbous round (doesn't touch the mounting geometry -- the motor holes
