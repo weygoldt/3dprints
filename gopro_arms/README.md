@@ -10,12 +10,16 @@ and the screw pockets, so they chain freely with each other:
 |---|---|---|
 | body | Kamm-tail strut, 20.0 mm chord | slab, 12.8 mm, chamfered + rounded |
 | for | under the boat, water flowing past it | everything else |
-| 100 mm arm | 16.0 cm³, 100 layers | **12.8 cm³, 64 layers** |
-| stack width | 18.3 mm | 22.7 mm |
-| screw | GoPro thumbscrew + captive nut, one side | nut **or** a flush M5 cap head, **either** side |
+| 100 mm arm | 16.0 cm³, 100 layers | **12.7 cm³, 64 layers** |
+| stack width | 18.3 mm | 20.7 mm |
+| nut | drop-in, one side | **press fit, either side** |
+| screw | GoPro thumbscrew | that, or an M5 cap screw on a hex key |
 | articulation | −100…+90° into a GoPro mount | identical |
+| support | none | none, **except inside the two nut pockets** |
 
-PETG · Prusa MK3S · 0.4 nozzle · 0.2 mm layers · **no support** — both of them.
+PETG · Prusa MK3S · 0.4 nozzle · 0.2 mm layers. Everything here is supportless
+by construction with exactly one exception, called out below: the simple arm's
+nut pockets have a flat roof and are meant to be printed supported.
 
 ---
 
@@ -85,15 +89,20 @@ Parts, streamlined: `gauge`, `arm50`, `arm75`, `arm100`, `arm140`, `set`,
 > failure being fixed was too *much* clearance, not too little.
 >
 > `gauge` is the streamlined one; **`sgauge`** is the simple variant's, and it
-> carries *both* pockets — print that one if you intend to use a cap screw, so
-> you find out whether your nut and your head actually drop in.
+> carries *both* pockets. Print that one to tune the **press fit** before
+> committing a plate: the nut should need a push, not a hammer, and it should
+> not drop in under its own weight. `pkt_af` in `arm_simple.scad` is the knob.
 
 Slicer notes:
 
-- **Turn support OFF explicitly.** Do not just trust the default. Nothing on this
-  part overhangs past 45°, but a stock 45–55° threshold sits right on that line,
-  and auto-support will then pack PETG into the GoPro slots — exactly the surfaces
-  that must stay clean for the joint to close.
+- **Support: off for everything except the simple arm.** Nothing on the
+  streamlined arms or the clamp overhangs past 45°, but a stock 45–55° threshold
+  sits right on that line, and auto-support will then pack PETG into the GoPro
+  slots — exactly the surfaces that must stay clean for the joint to close. So
+  turn it off explicitly there.
+  The **simple arm is the exception**: its nut pockets have a flat roof and want
+  support. Print it supported, then **dig the support out of both pockets** before
+  pressing the nut in.
 - **Use a brim.** The strut stands 20 mm tall on a 5 mm wide foot over 155 mm of
   length; that is a narrow footprint for PETG, whose shrinkage will lift the ends
   given the chance. Bed contact is ~750 mm², about a third less than the arms
@@ -149,6 +158,11 @@ slot breaks through.
 For a nyloc (DIN 985, 5.0 thick) set `nut_t = 5.0`; the boss grows to match.
 Because the nut sits at the far face, the thumbscrew needs roughly **18 mm** of
 thread under the head to engage it fully.
+
+> This pocket is a **drop-in** fit — `nut_af_clr = 0.20` — and in the hand the
+> nut rattles in it. The simple arm's is a press fit instead; see below. Set
+> `nut_af_clr = 0.00` here if you reprint these and want the same. Left as-is
+> so the arms already printed still match what is written down.
 
 ## Mount it
 
@@ -246,53 +260,56 @@ streamlined arm is for, and an ellipse is unprintable here anyway:
 Bed contact goes *up*, 772 → 878 mm² on a 100 mm arm, because a 5.9 mm chamfered
 footing is wider than the strut's 5.0 mm Kamm base.
 
-### One pocket, two jobs
+### The press-fit nut pocket, and why it is sized to the nut
 
 Both outer prongs carry a pocket, so the nut goes on **whichever side you can
-reach** and the other pocket swallows a screw head. Both parts bear on the pocket
-**floor**, which is the inboard end, so screw tension pulls each onto solid
-material rather than trying to lift it out.
+reach**. It bears on the pocket **floor**, the inboard end, so screw tension
+pulls it onto solid material rather than trying to lift it out.
 
-The pocket has to be one shape doing two jobs, and the two jobs disagree:
+The pocket is **8.00 across flats — a press fit** on an M5 DIN 934 nut, modelled
+at nominal because FDM lays a pocket down slightly undersize and that is where
+the interference comes from. Asking for interference in the model *as well*
+stacks the same tolerance twice.
 
-|  | across | so the pocket needs |
-|---|---|---|
-| M5 DIN 934 nut | 8.00 flats, 9.24 corners | flats ≥ 8.0, corners ≥ 9.24 |
-| M5 DIN 912 cap head | 8.50 round | flats ≥ 8.5 |
+This started out at 8.80, sized to swallow a barrel head flush, and that was the
+wrong trade: at 8.80 the nut has **0.80 mm of play** and rattles. The streamlined
+arm already rattles at 0.20.
 
-The head is *wider across its flats than the nut is*, so a pocket that swallows
-the head cannot also be a zero-slop nut trap. It is sized to the head — **8.80
-across flats** — and the nut then has some rotational play in it. How much is the
-number that matters, and it is measured off the mesh, not asserted:
+> **A press-fit nut and a recessed barrel head cannot share one pocket.** A DIN
+> 912 M5 head is **8.50 across — wider than the nut's 8.00 flats.** The head
+> needs 4.25 mm of clearance in *every* radial direction; a nut that will not
+> rattle needs the flats at 4.00. No single outline does both.
+>
+> Stepping the pocket does not rescue it either. Put a head counterbore at the
+> mouth and the hex deeper, and the nut still has to *pass through* that
+> counterbore to reach the hex — so the counterbore has to clear the nut's 9.24
+> across-corners, the two depths add instead of overlapping, and the stack goes
+> past 30 mm to recess 5 mm of screw head. The head stands on the face instead.
 
-```
-pocket   8.80 flats -> flat at r4.400, corner at r5.081
-M5 nut   8.00 flats -> flat at r4.000, corner at r4.619
-```
-
-The nut's **corners stand outside the pocket's flats**, so it wedges after
-**24°**. That is all a nut trap has to do — hold it still while the screw is
-driven. The nut also floats ~0.4 mm sideways, which is a feature: the screw pulls
-it into line instead of fighting a pocket too tight to move.
-
-> **A button head does not fit, and the geometry says so rather than taste.**
-> ISO 7380 M5 is 9.50 across, so its pocket would need 9.80 across flats, and the
-> 45° roof peak over that flat lands at z = 13.03 against a knuckle crown of
-> 12.80 — the pocket would burst out of the top of the knuckle. `arm_simple.scad`
-> asserts on it at render time. Use a **socket cap head**. As built, the peak
-> clears by 0.56 mm and the pocket floor leaves 0.90 mm to the bed.
+So: the head sits proud, the way a thumbscrew does. Dropping the head depth as
+well took the pocket from 5.30 to 4.30 and the **stack from 22.70 to 20.70 mm**.
+Flip `pkt_af` back to 8.80 in `arm_simple.scad` to swap the trade the other way.
 
 ### What to put through it
 
-Stack is 22.70 mm wide; each pocket is 5.30 deep, which swallows a 5.0 mm cap
-head flush and leaves an M5 nut 1.3 mm below the face.
-
 | | |
 |---|---|
-| **M5×16 socket cap + M5 nut** | nothing protrudes at either face — the low-profile mount |
-| M5×18 socket cap + M5 nut | 0.6 mm of thread proud of the far face |
-| M5 hex-head bolt + free nut | the bolt head is 8.0 AF, so the pocket traps *it* — drive from the nut end |
-| GoPro thumbscrew + M5 nut | as `arm.scad`, but now with a choice of side |
+| **M5×20 socket cap + M5 nut** | what it is built around. Head stands on the face, driven with a 4 mm key — far more torque than a thumbscrew, which is the point. Tip lands 0.7 mm *inside* the far face, so nothing protrudes. |
+| GoPro thumbscrew + M5 nut | as `arm.scad`, now with a choice of side |
+
+A hex-head bolt press-fits the pocket too — but then both ends are captive and
+nothing can be turned. Only useful against a free nut on the outside.
+
+### Support, in one place only
+
+With `pkt_peak = false` the pocket roof is a **flat ceiling 4.62 mm wide**, and
+the slicer will pack both pockets. **Dig that out before the nut goes in.** The
+verifier measures the ceiling — 39.72 mm², which is exactly the two roofs and
+nothing else — and reports 0.00 mm² of *unclassified* overhang, so the rest of
+the part is still supportless by construction.
+
+Set `pkt_peak = true` to put the self-bridging 45° peak back and the whole part
+needs no support at all, at the cost of a roof the nut cannot seat flat against.
 
 ### What it actually saves
 
@@ -301,10 +318,10 @@ numbers, not hidden:
 
 | arm | streamlined | simple | saved |
 |---|---|---|---|
-| 50 mm | 7973 mm³ | 7305 mm³ | 8 % |
-| 75 mm | 11994 mm³ | 10029 mm³ | 16 % |
-| 100 mm | 16016 mm³ | 12754 mm³ | **20 %** |
-| 140 mm | 22450 mm³ | 17113 mm³ | **24 %** |
+| 50 mm | 7973 mm³ | 7286 mm³ | 9 % |
+| 75 mm | 11994 mm³ | 10011 mm³ | 17 % |
+| 100 mm | 16016 mm³ | 12735 mm³ | **20 %** |
+| 140 mm | 22450 mm³ | 17094 mm³ | **24 %** |
 
 The saving grows with length because the two bosses are a fixed cost paid at one
 end: on the 50 mm arm they eat most of it. **If you want a short arm, the
@@ -366,6 +383,48 @@ to lie in the XY plane for the squeeze to close the split at all.
 
 Clear articulation in our own arm: **−110 … +90°**.
 
+### Serrated flanges — the joint held the pipe but not the angle
+
+First print held the pipe beautifully and the *hinge angle* still crept under
+load. The reason is structural, not a tolerance:
+
+```
+at the pivot, across Y:  prong | flange | VOID | middle prong | VOID | flange | prong
+```
+
+**A normal GoPro joint stacks solid there** — prong, finger, prong, finger,
+prong — so the screw squeezes **four** friction interfaces. This clamp cannot:
+the flange gap has to stay wider than the middle prong or the collar could never
+close, so the middle prong floats and only **two** interfaces carry load. Same
+screw force, half the holding torque — at the one joint in the chain carrying the
+whole arm and camera on the longest lever. Worse, it is self-defeating in the
+good case: on a true 12.0 pipe the collar grips after ~0.28 mm of the 0.50 mm
+travel, so ~0.22 mm of that void never closes at all. *The better your pipe fits,
+the softer the joint.*
+
+Closing that void is not the fix — the travel it would remove is exactly the
+travel that grips the pipe. So the flanges stop relying on friction instead:
+**30 radial V-grooves cut into each face**, 12° indexing, biting into the mating
+prong to hold the angle mechanically.
+
+- **Cut in, never proud.** The land stays at `fing_out` = 4.35, so insertion
+  clearance and collar travel are untouched and every number above still holds.
+- **Printability sets the depth.** A groove whose radial line runs horizontal has
+  its walls facing up and down, and a symmetric V stays inside the 45° budget
+  only while *depth ≤ half-width*. 0.32 deep on 0.70 wide puts them at 42.4°.
+- **The inner end ramps in.** A square end is a plane normal to its own radius,
+  so on the upward-pointing grooves it is a flat ceiling — 84° of overhang,
+  measured, on the first cut of this. A 1.0 mm run-in puts it at 17.8°.
+- **61 % of the face is still bearing land**, so the teeth bite without throwing
+  away the friction that was already there.
+
+The clamp remains supportless: 0.000 mm² unsupported, steepest facet 45.00°.
+
+Teeth are on the **clamp only**. The arms keep smooth slot walls, because real
+GoPro fingers are serrated at their own pitch and meshing two mismatched patterns
+seats worse than a tooth biting into a flat. Expect the clamp to emboss its
+pattern into the arm's prong face — that embossing *is* the mechanism.
+
 ## Verifying
 
 ```sh
@@ -422,16 +481,24 @@ hole reads 60.0°, i.e. free), and whether the inscribed circle really admits a
 Ø8.5 cap head. The outline is convex, so testing the nut's six corners is a sound
 test of containment rather than an approximation.
 
-Six mutants, each aimed at one new claim, all caught:
+Ten mutants, each aimed at one claim, all caught:
 
 | mutant | caught by |
 |---|---|
-| pocket sized to the nut alone (the naive design) | cap head no longer seats |
-| pocket turned into a round hole of the same width | nut turns 60.0°, i.e. not trapped |
+| pocket back to 8.80 (the head-seat size) | +0.800 on the nut, 24° of rotation — not a press fit |
+| pocket peak put back while the spec says flat | roof at 11.613 ≠ 9.303, and 0.00 mm² of ceiling to support |
+| pocket widened to a button head's 9.80 | `assert` at render time — the nut would spin |
+| pocket turned into a round hole | +1.238 on the nut, and the roof/floor move |
 | section replaced with a true ellipse | straight flank falls to 10 % (<40 %) |
 | bottom edge filleted instead of chamfered | 82.5° overhang, 157 mm² unsupported |
 | only one pocket, as `arm.scad` has | every `+Y` pocket check |
-| button head instead of a cap head | `assert` at render time — it never builds |
+| clamp flanges left smooth | groove depth 0.000, pitch 52.5° ≠ 12° |
+| clamp teeth at 24 instead of 30 | pitch 15.00° ≠ 12.00° |
+| clamp teeth cut 0.60 deep (> half-width) | 60.81° overhang, 72 mm² unsupported |
+
+That last one is the useful kind: it proves the *depth ≤ half-width* rule that
+keeps the serrations printable is a real constraint the harness enforces, not a
+comment someone can quietly ignore.
 
 ## Reinforcement, and where it is still weakest
 

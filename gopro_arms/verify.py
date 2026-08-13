@@ -55,13 +55,16 @@ TAB_TOP     = PIVOT_Z + TAB_R              # 12.803
 NUT_CORNER  = NUT_AF/math.sqrt(3)          # 4.619
 
 # ---- the SIMPLE variant (arm_simple.scad) ----------------------------
+# Its pocket is a PRESS FIT on the nut, not a seat for a screw head.  An M5
+# barrel head is 8.50 across -- wider than the nut's 8.00 flats -- so one
+# pocket cannot do both, and sized for the head the nut rattles.
 HEAD_D      = 8.50     # M5 DIN 912 socket cap head, across
 HEAD_H      = 5.00     # ... and tall
 HEAD_CLR    = 0.30
 HEAD_SEAT   = 0.30
-S_PKT_AF    = max(NUT_AF + NUT_AF_CLR, HEAD_D + HEAD_CLR)      # 8.80
-S_PKT_DEPTH = max(NUT_T + NUT_SEAT, HEAD_H + HEAD_SEAT)        # 5.30
-S_BOSS_H    = max(0.0, S_PKT_DEPTH + NUT_WALL - PRONG_OUT_T)   # 3.40 per side
+S_PKT_AF    = 8.00                                             # == NUT_AF
+S_PKT_DEPTH = NUT_T + NUT_SEAT                                 # 4.30
+S_BOSS_H    = max(0.0, S_PKT_DEPTH + NUT_WALL - PRONG_OUT_T)   # 2.40 per side
 SB_H        = TAB_TOP          # body height == knuckle height, so no chord ramp
 SB_T        = 2*W2_HALF        # 8.90 -- body width == the 2-prong stack
 SB_CHAM     = 1.50             # 45 deg bottom chamfer
@@ -75,6 +78,8 @@ PKT_R       = PKT_AF/math.sqrt(3)
 PKT_DEPTH   = NUT_DEPTH
 PKT_SIDES   = (-1,)
 PKT_HEAD_D  = None       # the screw head the pocket must also swallow
+PKT_PEAK    = True       # 45 deg self-bridging roof over the top flat
+PKT_PRESS   = False      # press fit on the nut rather than a clearance fit
 SECTION     = 'strut'
 XPROBE      = 5.0        # X to probe the 3-prong grid along Y
 
@@ -87,7 +92,7 @@ def configure(simple):
     interchangeable in a chain.
     """
     global BOSS_M, BOSS_P, PKT_AF, PKT_R, PKT_DEPTH, PKT_SIDES
-    global PKT_HEAD_D, SECTION, XPROBE
+    global PKT_HEAD_D, PKT_PEAK, PKT_PRESS, SECTION, XPROBE
     if not simple:
         return
     BOSS_M = BOSS_P = S_BOSS_H
@@ -95,11 +100,13 @@ def configure(simple):
     PKT_R = PKT_AF/math.sqrt(3)
     PKT_DEPTH = S_PKT_DEPTH
     PKT_SIDES = (-1, +1)
-    PKT_HEAD_D = HEAD_D
+    PKT_HEAD_D = None        # 8.50 head vs 8.00 flats: it cannot recess
+    PKT_PEAK = False         # flat roof, printed with support
+    PKT_PRESS = True
     SECTION = 'slab'
-    # The grid probe has to clear the pocket's across-corners radius, which on
-    # this variant is 5.081 -- x=5.0 would land INSIDE the pocket and read the
-    # 1.50 mm floor wall as the whole outer prong.
+    # The grid probe has to clear the pocket's across-corners radius (4.619
+    # here).  Land it inside the pocket and the 1.50 mm floor wall reads as
+    # the whole outer prong.
     XPROBE = 6.0
 
 
@@ -341,6 +348,7 @@ def main():
     worst_oh = 0.0
     bed = 0.0
     slot_area = 0.0
+    pkt_area = 0.0
     bad = defaultdict(float)
     bad_pts = []
     bed_area = 0.0
@@ -364,19 +372,36 @@ def main():
         yb = SLOT_W/2 + 0.05
         in_slot = ((r0 <= POCKET_R + 0.15 and abs(abs(cen[1]) - U) <= yb) or
                    (r1 <= POCKET_R + 0.15 and abs(cen[1]) <= yb))
-        if not in_slot:
+        # The screw pocket's flat roof, when it is printed with support
+        # instead of bridging itself.  Same trap as the slot roofs: an XZ
+        # radius test alone excuses an infinite cylinder in Y, so the facet
+        # also has to lie in the pocket's own Y band.
+        in_pkt = False
+        if not PKT_PEAK:
+            for side in PKT_SIDES:
+                y_out = side*(W3_HALF + (BOSS_M if side < 0 else BOSS_P))
+                lo_y, hi_y = sorted((y_out, y_out - side*PKT_DEPTH))
+                if (r0 <= PKT_R + 0.15
+                        and lo_y - 0.05 <= cen[1] <= hi_y + 0.05):
+                    in_pkt = True
+        if not in_slot and not in_pkt:
             worst_oh = max(worst_oh, ang_oh)
         if -n[2] <= lim:                  # within the 45 deg budget + faceting
             continue
         # classify: is it the roof of a slot pocket (a short bridge)?
         if in_slot:
             slot_area += a
+        elif in_pkt:
+            pkt_area += a
         else:
             bad[round(cen[0], 0)] += a
             bad_pts.append((cen, math.degrees(math.asin(min(1, -n[2]))), a))
     print(f"     steepest facet OUTSIDE the slot roofs {worst_oh:6.2f} deg from vertical")
     print(f"     bed contact area           {bed_area:8.2f} mm^2")
     print(f"     slot-roof bridging area    {slot_area:8.2f} mm^2  (spans the {SLOT_W} mm slot)")
+    if not PKT_PEAK:
+        print(f"     screw-pocket ROOF area     {pkt_area:8.2f} mm^2  "
+              f"(flat ceiling {PKT_R:.2f} mm wide -- THIS is what needs support)")
     print(f"     unclassified overhang area {sum(bad.values()):8.2f} mm^2")
     check(bed_area > 150, f"bed contact {bed_area:.1f} mm^2 is enough to hold the part down")
     check(sum(bad.values()) < 0.5,
@@ -388,6 +413,16 @@ def main():
     check(SLOT_W <= 3.5, f"slot-roof bridge span is {SLOT_W} mm (PETG bridges this)")
     check(slot_area < 40.0,
           f"excused slot-roof area {slot_area:.2f} mm^2 stays small (cap 40)")
+    if not PKT_PEAK:
+        # The pocket roof is excused because it is SUPPORTED, not because it
+        # bridges.  Cap it anyway so the exemption cannot quietly grow to
+        # cover a modelling mistake somewhere else in the pocket's Y band.
+        check(pkt_area < 60.0,
+              f"supported pocket-roof area {pkt_area:.2f} mm^2 is only the two "
+              f"ceilings it should be (cap 60)")
+        check(pkt_area > 1.0,
+              f"the pocket roof really is flat ({pkt_area:.2f} mm^2) -- with "
+              f"pkt_peak off there must BE a ceiling to support")
     check(worst_oh <= OH_ANG + FACET_TOL,
           f"steepest non-slot overhang {worst_oh:.2f} deg <= {OH_ANG} deg (+faceting)")
 
@@ -558,17 +593,22 @@ def main():
         if gz:
             lo_z, hi_z = gz[0]
             crown = TAB_TOP - hi_z
-            print(f"     Z void {lo_z:.3f} .. {hi_z:.3f}, crown above the peak {crown:.3f}")
+            print(f"     Z void {lo_z:.3f} .. {hi_z:.3f}, crown above the roof {crown:.3f}")
             check(abs(lo_z - (PIVOT_Z - PKT_AF/2)) < 0.06,
                   f"pocket {tag} bottom flat at {lo_z:.3f} == {PIVOT_Z-PKT_AF/2:.3f} "
                   f"(across flats {PKT_AF})")
-            check(hi_z >= PIVOT_Z + PKT_AF/2 + 0.5,
-                  f"pocket {tag} 45 deg peak at {hi_z:.3f} clears the top flat "
-                  f"{PIVOT_Z+PKT_AF/2:.3f} (no droop)")
+            if PKT_PEAK:
+                check(hi_z >= PIVOT_Z + PKT_AF/2 + 0.5,
+                      f"pocket {tag} 45 deg peak at {hi_z:.3f} clears the top "
+                      f"flat {PIVOT_Z+PKT_AF/2:.3f} (no droop)")
+            else:
+                check(abs(hi_z - (PIVOT_Z + PKT_AF/2)) < 0.06,
+                      f"pocket {tag} roof is FLAT at {hi_z:.3f} == "
+                      f"{PIVOT_Z+PKT_AF/2:.3f} (no peak; support carries it)")
             check(lo_z > 0.8, f"pocket {tag} leaves {lo_z:.3f} mm of material to the bed")
             check(crown >= 0.45,
-                  f"pocket {tag} peak stays {crown:.3f} mm inside the knuckle crown "
-                  f"(a fatter screw head would burst out of the top)")
+                  f"pocket {tag} roof stays {crown:.3f} mm inside the knuckle "
+                  f"crown (a wider pocket would burst out of the top)")
 
         # depth and floor wall
         if ivd:
@@ -608,14 +648,33 @@ def main():
                 if all(r_at(p + 60*j) >= NUT_CORNER for j in range(6))]
         turn = 60.0*len(fits)/len(psis)
         turns[side] = turn
-        print(f"     inscribed radius {rmin:.3f} mm  (M5 nut corner {NUT_CORNER:.3f}, "
-              f"cap head {HEAD_D/2:.3f})")
+        # Across-flats measured off the mesh, against a nominal M5 nut.
+        # Negative == interference == press fit.
+        fit = 2*rmin - NUT_AF
+        kind = ('INTERFERENCE' if fit < -0.005
+                else 'line-to-line' if fit <= 0.005 else 'clearance')
+        print(f"     across flats {2*rmin:.3f} mm -> {fit:+.3f} on a nominal "
+              f"{NUT_AF} nut ({kind})")
         print(f"     a centred M5 nut can turn {turn:.1f} deg before it wedges")
-        check(turn > 0.5, f"pocket {tag}: an M5 nut actually DROPS IN "
-                          f"(free orientation span {turn:.1f} deg > 0)")
-        check(turn < 45.0, f"pocket {tag}: the nut is TRAPPED, not just loose -- "
-                           f"it wedges after {turn:.1f} deg (a round hole would "
-                           f"read 60.0)")
+        if PKT_PRESS:
+            # A press fit is the absence of play, so the thing to measure is
+            # that there is none -- and separately that the interference is
+            # not so deep that no nut will ever go home.
+            check(fit <= 0.05,
+                  f"pocket {tag}: {fit:+.3f} on the nut is a PRESS fit, not a "
+                  f"drop-in one (<= +0.05)")
+            check(fit >= -0.25,
+                  f"pocket {tag}: {fit:+.3f} is still drivable -- more than "
+                  f"0.25 under and nothing seats it")
+            check(turn < 2.0,
+                  f"pocket {tag}: the nut has no room to turn at all "
+                  f"({turn:.1f} deg) -- that is what stops the rattle")
+        else:
+            check(turn > 0.5, f"pocket {tag}: an M5 nut actually DROPS IN "
+                              f"(free orientation span {turn:.1f} deg > 0)")
+            check(turn < 45.0, f"pocket {tag}: the nut is TRAPPED, not just "
+                               f"loose -- it wedges after {turn:.1f} deg (a "
+                               f"round hole would read 60.0)")
         if PKT_HEAD_D is not None:
             check(rmin >= PKT_HEAD_D/2 + 0.05,
                   f"pocket {tag}: an M5 socket cap head ({PKT_HEAD_D}) seats in it "

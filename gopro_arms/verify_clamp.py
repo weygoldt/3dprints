@@ -26,6 +26,13 @@ FING_T     = 2.40
 FING_OUT   = 4.35
 NECK_CLR   = 0.50
 
+SERRATE    = True
+TOOTH_N    = 30
+TOOTH_W    = 0.70
+TOOTH_D    = 0.32
+TOOTH_R0   = 4.80
+TOOTH_R1   = 11.10
+
 CL_BORE_R  = (PIPE_D + PIPE_CLR)/2      # 6.15
 COLL_R     = CL_BORE_R + WALL           # 9.15
 COLL_X     = TAB_R + COLL_R + NECK_CLR  # 17.15
@@ -137,6 +144,69 @@ def main(path):
     check(bad < 0.5, f"no unsupported overhang ({bad:.3f} mm^2)")
     check(worst <= OH_ANG + FACET_TOL, f"steepest overhang {worst:.2f} <= {OH_ANG} deg")
     check(bed > 80, f"bed contact {bed:.1f} mm^2 is enough to hold it down")
+
+    # ------------------------------------------------------------- 7
+    if SERRATE:
+        print("\n[7] flange serrations -- what stops the joint angle creeping")
+        print("     (this joint has only 2 friction interfaces where a normal")
+        print("      GoPro joint has 4, so friction alone was never going to")
+        print("      hold it -- the teeth have to index it mechanically)")
+        R = 8.0                       # inside the toothed band, in solid material
+        faces = []
+        for i in range(209):
+            a = math.radians(-38 + 0.5*i)
+            x = R*math.cos(a)
+            z = PIVOT_Z + R*math.sin(a)
+            iv = ray_intervals(near_axis(tris, 0, x), (x, -50.0, z), 1)
+            iv = [(p-50, q-50) for p, q in iv]
+            if len(iv) == 2:
+                faces.append((-38 + 0.5*i, iv[-1][1], iv[0][0]))
+        check(len(faces) > 180, f"swept the flange face at r={R} ({len(faces)} samples)")
+        if faces:
+            land = max(f[1] for f in faces)
+            floor = min(f[1] for f in faces)
+            depth = land - floor
+            print(f"     face rides between {floor:.3f} (groove) and {land:.3f} (land)")
+            check(abs(land - FING_OUT) < TOL,
+                  f"land still sits at the nominal face {land:.3f} == {FING_OUT} "
+                  f"-- teeth are cut IN, so insertion clearance is untouched")
+            check(abs(depth - TOOTH_D) < 0.06,
+                  f"groove depth {depth:.3f} == {TOOTH_D}")
+            # symmetry: the -Y flange must carry the same pattern
+            asym = max(abs(f[1] + f[2]) for f in faces)
+            check(asym < 0.06, f"both flanges carry the same teeth (worst "
+                               f"asymmetry {asym:.3f} mm)")
+            # A depth measurement alone would pass a face with ONE groove in it.
+            # Count the grooves and check the angular pitch.
+            thr = land - depth/2
+            runs = []
+            cur = []
+            for ang, yp, _ in faces:
+                if yp < thr:
+                    cur.append(ang)
+                elif cur:
+                    runs.append(sum(cur)/len(cur))
+                    cur = []
+            if cur:
+                runs.append(sum(cur)/len(cur))
+            # Bearing land measured AT the land plane.  Counting everything
+            # above half-depth instead would call the flanks of the V "land"
+            # and overstate the contact area by ~20 points.
+            land_frac = sum(1 for f in faces if f[1] >= land - 0.05)/len(faces)
+            print(f"     {len(runs)} grooves over the swept arc, "
+                  f"{100*land_frac:.0f}% of the face left as bearing land")
+            check(len(runs) >= 6, f"the face is serrated, not nicked once "
+                                  f"({len(runs)} grooves found)")
+            if len(runs) >= 2:
+                pitch = (runs[-1] - runs[0])/(len(runs) - 1)
+                print(f"     angular pitch {pitch:.2f} deg  "
+                      f"-> the angle indexes in {pitch:.0f} deg steps")
+                check(abs(pitch - 360/TOOTH_N) < 0.5,
+                      f"pitch {pitch:.2f} == {360/TOOTH_N:.2f} deg ({TOOTH_N} teeth)")
+            # Teeth that eat the whole face would trade friction for nothing.
+            check(land_frac > 0.40,
+                  f"{100*land_frac:.0f}% of the face still bears load (>40%) -- "
+                  f"the teeth bite without throwing away the friction area")
 
     print()
     if FAIL:

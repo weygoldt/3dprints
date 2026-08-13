@@ -63,6 +63,38 @@ fing_t     = 2.40;
 fing_out   = 4.35;
 neck_clr   = 0.50;    // collar's clearance past the R7.5 knuckle circle
 
+// ----------------------------------------------------------- serrations
+// WHY THIS PART NEEDS THEM AND THE ARMS DO NOT.
+// A normal GoPro joint stacks solid at the pivot -- prong, finger, prong,
+// finger, prong -- so the screw squeezes FOUR friction interfaces.  This
+// clamp cannot: the flange gap has to stay wider than the middle prong or
+// the collar could never close, so the middle prong floats and only TWO
+// interfaces carry load.  Same screw force, half the holding torque, at the
+// one joint in the chain carrying the whole arm on the longest lever.  That
+// is why the pipe grips beautifully and the angle still creeps.
+//
+// The fix cannot be to close that gap -- the travel it would remove is
+// exactly the travel that grips the pipe.  So instead of leaning harder on
+// friction, stop relying on it: radial grooves cut INTO the flange faces
+// bite into the mating prong and index the angle mechanically.
+//
+// Cut IN, never proud: the land stays at fing_out, so insertion clearance
+// and collar travel are both untouched and every number above still holds.
+//
+// PRINTABILITY SETS THE DEPTH.  A groove whose radial line runs horizontal
+// has its walls facing up and down, and a symmetric V is only within the
+// 45 deg budget while depth <= half-width.  0.32 deep on a 0.70 wide groove
+// puts them at 42.4 deg, so this stays supportless like the rest of the part.
+serrate    = true;
+tooth_n    = 30;      // -> 12 deg indexing
+tooth_w    = 0.70;    // groove width at the face
+tooth_d    = 0.32;    // depth below the land  (<= tooth_w/2, see above)
+tooth_r0   = 4.80;    // inner radius.  Inside this the angular pitch drops
+                      // under a 0.4 nozzle's reach, so leave it a plain land
+                      // -- it is also the least useful radius for torque.
+tooth_r1   = 11.10;   // outer radius, just past the arm's slot pocket (11.05)
+tooth_ramp = 1.00;    // radial run-in at the inner end (>= tooth_d, see below)
+
 // ---------------------------------------------------------------- derived
 cl_bore_r = (pipe_d + pipe_clr)/2;          // 6.15
 coll_r    = cl_bore_r + clamp_wall;         // 9.15
@@ -103,6 +135,37 @@ module pipe_bore() {
     }
 }
 
+// Groove cross-section at radius x, cut `d` deep.  rotate([90,0,90]) maps the
+// 2D (y, z) section onto the model's YZ plane, the same trick the arm's
+// station slabs use.  The V is carried on past the face so the cut stays
+// clean however the flange is trimmed around it.
+module tooth_x(x, d) {
+    k = tooth_w/(2*tooth_d);          // half-width gained per unit of depth
+    translate([x, 0, 0]) rotate([90, 0, 90])
+        linear_extrude(height = 0.01)
+            polygon([[fing_out - d,  0],
+                     [fing_out + 1,  (d + 1)*k],
+                     [fing_out + 1, -(d + 1)*k]]);
+}
+
+// One radial groove, running out along +X from the pivot.
+// The inner end RAMPS in over tooth_ramp instead of stopping square.  A square
+// end is a plane normal to its own radius, so on the grooves pointing UPWARD
+// it is a flat ceiling -- 84 deg of overhang, measured, on the first cut of
+// this.  Ramping in over 1.0 mm for 0.32 mm of depth puts it at 17.8 deg.
+module tooth_groove() {
+    hull() { tooth_x(tooth_r0, 0);              tooth_x(tooth_r0 + tooth_ramp, tooth_d); }
+    hull() { tooth_x(tooth_r0 + tooth_ramp, tooth_d); tooth_x(tooth_r1, tooth_d); }
+}
+
+module flange_teeth() {
+    if (serrate)
+        for (m = [0, 1]) mirror([0, m, 0])
+            for (i = [0 : tooth_n - 1])
+                translate([0, 0, pivot_z]) rotate([0, i*360/tooth_n, 0])
+                    tooth_groove();
+}
+
 // ---------------------------------------------------------------- the part
 module pipe_clamp() {
     difference() {
@@ -123,6 +186,7 @@ module pipe_clamp() {
         translate([-2*tab_r - 5, -split_g/2, -1])
             cube([2*tab_r + 5 + coll_x, split_g, clamp_h + 2]);
         bore(0, 6*fing_out);        // M5 teardrop, from arm.scad
+        flange_teeth();
     }
 }
 

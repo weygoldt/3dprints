@@ -36,51 +36,53 @@
 //     pocket_r either way.  The 20 mm chord never was the binding
 //     constraint; it only starts ramping up once it is already past it.
 //
-//  2. SCREW POCKETS.  A pocket in BOTH outer prongs instead of one, so the
-//     nut can go on either side and a plain machine screw can replace the
-//     knurled GoPro thumbscrew.  Each pocket does double duty:
-//       * it traps an M5 DIN 934 nut against rotation, and
-//       * it swallows an M5 DIN 912 socket cap head, giving a flush mount.
-//     Both parts bear on the pocket FLOOR, which is the inboard end, so the
-//     screw tension pulls each of them onto solid material.
+//  2. SCREW POCKETS.  A PRESS-FIT nut pocket in BOTH outer prongs instead of
+//     one, so the nut can go on whichever side you can reach and a plain
+//     machine screw can replace the knurled GoPro thumbscrew.  The nut bears
+//     on the pocket FLOOR, which is the inboard end, so screw tension pulls
+//     it onto solid material rather than trying to lift it out.
 //
 //  ------------------------------------------------------------------
-//  ONE POCKET, TWO JOBS -- the geometry that decides the screw
+//  WHY THE POCKET IS SIZED TO THE NUT AND NOT THE HEAD
 //
-//  An M5 nut is 8.00 across flats.  An M5 socket cap head is 8.50 ACROSS,
-//  which is bigger.  So a pocket that swallows the head cannot also be a
-//  zero-slop nut trap; the pocket is sized to the head and the nut gets
-//  some rotational play in it.  How much is worth writing down:
+//  It was 8.80 across flats, sized to swallow an 8.50 barrel head flush.  In
+//  the hand that is the wrong trade: the nut then has 0.80 mm of play and
+//  rattles, and the streamlined arm already rattles at 0.20.
 //
-//      pocket across flats  8.80   -> flat at r 4.400, corner at r 5.081
-//      M5 nut               8.00   -> flat at r 4.000, corner at r 4.619
+//  The two cannot be reconciled, which is worth writing down so nobody tries
+//  again.  A barrel head needs 4.25 mm of clearance in EVERY radial
+//  direction.  A nut that will not rattle needs the flats at 4.00.  No
+//  single outline satisfies both, and stepping the pocket -- head counterbore
+//  at the mouth, hex deeper -- does not rescue it either: the nut has to pass
+//  through the counterbore to reach the hex, so the counterbore has to clear
+//  the nut's 9.24 across-corners, and the depths add instead of overlapping.
+//  That lands the stack past 30 mm for a 5 mm saving in screw head height.
 //
-//  The nut's CORNERS (4.619) stand outside the pocket's flats (4.400), so
-//  the nut wedges after about +/-12 deg.  That is all a nut trap has to do:
-//  hold it still while the screw is driven.  The nut also floats ~0.4 mm
-//  laterally, which is a feature -- the screw pulls it into line instead of
-//  fighting a pocket that is too tight to move.
-//
-//  A BUTTON head (ISO 7380, 9.50 across) does NOT fit, and not by a little:
-//  its pocket would need 9.80 across flats, whose 45 deg roof peak lands at
-//  z=13.03 against a knuckle crown of 12.80 -- the pocket would break out of
-//  the top of the knuckle.  The assert below enforces that.  Socket cap.
+//  So: pocket 8.00 across flats, a press fit on the nut, and the head sits
+//  ON the face like a thumbscrew does.  Dropping the head depth as well
+//  takes the pocket from 5.30 to 4.30 and the stack from 22.70 to 20.70.
 //
 //  ------------------------------------------------------------------
 //  WHAT FITS IT
-//    M5x16 socket cap  + M5 nut     nothing protrudes at either face
-//    M5x18 socket cap  + M5 nut     0.6 mm of thread proud of the far face
-//    M5 hex-head bolt  + free nut   the bolt head is 8.0 AF, so the pocket
-//                                   traps it too -- drive it from the nut end
-//    GoPro thumbscrew  + M5 nut     as arm.scad, just with a choice of side
+//    M5x20 socket cap  + M5 nut     the pairing this is built around.  Head
+//                                   stands on the face, driven with a 4 mm
+//                                   key -- far more torque than a thumbscrew,
+//                                   which is the point.  The tip lands 0.7 mm
+//                                   inside the far face, so nothing protrudes.
+//    GoPro thumbscrew  + M5 nut     as arm.scad, now with a choice of side
+//  A hex-head bolt press-fits the pocket too, but then BOTH ends are captive
+//  and nothing can be turned -- use it only against a free nut outside.
 //
 //  ------------------------------------------------------------------
-//  STILL SUPPORTLESS.  Support material costs exactly the two things this
-//  variant exists to save, so nothing here spends the supportless budget:
-//  the pocket keeps its hex flats top-and-bottom under a 45 deg peak, the
-//  body's bottom edge is CHAMFERED at 45 deg rather than rounded (a rounded
-//  bottom edge turns down through vertical and overhangs), and the top
-//  rounding is an upward-facing surface.
+//  SUPPORT.  This is the one part of the project that wants it, and only in
+//  one place: with pkt_peak = false the pocket roof is a flat ceiling
+//  pkt_r wide, and the slicer will fill both pockets.  DIG THAT OUT BEFORE
+//  THE NUT GOES IN.  Everything else is still supportless by construction --
+//  the body's bottom edge is CHAMFERED at 45 deg rather than rounded (a
+//  rounded bottom edge turns down through vertical and overhangs), the top
+//  rounding is upward-facing, and the bore keeps its 45 deg teardrop.
+//  Setting pkt_peak = true puts the self-bridging peak back and the whole
+//  part returns to needing no support at all.
 //
 //  The bosses are the one place that stays sharp on purpose: the knuckle
 //  silhouette already leans 45 deg where it meets the bed, so a chamfer
@@ -92,34 +94,64 @@ lib = true;          // suppress arm.scad's standalone preview
 include <arm.scad>
 
 // ------------------------------------------------------- screw / pockets
-// The head the pocket is sized to swallow.  DIN 912 socket cap, M5.
-head_d     = 8.50;   // head diameter across
-head_h     = 5.00;   // head height
-head_clr   = 0.30;   // diametral clearance on the head
-head_seat  = 0.30;   // so the head sits just below flush, like the nut
+// THE ONE TRADE IN THIS PART, and it is forced by arithmetic, not taste.
+//
+// An M5 nut is 8.00 across flats.  An M5 barrel head (DIN 912 socket cap) is
+// 8.50 ACROSS -- wider than the nut is.  A single pocket cannot do both jobs:
+// the head needs 4.25 mm of clearance in EVERY radial direction, and a nut
+// that is not going to rattle needs the flats at 4.00.  There is no shape
+// that satisfies both.
+//
+//   pkt_af = 8.00   PRESS FIT on the nut.  The barrel head no longer recesses
+//                   -- it sits on the face, the way a thumbscrew does.
+//   pkt_af = 8.80   the barrel head sits flush, but the nut has 0.80 mm of
+//                   play and rattles.  (The streamlined arm rattles at 0.20.)
+//
+// Sized for the nut, because a mount that shakes loose is worse than a screw
+// head standing proud.  Flip the one number to swap the trade back.
+pkt_af    = 8.00;
+// Modelled at NOMINAL on purpose.  FDM lays pockets down a touch undersize,
+// and that is where the interference comes from -- asking for it in the model
+// as well would stack two tolerances the same way.  Tune it on `sgauge`
+// before committing a plate: raise it if the nut will not start square,
+// lower it if it drops in under its own weight.
 
-// Pocket across flats: whichever of the nut and the head needs more room.
-// nut_af/nut_af_clr/nut_t/nut_seat/nut_wall all come from arm.scad.
-pkt_af    = max(nut_af + nut_af_clr, head_d + head_clr);      // 8.80
-pkt_r     = pkt_af/sqrt(3);                                   // 5.081 circumradius
-pkt_depth = max(nut_t + nut_seat, head_h + head_seat);        // 5.30
-sboss_h   = max(0, pkt_depth + nut_wall - prong_out_t);       // 3.40 per side
+// A flat roof instead of the 45 deg peak.  The peak existed so the pocket
+// could bridge itself; printed with support it is just wasted depth, and the
+// flat roof is what a nut actually wants to seat against.
+pkt_peak  = false;
 
-sw3_half  = w3_half + sboss_h;                                // 11.35 -> 22.7 stack
+// The head, kept as a parameter so the geometry can answer for itself
+// whether it recesses rather than leaving it to a comment.
+head_d     = 8.50;   // DIN 912 socket cap, M5: across
+head_h     = 5.00;   // ... and tall
+head_clr   = 0.30;
+head_seat  = 0.30;
 
-// The 45 deg roof peak over the pocket's top flat has to stay under the
-// crown of the knuckle, and the pocket floor has to stay off the bed.
-pkt_apex  = pivot_z + pkt_af/2 + pkt_r/2;
-assert(pkt_apex <= tab_top - 0.45,
-       str("pocket roof peak breaks out of the knuckle crown (apex ", pkt_apex,
-           " vs tab_top ", tab_top, ") -- the head is too big for an R", tab_r,
-           " knuckle; a socket cap head fits, a button head does not"));
+pkt_r     = pkt_af/sqrt(3);                        // 4.619 circumradius
+pkt_seats_head = pkt_af >= head_d + head_clr;      // false at 8.00
+// No point carrying head depth in a pocket the head cannot enter.
+pkt_depth = pkt_seats_head ? max(nut_t + nut_seat, head_h + head_seat)
+                           : nut_t + nut_seat;     // 4.30
+sboss_h   = max(0, pkt_depth + nut_wall - prong_out_t);       // 2.40 per side
+
+sw3_half  = w3_half + sboss_h;                                // 10.35 -> 20.7 stack
+
+// Roof and floor both have to stay inside the knuckle.
+pkt_top   = pivot_z + pkt_af/2 + (pkt_peak ? pkt_r/2 : 0);
+assert(pkt_top <= tab_top - 0.45,
+       str("pocket roof breaks out of the knuckle crown (top ", pkt_top,
+           " vs tab_top ", tab_top, ") -- the pocket is too big for an R",
+           tab_r, " knuckle"));
 assert(pivot_z - pkt_af/2 >= 0.80,
        "pocket bottom flat leaves less than 0.80 mm of material to the bed");
-// A pocket wide enough for the head must still stop the nut turning: the
-// nut's corners have to stand outside the pocket's flats.
+// Whatever it is sized for, it must still stop the nut turning: the nut's
+// corners have to stand outside the pocket's flats.
 assert(pkt_af/2 < nut_af/sqrt(3) - 0.05,
        "pocket is so wide the M5 nut spins freely in it -- it is not a nut trap");
+// ... and not be so tight that no nut will ever enter it.
+assert(pkt_af >= nut_af - 0.25,
+       "pocket is more than 0.25 under the nut: an interference nothing seats");
 
 // -------------------------------------------------------------- the body
 // A constant slab, exactly as tall as the knuckle, so there is no chord
@@ -188,13 +220,17 @@ module sboss() {
     }
 }
 
-// Pocket outline: hex with flats TOP AND BOTTOM (a vertex up would put the
-// roof at 60 deg from vertical), plus a 45 deg peak over the top flat so
-// nothing droops into it while it bridges.
+// Pocket outline: hex with flats TOP AND BOTTOM.  That orientation is still
+// right even with support under the roof -- a vertex up would leave the nut
+// resting on two points instead of a flat.
+//   pkt_peak = true   adds the 45 deg roof peak, and the pocket bridges itself
+//   pkt_peak = false  flat roof: a pkt_r wide ceiling that needs support
 module spkt_profile2d() {
     union() {
         circle(r = pkt_r, $fn = 6);        // first vertex on +X -> flat on top
-        polygon([[-pkt_r/2, pkt_af/2], [pkt_r/2, pkt_af/2], [0, pkt_af/2 + pkt_r/2]]);
+        if (pkt_peak)
+            polygon([[-pkt_r/2, pkt_af/2], [pkt_r/2, pkt_af/2],
+                     [0, pkt_af/2 + pkt_r/2]]);
     }
 }
 
