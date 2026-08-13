@@ -93,12 +93,14 @@ module guard_hub_lightening() { }
 module guard_barrel() {
   difference() {
     union() {
-      linear_extrude(guard_flange_t) offset(r=3) offset(delta=-3) square(bp_size + 4, center=true); // front flange ~ X-bracket footprint
-      cylinder(h=guard_barrel_len, d=guard_barrel_od);                                               // standoff collar, aft to the guard
+      // rounded-square base LOFTED (BOSL2 skin) up into the round tube -- smooth aero pedestal, not a step
+      skin([ rect([guard_barrel_od, guard_barrel_od], rounding=8), circle(d=guard_barrel_od) ],
+           slices=24, z=[0, guard_loft_h], caps=true);
+      up(guard_loft_h) cylinder(h=guard_barrel_len - guard_loft_h, d=guard_barrel_od);               // tube above the loft
     }
-    translate([0,0,-1]) cylinder(h=guard_flange_t+1, d=guard_motor_bore);                            // FLANGE bore (motor); the 4 bolts sit in this ring
-    translate([0,0,guard_flange_t]) cylinder(h=guard_barrel_len, d=guard_barrel_bore);               // wide TUBE bore -> a hex key reaches the bolt heads
-    for (p = guard_mount_xy) translate([p[0],p[1],-1]) cylinder(h=guard_flange_t+2, d=guard_bolt_d); // 4x M3 (socket-head, driven down the open tube) -> pad's 24 mm square
+    translate([0,0,-1]) cylinder(h=guard_flange_t+1, d=guard_motor_bore);                            // SNUG base bore -- the 4 bolts sit in this ring
+    translate([0,0,guard_flange_t]) cylinder(h=guard_barrel_len, d=guard_barrel_bore);               // wide bore above -> the 4 clamp screws + motor pass through
+    for (p = guard_mount_xy) translate([p[0],p[1],-1]) cylinder(h=guard_flange_t+2, d=guard_bolt_d); // 4x M3 clamp-screw clearance -> pad's 24 mm square
   }
 }
 
