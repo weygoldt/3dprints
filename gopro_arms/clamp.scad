@@ -113,9 +113,15 @@ module pipe_clamp() {
         translate([coll_x, 0, 0]) pipe_bore();
         // ONE cut makes both the flange gap and the collar split, so they are
         // continuous by construction and cannot drift apart.  It runs from
-        // behind the fingers right up to the bore.
+        // behind the fingers through to the COLLAR CENTRE -- not merely to
+        // coll_x - cl_bore_r, which is the bore's near edge on the centreline
+        // ONLY.  The bore is round, so off-centre its edge sits further out
+        // (coll_x - sqrt(r^2 - y^2)), and stopping short leaves a crescent of
+        // material webbing the split shut at the corners.  Everything past the
+        // real edge is already bore, so overrunning to the centre costs
+        // nothing.
         translate([-2*tab_r - 5, -split_g/2, -1])
-            cube([2*tab_r + 5 + coll_x - cl_bore_r, split_g, clamp_h + 2]);
+            cube([2*tab_r + 5 + coll_x, split_g, clamp_h + 2]);
         bore(0, 6*fing_out);        // M5 teardrop, from arm.scad
     }
 }

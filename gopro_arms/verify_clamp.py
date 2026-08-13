@@ -91,16 +91,23 @@ def main(path):
         check(abs((ivb[0][1]-ivb[0][0]) - WALL) < 0.08, f"wall {ivb[0][1]-ivb[0][0]:.3f} == {WALL}")
 
     # ------------------------------------------------------------- 4
-    print("\n[4] the split must actually reach the bore -- else it is a solid ring")
-    ivx = ray_intervals(near_axis(tris, 1, 0.0), (-60.0, 0.0, CLAMP_H/2), 0)
-    ivx = [(a-60, b-60) for a, b in ivx]
-    print("     solid spans along X at y=0:",
-          ", ".join(f"[{a:.3f},{b:.3f}]" for a, b in ivx))
-    near_wall = [s for s in ivx if s[0] < COLL_X]
-    check(not near_wall,
-          "no material on the split centreline before the bore -- the C is open")
-    check(len(ivx) == 1 and ivx[0][0] > COLL_X,
-          "only the far wall remains on that line")
+    print("\n[4] the split must reach the bore ACROSS ITS WHOLE WIDTH")
+    print("     (the centreline alone is the one place a short cut still looks")
+    print("      open -- the bore is round, so its edge recedes off-centre)")
+    worst_web = 0.0
+    worst_y = 0.0
+    for i in range(41):
+        y = -SPLIT_G/2 + i*SPLIT_G/40
+        y = max(min(y, SPLIT_G/2 - 0.02), -SPLIT_G/2 + 0.02)
+        ivx = ray_intervals(near_axis(tris, 1, y), (-60.0, y, CLAMP_H/2), 0)
+        ivx = [(a-60, b-60) for a, b in ivx]
+        web = sum(b-a for a, b in ivx if a < COLL_X)
+        if web > worst_web:
+            worst_web, worst_y = web, y
+    print(f"     worst leftover material across the split: {worst_web:.4f} mm at y={worst_y:+.2f}")
+    check(worst_web < 0.01,
+          f"split is open at every y (worst web {worst_web:.4f} mm) -- "
+          f"anything here bridges the C shut and stops it flexing")
 
     # ------------------------------------------------------------- 5
     print("\n[5] collar must clear the mating knuckle's R7.5 sweep")
