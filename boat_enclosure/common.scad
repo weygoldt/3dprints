@@ -312,7 +312,7 @@ bp_screw_d     = 3.4;   // STANDARD (snug) M3 clearance -- NOT widened.  A motor
                         // trade wobble in one axis for slide in the other -- worse for vibration; measure + tight.
 bp_edge        = 5;     // pad material beyond the bolt centres (keeps >=3 mm wall at the M3s)
 motor_pad_t    = 5;     // pad thickness aft of the mast (>=5)
-motor_body_d   = 28;    // motor can diameter (MEASURED off Motor.stl; pad + ghost sizing)
+motor_body_d   = 28;    // motor can diameter (nominal A2212; pad + ghost sizing -- the Motor.stl phantom is illustrative)
 // Item 1 (2026-08-06): with pylon_fillet raised to 6 the pad-top round SWALLOWED the top motor "+"
 // screw (at pylon_rise + bp_bolt/2) -- the head/plate landed on the curve.  Extend the pad UPWARD by
 // pad_top_pad so a full FLAT seat sits above that screw before the round begins.  Only the top grows
@@ -327,26 +327,26 @@ pad_top_pad    = 6;     // extra flat above the top "+" screw (>= pylon_fillet +
 //  bolting on the same 4 M3 threads and carrying the central boss recess so the motor's four
 //  screw pads bear FLAT while its boss / shaft-stub drops into the pocket; the motor breathes
 //  open aft (no can wrap -- drone-motor cooling).
-//  A2212 own cross MEASURED off Motor.stl (2026-08-13): holes at (+/-9.49,0) & (0,+/-7.75)
-//    -> LONG axis 19.0, SHORT axis 15.5  (Patrick's "16" ~= the real 15.5);
-//    central protrusion above the flat seat is only a ~3 mm shaft stub, 1.6 mm proud
-//    (a 10 mm recess is generous -- MEASURE your motor if it carries a fat bearing hub).
+//  A2212 own cross = LONG axis 19.0, SHORT axis 16 -- Patrick's REAL motor (2026-08-13).  The Motor.stl /
+//    BasePlate.stl in this folder are ILLUSTRATIVE ONLY (like BasePlate): do NOT read dimensions off them.
+//    The mount face is flat with a small central boss/shaft; MEASURE your motor's boss dia+protrusion and the
+//    blind hole depth before printing (a 10 mm recess clears a small boss; a fat bearing hub needs more).
 //  ONE-SIDED: the pattern shifts OUTBOARD along the pad WIDTH -> props farther apart + an L/R
 //  (mirror) pair.  The FOOT (buttress + register tongue + forward gusset + 4x M4) is FROZEN --
 //  only the pad-and-up changes, so the pylon stays bit-for-bit compatible with the housing block.
 // =====================================================================
 mount_to = "motor";       // "motor" = bolt to the A2212 cross (guard = washer) ; "plate" = legacy X-plate on the pad square
-motor_bolt_long  = 19.0;  // A2212 cross LONG axis span (MEASURED; Patrick ~19) -> assigned UP THE MAST (Y): the wider,
+motor_bolt_long  = 19.0;  // A2212 cross LONG axis span (Patrick's real motor) -> assigned UP THE MAST (Y): the wider,
                           // stiffer spread reacts the forward-thrust pitching moment (top/bottom bolt couple)
-motor_bolt_short = 15.5;  // A2212 cross SHORT axis span (MEASURED 15.5; Patrick said ~16 -- MEASURE yours) -> across the WIDTH (Z)
+motor_bolt_short = 16;    // A2212 cross SHORT axis span (Patrick's real motor, 16 -- CONFIRM yours) -> across the WIDTH (Z)
 motor_screw_d    = 3.4;   // M3 clearance for the 4 mount screws (snug -- a vibration mount wants a tight hole)
 motor_seat_t     = 5;     // THIN mount-face the screws thread through (a front-access counterbore keeps the screw short)
-motor_engage     = 4;     // thread engagement into the A2212's BLIND hole (~3-4 mm real -- MEASURE; sets screw length)
-motor_boss_d     = 10;    // central boss / shaft-stub clearance dia (STL stub ~3 mm -> generous).  CAPPED ~11 mm: the
-                          // 15.5 short-axis bolts sit at r7.75 (hole inner edge ~r6), so a bigger recess FOULS the bolts.
-                          // A real A2212 with a fat bearing hub >~11 mm dia can't be cleared by a flat washer on this
+motor_engage     = 4;     // thread engagement into the A2212's BLIND hole (~3-4 mm typical -- MEASURE; sets screw length)
+motor_boss_d     = 10;    // central boss / shaft clearance dia (assume a small boss -> generous).  CAPPED ~12 mm: the
+                          // 16 short-axis bolts sit at r8 (hole inner edge ~r6.3), so a bigger recess FOULS the bolts.
+                          // A real A2212 with a fat bearing hub >~12 mm dia can't be cleared by a flat washer on this
                           // pattern -- MEASURE; if yours has one, tell me (needs a stepped hub, not a wider bore).
-motor_boss_h     = 4;     // boss protrusion to swallow (STL shaft stub 1.6 mm; MEASURE a fat bearing hub) -- if > guard_t
+motor_boss_h     = 4;     // boss protrusion to swallow (assume ~; MEASURE a fat bearing hub) -- if > guard_t
                           // (5) a central seat relief is auto-cut in the pad; <= guard_t sits fully in the guard bore.
 motor_offset_z   = 6;     // how far the motor (hence prop) shifts OUTBOARD along the pad WIDTH (Z); 0 = centred (no L/R)
 motor_offset_dir = 1;     // +1 = OUTBOARD (pylon +Z -> body -X = the lid-HINGE side; VERIFIED in the assembly preview:
@@ -1034,7 +1034,7 @@ guard_a0       = guard_a_ctr - guard_arc/2;          // arc start / end
 guard_a1       = guard_a_ctr + guard_arc/2;
 guard_full_ring = guard_arc >= 359.9;
 guard_ring_radii = [ for (i=[1:guard_rings]) guard_hub_r + i*(guard_r_tip - guard_hub_r)/(guard_rings+1) ];
-// mount holes: "motor" = the A2212 cross (guard-local: LONG(19) along Y = up-mast, SHORT(15.5) along X = width),
+// mount holes: "motor" = the A2212 cross (guard-local: LONG(19) along Y = up-mast, SHORT(16) along X = width),
 // SYMMETRIC about the hub centre (the one-sided offset is applied where the guard is PLACED, not in its pattern);
 // "plate" = the legacy pad square.
 guard_mount_xy   = (mount_to=="motor")
@@ -1051,7 +1051,7 @@ motor_boss_reach = motor_boss_h - guard_t;                 // >0 -> a long boss 
 if (mount_to=="motor") {
   echo("=== MOTOR MOUNT (integrated: bolt to the A2212 cross; guard = washer) ===");
   echo(str("  A2212 cross: LONG ", motor_bolt_long, " up-mast (Y) x SHORT ", motor_bolt_short,
-           " across width (Z) -- MEASURED off Motor.stl (Patrick's ~16 = 15.5).  4x M3 clearance ", motor_screw_d));
+           " across width (Z) -- Patrick's REAL motor (the Motor/BasePlate STLs are ILLUSTRATIVE only).  4x M3 clearance ", motor_screw_d));
   echo(str("  one-sided OFFSET ", motor_offset_z, " mm ", motor_offset_dir>0 ? "OUTBOARD" : "INBOARD",
            " (dir ", motor_offset_dir, ": pylon +Z -> body -X = hinge/outboard side) -> motor/prop centre at width ",
            round(10*motor_zc)/10, " (pad centre ", pylon_width/2, ")",
@@ -1072,10 +1072,10 @@ if (mount_to=="motor") {
   echo(str("    ASSEMBLY: A2 STAINLESS socket cap (marine); a metal M3 washer (~7 mm) under each head (fits the ",
            motor_head_d, " bore); THREAD-LOCK; torque MODEST (not to spec -- the head embeds PLA); RE-TORQUE after the",
            " first runs (the ", motor_seat_t+guard_t, " mm PLA/PETG stack creeps under preload -- both reviews' weak link)."));
-  echo(str("  BOSS recess: guard central bore ", guard_bore_d, " (capped ~11 by the 15.5 short-axis bolts) ; ",
+  echo(str("  BOSS recess: guard central bore ", guard_bore_d, " (capped ~12 by the 16 short-axis bolts at r8) ; ",
            motor_boss_reach>0 ? str("boss ", motor_boss_h, " > guard ", guard_t, " -> a central seat relief is cut")
                               : str("boss ", motor_boss_h, " <= guard ", guard_t, " -> fully in the guard, seat flat"),
-           " ;  << MEASURE your motor's boss dia+protrusion (STL is idealised: flat + a 1.6 mm stub)"));
+           " ;  << MEASURE your motor's boss dia+protrusion (the STLs are ILLUSTRATIVE, not measured)"));
   echo(str("  << CONFIRM your A2212's 3 PHASE-WIRE exit: most exit RADIALLY at the can base (aft of the face) -> they",
            " clear the open-aft pusher.  If yours exit the MOUNT FACE, they route through the ", guard_bore_d,
            " guard bore then need a radial slot -- flag it, the guard hub can carry one."));

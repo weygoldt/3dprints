@@ -391,13 +391,14 @@ pad pattern, the guard, and the assembly phantoms; **the legacy plate design is 
 **supersedes** the "Hub matches the pad" and "4 mount holes = 24 mm square" paragraphs in the Propeller-guard
 section above — in motor mode the guard bolts the 2212 CROSS, not the pad square.
 
-**Measured off the real `Motor.stl`** (this session): A2212 mount cross = holes at (±9.49, 0) & (0, ±7.75) →
-**LONG axis 19.0 mm, SHORT axis 15.5 mm** (Patrick's "~16" = the real 15.5). Mount face is **flat**; the only
-central protrusion is a **~3 mm shaft stub, 1.6 mm proud** (so 10 mm recess is generous *for this idealised
-STL* — a real fat bearing hub must be measured). Can OD 27.75, base disc ~25.
+**A2212 mount cross (Patrick's REAL motor):** **LONG axis 19.0 mm, SHORT axis 16 mm.** The `Motor.stl` /
+`BasePlate.stl` in the folder are **ILLUSTRATIVE ONLY** — do **not** read dimensions off them (they're phantoms
+for the assembly preview). The mount face is flat with a small central boss/shaft; **measure your motor's boss
+dia + protrusion and the blind hole depth** before printing (a 10 mm recess clears a small boss; a fat bearing
+hub needs more, and the recess is capped ~12 mm by the 16 short-axis bolts anyway).
 
 **Geometry / knobs (`common.scad`, `[Motor mount MODE]`):**
-- `motor_bolt_long=19`, `motor_bolt_short=15.5` — LONG assigned **up the mast (Y)** (wider spread reacts the
+- `motor_bolt_long=19`, `motor_bolt_short=16` — LONG assigned **up the mast (Y)** (wider spread reacts the
   forward-thrust pitching couple), SHORT across the width (Z).
 - `motor_offset_z=6`, `motor_offset_dir=+1` — **one-sided OUTBOARD offset** (dir +1 = pylon +Z → body −X = the
   **lid-hinge side**; verified in the top-down preview: props swing wide). Emits an **L/R mirror pair** (print
@@ -431,9 +432,9 @@ access-bore→width edge **4.25**, top bolt→pad top **9.5**, foot-bolt cbore *
   embeds PLA), **re-torque after the first runs**.
 - **Corrosion / exposed motor base** at the waterline → stainless screws, corrosion inhibitor on the windings,
   fresh-water rinse, dab of grease/silicone in the counterbores after assembly.
-- **Boss recess is CAPPED ~11 mm** by the 15.5 short-axis bolts (a bigger central bore fouls them) — a real
+- **Boss recess is CAPPED ~12 mm** by the 16 short-axis bolts (at r8; a bigger central bore fouls them) — a real
   fat bearing hub can't be cleared by a flat washer on this pattern; `motor_boss_h`>guard_t auto-cuts a central
-  seat relief for a proud hub. **MEASURE.**
+  seat relief for a proud hub. **MEASURE (the STLs are illustrative, not measured).**
 - **DFM confirmed sound:** teardrops all apex-up, layer-load is in-plane compression (no delamination path),
   walls healthy, bearing face flat, both hands manifold, foot frozen, bed fit — **run a brim on the guard**
   (thin PETG arc extremities are the lift risk).
@@ -448,8 +449,8 @@ openscad -D 'guard_part="onpylon"' propguard.scad          # fit: guard-washer +
 ```
 
 **Confirm before printing (motor mode):**
-1. **Your A2212's real numbers** — the cross span (15.5 vs 16 short axis), the **blind hole depth Hd** (sets
-   screw length — round DOWN), and the **central boss dia + protrusion** (the recess is capped ~11 mm).
+1. **Your A2212's real numbers** — short-axis span (16, confirmed), the **blind hole depth Hd** (sets
+   screw length — round DOWN), and the **central boss dia + protrusion** (the recess is capped ~12 mm).
 2. **Phase-wire exit** — most A2212s exit RADIALLY at the can base (clear of the open-aft pusher). If yours exit
    the **mount face**, they route through the 11.5 guard bore then need a radial slot in the hub — flag it.
 3. **OUTBOARD direction** — `motor_offset_dir=+1` puts the motor toward the **lid-hinge** edge (= outboard),
