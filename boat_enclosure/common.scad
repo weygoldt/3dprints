@@ -352,8 +352,8 @@ mast_w           = 31;    // SLENDER mast width -- the mast only needs to carry 
                           // from the full pylon_width (44) to a slim band.  ~30 is the floor set by the motor's OWN
                           // pattern (16 short-axis + 8 head-access bore + 2x3 walls); the FOOT stays 44 (frozen tongue
                           // + 4x M4).  The unused inboard-top slab is removed -> much less material / weight / print time.
-flare_lift       = 5;     // the width steps from full (44) down to mast_w this far ABOVE the foot (keeps the foot + the
-                          // gusset bearing-foot full-width; above it the mast is slim).
+flare_lift       = 5;     // the FROZEN foot ends this far above foot_h; above it the mast is the BOSL2 skin() loft that
+                          // smoothly tapers the wide mounting box into the slim motor pad (pylon.scad pylon_mast_loft).
 motor_offset_dir = 1;     // +1 = motor/mast on the OUTBOARD edge (prints FLIPPED so the mast lies on the bed).  -1 = the
                           // MIRROR (mast on the Z=0 bed edge, prints as-is).  Print one per hull, flip for L/R.  OUTBOARD
                           // verified in the assembly preview (props swing wide) -- name a feature, never a bare left/right.
@@ -415,10 +415,10 @@ pylon_gusset   = 18;    // fore-aft thickness added at the BASE (was 16; base_af
                         // an unbalanced prop.
 pylon_bolt_d   = 4.4;   // M4 CLEARANCE through the foot (the block holes take an M4 heat-set insert by
                         // default; thread/selftap fallbacks) -- the bolt threads into brass, not the foot
-pylon_fillet   = 4;     // smooth-transition fillet radius at the mast/pad/base junctions (item 1/3: was 6,
-                        // trimmed to 4 -- r6 rounded the mast tip/pad-top nicely but rolled the screw seats
-                        // onto the curve; r4 still smooths the peak-moment base + finishes the silhouette while
-                        // leaving flat under the pad-top screw (with pad_top_pad) and the low foot bolt).
+pylon_fillet   = 2;     // fillet radius at the mast/pad/base junctions in the fore-aft silhouette.  Was 4 -- Patrick
+                        // 2026-08-13: the top/bottom rounding read as excessive, make it SUBTLE.  r2 keeps a clean
+                        // eased junction without a bulbous round (doesn't touch the mounting geometry -- the motor holes
+                        // + flat pad seat and the foot bolts/tongue are cut separately at fixed positions).
 foot_cbore_d   = 7.5;   // M4 socket-head counterbore in the foot aft face (recesses the head)
 foot_cbore_h   = 5;     // counterbore depth
 // Item 2 -- FORWARD SLOPE / GUSSET: the mast's FORWARD face is a FULL-HEIGHT taper (mirroring the
@@ -1066,8 +1066,8 @@ if (mount_to=="motor") {
   echo("=== MOTOR MOUNT (integrated: bolt to the A2212 cross; guard = washer) ===");
   echo(str("  A2212 cross: LONG ", motor_bolt_long, " up-mast (Y) x SHORT ", motor_bolt_short,
            " across width (Z) -- Patrick's REAL motor (the Motor/BasePlate STLs are ILLUSTRATIVE only).  4x M3 clearance ", motor_screw_d));
-  echo(str("  SLENDER MAST: width ", mast_w, " (foot stays ", pylon_width, ") -> the unused inboard-top slab is removed",
-           " (~21% less material, faster print).  Motor centred at width ", round(10*motor_zc)/10,
+  echo(str("  SLENDER MAST: BOSL2 skin() loft (smoothstep) from the housing block up to the ", mast_w,
+           "-wide motor pad -- pretty smooth transition.  Motor centred at width ", round(10*motor_zc)/10,
            motor_offset_dir>0 ? " -- OUTBOARD (props swing wide; prints FLIPPED so the slim mast lies on the bed)."
                               : " -- the MIRROR variant for the other hull (prints as-is)."));
   echo(str("  print BOTH dir=+1 and dir=-1 (one per hull) -- or two of one and flip (the foot is width-symmetric).",

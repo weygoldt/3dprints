@@ -436,9 +436,20 @@ above the highest hole. **~170 g → ~134 g PLA (−21 %), and less print time**
   `pylon_root_t`, `base_aft`) are **byte-identical to origin/main**, and the Y≤34 mating solid symmetric-diffs to a
   0.00 cm³ coincident-face sliver on the (non-mating) buttress aft face. The forward face, tongue, 4× M4 pattern,
   and gusset bearing-foot are unchanged → it still bolts to the same housing block.
-- Pylon now **~134 g PLA, 43×128×44 bed, 1 shell, supportless**. `motor_head_d`=8 (metal washer) still fits: mast
-  edge walls 3.5, top-bolt→pad-top 3.0, foot-bolt cbore 4.3 — all ≥3. GOTCHA fixed during the rework: the width
-  mask's fore-aft span must cover `max(base_aft, pad_aft)` or it silently clips the buttress (the bending member).
+- Pylon **1 shell, supportless**. `motor_head_d`=8 (metal washer) still fits: mast edge walls 3.5, top-bolt→pad-top
+  3.0, foot-bolt cbore 4.3 — all ≥3. GOTCHA fixed during the rework: the width mask's fore-aft span must cover
+  `max(base_aft, pad_aft)` or it silently clips the buttress (the bending member).
+
+### Prettify (Patrick, 2026-08-13) — smooth BOSL2 skin() loft
+The hard width shoulder looked unfinished.  Reworked the mast as a **BOSL2 `skin()` loft**: a stack of X-Z
+cross-sections up the mast (Y), each interpolated foot→pad by a **smoothstep**, so the wide housing-attachment block
+flows organically into the slim motor pad (`pylon.scad` `pylon_mast_loft`).  Foot (Y≤`flare_y`) stays the frozen
+extrude; the loft runs `flare_y`→`pad_y0`; a flat cube caps it as the motor pad `pad_y0`→`pad_y1`.  Also `pylon_fillet`
+4→**2** (the top/bottom junction rounding read as excessive).  Pylon **~150 g PLA** (the smooth pedestal keeps a bit
+more material than the 134 g chamfer — worth it), **still supportless both dirs** (width only narrows toward the
+bed-hugging mast band → layers shrink as they rise; verified 0 cm² true overhang), foot still frozen (0.00 cm³ symdiff),
+motor cross + flat pad seat intact.  KEY: `skin()` takes 3D X-Z profiles directly and lofts along Y; `method="reindex"`
+keeps the rectangles aligned (no twist); pre-generate smoothstep profiles and call `skin(profiles, slices=0)`.
 
 **Two-harness adversarial review (RC/FPV + additive DFM) — no blockers; fixes applied:**
 

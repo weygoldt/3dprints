@@ -37,22 +37,32 @@ module pylon_2d() {
   }
 }
 
-// WIDTH MASK (slender-mast rework, 2026-08-13): the pylon no longer needs its FULL width up the whole mast -- the motor
-// sits on ONE side, so above the foot the section shrinks to a slim band (mast_z0..mast_z1) hugging the outboard edge.
-// This removes the big unused inboard-top slab (much less material / weight / print time).  Printed on the side (build
-// +Z), the slim mast lies on a BED face (mast_z1 for the flipped dir>0 print, or Z=0 for dir<=0), so the step is a
-// TOP-of-build surface -> SUPPORTLESS (the layers shrink as they rise past the mast; no floating overhang).
-module pylon_width_mask() {
-  // X must span the WHOLE silhouette (gusset at -fg_reach .. buttress base at base_aft) so the mask ONLY narrows the
-  // WIDTH (Z); it must NOT clip the fore-aft buttress (the bending member).
-  x0 = -fg_reach - 5;  xw = (max(base_aft, pad_aft) + 5) - x0;  y_hi = pad_y1 + 5;
-  union() {
-    translate([x0, -5, 0])       cube([xw, flare_y + 5, pylon_width]);          // full-width FOOT (Y up to flare_y)
-    translate([x0, flare_y, mast_z0]) cube([xw, y_hi - flare_y, mast_w]);       // slim MAST band (Y above flare_y)
-  }
+// SMOOTH LOFT between the housing-attachment BLOCK (foot) and the MOTOR PAD (Patrick 2026-08-13 "make it pretty").
+// BOSL2 skin() lofts a stack of X-Z cross-sections up the mast (Y), each interpolated foot->pad by a SMOOTHSTEP so
+// the wide block flows organically into the slim motor pad (no hard shoulder).  The FOOT (Y<=flare_y) stays the
+// FROZEN extrude; the loft runs flare_y -> pad_y0 and the flat motor pad caps it pad_y0 -> pad_y1.
+// STILL SUPPORTLESS on the side print: the width (Z) only NARROWS toward the mast band, which hugs a bed edge, so as
+// the build rises past the loft the layers only shrink (each a subset of the one below) -- no floating overhang.
+function smoothstep(t) = t*t*(3 - 2*t);
+function aft_at(Y) = base_aft + (pylon_root_t - base_aft)*(Y/pylon_rise);           // buttress aft face X at height Y
+function fwd_at(Y) = (!fwd_gusset || Y >= fg_y1) ? 0 : (Y <= fg_y0) ? -fg_reach     // forward (gusset) reach at height Y
+                     : -fg_reach*(fg_y1 - Y)/(fg_y1 - fg_y0);
+module pylon_mast_loft() {
+  N = 28;
+  fwd0 = fwd_at(flare_y);  aft0 = aft_at(flare_y);                                  // foot cross-section at flare_y
+  profiles = [ for (i = [0:N])
+    let(t = i/N, s = smoothstep(t), Y = flare_y + (pad_y0 - flare_y)*t,
+        xf = fwd0*(1 - s), xa = aft0*(1 - s) + pad_aft*s,                           // forward -> 0 ; aft -> pad_aft
+        z0 = mast_z0*s,   z1 = pylon_width*(1 - s) + mast_z1*s)                     // width narrows to the mast band
+    [ [xf, Y, z0], [xa, Y, z0], [xa, Y, z1], [xf, Y, z1] ] ];                       // X-Z rectangle at height Y
+  skin(profiles, slices = 0, method = "reindex");
+  translate([0, pad_y0, mast_z0]) cube([pad_aft, pad_y1 - pad_y0, mast_w]);         // flat MOTOR PAD (caps the loft)
 }
-module pylon() color("Tan")
-  intersection() { linear_extrude(pylon_width) pylon_2d(); pylon_width_mask(); }
+module pylon() color("Tan") union() {
+  intersection() { linear_extrude(pylon_width) pylon_2d();                          // FOOT (Y<=flare_y), FROZEN
+                   translate([-100, -50, 0]) cube([300, 50 + flare_y, pylon_width]); }
+  pylon_mast_loft();
+}
 
 // teardrop clearance bore: axis +X (fore-aft, horizontal on the bed).  APEX toward up*+Z: for the AS-PRINTED pose the
 // apex must point away from the bed so the horizontal hole self-supports.  up=+1 (dir<=0, no flip) -> apex +Z.  up=-1
