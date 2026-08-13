@@ -331,9 +331,17 @@ pad's 4× M3 (`bp_pitch` square, ±`bp_axis`) + 11.5 boss bore — no new holes;
    The spoke tips **weld into the shroud's inner face** (never poke through the outer), and the shroud arc
    extends `guard_shroud_ext` past each end spoke so the full spoke backs it (no half-contact/dangling end).
 
-**Numbers (defaults):** OD 221, arc 135°, lightened hub r24 (`guard_hub_light`: 4 relief holes), 1 ring + 5
-tapered spokes, shroud r107.5–109.7 × 28→11 mm tapered × 2.2 wall. → **42 g** PETG, single manifold shell,
-**supportless** (0.21 cm² off-bed overhang; PrusaSlicer 0 cm³ support at 50°), 153×153×28 mm footprint.
+**Numbers (defaults):** OD 221, arc 135°, hub r24 **clipped to the pad footprint on the inner (+X) + down (−Y)
+sides** (`guard_hub` — round on top/outboard where the spokes flare, flat on inner/down where it meets the pad)
++ 2 relief holes, 1 ring + 5 tapered spokes, shroud r107.5–109.7 × 28→11 mm tapered × 2.2 wall. → **41 g** PETG,
+single manifold shell, **supportless** (0.21 cm² off-bed overhang; PrusaSlicer 0 cm³ support at 50°), 153×153×28 mm.
+
+**Hub matches the pad (2026-08-13, Patrick):** the round hub used to overhang the square pad and its lower edge
+protruded ~11 mm below the pad toward the sloped buttress (measured ~1 mm clearance — too tight). The hub is now
+clipped to the pad's flat face (`guard_pad_inner`=`pylon_width`/2, `guard_pad_bottom`=−(`pad_h`/2−`pylon_fillet`)),
+so it **sandwiches flush on the pad** (reads as one part) and its bottom no longer overhangs the buttress —
+**verified 0 mm³ guard∩pylon interference** (flush face only). The 4 mount holes are the **same 24 mm square as the
+pad** (both from `bp_axis` in common.scad; verified they coincide at the identical 4 points), bore 11.5, M3 clr 3.4.
 
 **Export / render** (from `boat_enclosure/`):
 ```

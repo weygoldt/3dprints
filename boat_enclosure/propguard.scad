@@ -81,10 +81,21 @@ module guard_shroud_wall_m()
     if (guard_full_ring) translate([0,0,-1]) cylinder(h=guard_shroud_h+2, r=guard_r_out+1); else guard_height_mask();
   }
 
-// hub lightening holes -- 4 in the band between the bore and the bolt circle, on the diagonals BETWEEN the 4 bolts
+// MOUNT HUB -- a rounded disc CLIPPED to the pylon PAD footprint on the INNER (+X) and DOWN (-Y) sides, so the
+// guard base sandwiches flush on the pad (same outline -> reads as one part, not two) AND its lower edge no longer
+// protrudes below the pad into the sloped buttress.  The pad face is pad_h tall x pylon_width wide, its flat bottom
+// set back pylon_fillet by the pad->mast fillet; top + OUTBOARD stay round (that's where the spokes/arc flare out).
+guard_pad_inner  = pylon_width/2;                 // guard +X of the pad's inner width edge (pylon Z=0)
+guard_pad_bottom = -(pad_h/2 - pylon_fillet);     // guard -Y of the pad's flat bottom edge (fillet-set-back)
+module guard_hub()
+  intersection() {
+    cyl(h=guard_t, r=guard_hub_r, rounding2=guard_round, rounding1=guard_front_round, anchor=BOTTOM);
+    translate([-500, guard_pad_bottom, -1]) cube([500 + guard_pad_inner, 1000, guard_t+2]);  // keep X<=inner, Y>=bottom
+  }
+// hub lightening holes -- in the round TOP + OUTBOARD band (clear of the clipped inner/down edges + the 4 bolts)
 module guard_hub_lightening()
-  for (ha = [0,90,180,270]) rotate([0,0,ha]) translate([11, 0, -1])
-    cylinder(h=guard_t+2, d=7);
+  for (ha = [90,180]) rotate([0,0,ha]) translate([10, 0, -1])
+    cylinder(h=guard_t+2, d=6);
 
 module guard_full() {
   spoke_as = guard_full_ring
@@ -92,7 +103,7 @@ module guard_full() {
     : [ for (i=[0:guard_spokes-1]) guard_a0 + (guard_a1-guard_a0)*i/(guard_spokes-1) ];
   difference() {
     union() {
-      cyl(h=guard_t, r=guard_hub_r, rounding2=guard_round, rounding1=guard_front_round, anchor=BOTTOM); // FULL mount hub (rounded top + softened intake edge)
+      guard_hub();                                                                 // mount hub (round top/outboard, clipped flush to the pad on inner + down)
       for (r = guard_ring_radii) guard_arc_bar(r, guard_bar, guard_t);              // intermediate frontal ring arcs
       for (a = spoke_as) guard_spoke(a);                                            // frontal spokes (end spokes cap the arc)
       if (guard_shroud) guard_shroud_wall_m();                                      // aft SHROUD wall (filleted foot + rounded lips)
