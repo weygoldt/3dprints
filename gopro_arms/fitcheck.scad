@@ -19,6 +19,7 @@
 //                    a collision at all
 // =====================================================================
 
+lib = true;          // suppress arm.scad's standalone preview
 include <arm.scad>
 use <clamp.scad>
 

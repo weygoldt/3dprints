@@ -49,6 +49,14 @@ sitting tangent on the bed, i.e. a knife edge. This one is cut flat by the bed.
 ./build.sh            # renders every part to stl/ and verifies each one
 ```
 
+Opening a file in the OpenSCAD GUI:
+
+- **`main.scad`** is the entry point — pick the part from the `part` dropdown in
+  the customizer.
+- `arm.scad` and `clamp.scad` now also render their own part when you open them
+  directly, so neither comes up as an empty scene any more. They are libraries
+  though, so `main.scad` is still the place to choose parts.
+
 Or one at a time:
 
 ```sh

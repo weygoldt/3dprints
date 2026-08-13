@@ -17,6 +17,7 @@
 //  most of the structural work and the part ends up nearly solid.
 // =====================================================================
 
+lib = true;          // suppress arm.scad's standalone preview
 include <arm.scad>
 use <clamp.scad>
 

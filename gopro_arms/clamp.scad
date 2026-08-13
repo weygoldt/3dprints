@@ -45,6 +45,7 @@
 //  measure it and change the one line.
 // =====================================================================
 
+lib = true;          // suppress arm.scad's standalone preview
 include <arm.scad>
 
 // ---------------------------------------------------------------- pipe
@@ -118,3 +119,9 @@ module pipe_clamp() {
         bore(0, 6*fing_out);        // M5 teardrop, from arm.scad
     }
 }
+
+// ---------------------------------------------------------------- preview
+// Render the part when this file is opened on its own.  main.scad and
+// fitcheck.scad pull it in with `use`, which imports modules but does NOT
+// execute top-level geometry, so this does not double up there.
+pipe_clamp();

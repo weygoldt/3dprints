@@ -333,3 +333,10 @@ module gauge() {
         nut_pocket();
     }
 }
+
+// ---------------------------------------------------------------- preview
+// Render an arm when this file is opened on its own.  arm.scad has to be
+// INCLUDED rather than used (its callers need its variables, not just its
+// modules), and an include pastes top-level geometry into the caller too --
+// so this is guarded.  Every file that includes arm.scad sets `lib = true`.
+if (is_undef(lib)) arm(100);
