@@ -32,9 +32,10 @@ module ghost_components() {
 
 module ghost_prop_and_motor() {
   // prop disc at TRUE diameter, aft of the stern, at hub height (clearance check).
-  // The motor is drawn schematically here ONLY when the real Motor.stl phantom
-  // is off (show_hardware); the disc is always drawn.
-  translate([0, D - pylon_rise, -H/2 - prop_z_offset]) {
+  // Placed at the real motor width offset (hull-local X = pylon_width/2 - motor_zc) so the
+  // top-down HONESTLY shows the outboard prop separation.  Schematic motor drawn if show_hardware off.
+  motor_x_hull = (mount_to=="motor") ? (pylon_width/2 - motor_zc) : 0;
+  translate([motor_x_hull, D - pylon_rise, -H/2 - prop_z_offset]) {
     if (!show_hardware) color([0.2,0.2,0.2,0.9]) translate([0,0,12])
       cylinder(h=22, d=motor_body_d, center=true);   // schematic motor, axis along Z (fore-aft)
     color([0.85,0.2,0.2,0.30])

@@ -348,11 +348,15 @@ motor_boss_d     = 10;    // central boss / shaft clearance dia (assume a small 
                           // pattern -- MEASURE; if yours has one, tell me (needs a stepped hub, not a wider bore).
 motor_boss_h     = 4;     // boss protrusion to swallow (assume ~; MEASURE a fat bearing hub) -- if > guard_t
                           // (5) a central seat relief is auto-cut in the pad; <= guard_t sits fully in the guard bore.
-motor_offset_z   = 6;     // how far the motor (hence prop) shifts OUTBOARD along the pad WIDTH (Z); 0 = centred (no L/R)
-motor_offset_dir = 1;     // +1 = OUTBOARD (pylon +Z -> body -X = the lid-HINGE side; VERIFIED in the assembly preview:
-                          // props swing wide, big centre gap).  -1 = inboard = the MIRROR part for the other hull.
-                          // Print BOTH (dir=+1 and dir=-1) -- one per hull.  CONFIRM the hinge is your outboard edge
-                          // before printing: name a feature, NEVER trust a bare left/right (a mirror is probe-invisible).
+mast_w           = 31;    // SLENDER mast width -- the mast only needs to carry the motor cross on ONE side, so it drops
+                          // from the full pylon_width (44) to a slim band.  ~30 is the floor set by the motor's OWN
+                          // pattern (16 short-axis + 8 head-access bore + 2x3 walls); the FOOT stays 44 (frozen tongue
+                          // + 4x M4).  The unused inboard-top slab is removed -> much less material / weight / print time.
+flare_lift       = 5;     // the width steps from full (44) down to mast_w this far ABOVE the foot (keeps the foot + the
+                          // gusset bearing-foot full-width; above it the mast is slim).
+motor_offset_dir = 1;     // +1 = motor/mast on the OUTBOARD edge (prints FLIPPED so the mast lies on the bed).  -1 = the
+                          // MIRROR (mast on the Z=0 bed edge, prints as-is).  Print one per hull, flip for L/R.  OUTBOARD
+                          // verified in the assembly preview (props swing wide) -- name a feature, never a bare left/right.
 motor_head_d     = 8.0;   // socket-cap head + hex-driver access bore dia (front-access counterbore).  8 (not 5.5) so a
                           // METAL M3 washer (DIN125 ~7 mm OD) fits UNDER the head: it spreads the clamp load and slows
                           // PLA/PETG cold-flow (the mount's real weak link -- both expert reviews flagged preload relaxation).
@@ -682,22 +686,32 @@ bp_bolt    = bp_pitch*sqrt(2);                             // across-axis / diag
 pad_h      = 2*bp_axis + 2*bp_edge;                        // pad backs the 4 X bolts + edge -- FROZEN (both modes)
 pad_aft    = pylon_root_t + motor_pad_t;                   // pylon pad aft (motor) face, fore-aft
 // motor-cross pattern on the pad face (Y = up-mast about pylon_rise, Z = width): LONG up-mast, SHORT across, one-sided.
-motor_zc   = pylon_width/2 + motor_offset_dir*motor_offset_z;   // pattern centre in the width (shifted OUTBOARD)
+// SLENDER MAST: a slim band hugging ONE width edge; the motor is centred in it and the unused inboard-top slab is removed.
+// dir>0 = the band hugs the FAR (Z=pylon_width) edge = the motor OUTBOARD (props apart); the part prints FLIPPED (oriented)
+// so that far face lies on the bed, and the teardrop bores are pre-inverted (td_up=-1) so they end up apex-up after the flip.
+// dir<=0 = the MIRROR: band on the Z=0 bed edge, prints AS-IS (td_up=+1).  Print one per hull.
+mast_z0    = (motor_offset_dir>0) ? (pylon_width - mast_w) : 0; // mast band near edge (removed slab is on the other side)
+mast_z1    = mast_z0 + mast_w;                                  // mast band far edge
+motor_zc   = (mast_z0 + mast_z1)/2;                            // motor cross centred in the slim mast band
+td_up      = (mount_to=="motor" && motor_offset_dir>0) ? -1 : 1; // teardrop apex sign: -Z pre-flip so it is +Z (up) once printed
+flare_y    = foot_h + flare_lift;                              // width steps full(44) -> mast_w here (foot stays full width)
 motor_holes = [ [ motor_bolt_long/2, 0], [-motor_bolt_long/2, 0],
                 [0,  motor_bolt_short/2], [0, -motor_bolt_short/2] ]; // [dY (up-mast), dZ (width)] from the centre
-// edge walls (motor mode): the SHORT bolt nearest a width edge + its head-access counterbore (the motor shifts toward
-// whichever edge dir points to), and the top LONG bolt vs the pad top.  The bottom runs into solid buttress (no free edge).
-motor_edge_wall  = min(pylon_width - (motor_zc + motor_bolt_short/2) - motor_head_d/2,  // to the +Z (far-from-bed) width edge
-                       (motor_zc - motor_bolt_short/2) - motor_head_d/2);               // to the Z=0 (bed) width edge
-motor_top_wall   = (pylon_rise + pad_h/2 + pad_top_pad) - (pylon_rise + motor_bolt_long/2) - motor_head_d/2; // to pad top
+// edge walls (motor mode): the SHORT bolt + head-access counterbore vs BOTH slim-mast band edges; top LONG bolt vs pad top.
+motor_edge_wall  = min(mast_z1 - (motor_zc + motor_bolt_short/2) - motor_head_d/2,      // to the outboard (bed) band edge
+                       (motor_zc - motor_bolt_short/2) - mast_z0 - motor_head_d/2);     // to the inboard band edge
 pad_bolt_wall_y = pad_h/2 - bp_axis - bp_screw_d/2;        // (plate) pad edge wall at the X bolts (Y)
 pad_bolt_wall_z = pylon_width/2 - bp_axis - bp_screw_d/2;  // (plate) pad edge wall at the X bolts (Z/width)
 base_aft   = pylon_root_t + pylon_gusset;                  // buttress fore-aft thickness at the foam BASE
 foot_cbore_wall = pylon_width/2 - mm_bolt_x/2 - foot_cbore_d/2; // pylon edge wall at the foot-bolt counterbores
-// -- Item 1: pad top extends ABOVE the top "+" screw so the fillet round lands clear of the plate --
-pad_y0     = pylon_rise - pad_h/2;                         // pad bottom (merges into the buttress top)
-pad_y1     = pylon_rise + pad_h/2 + pad_top_pad;           // pad top (extended: flat seat above the fillet)
-pad_top_flat = pad_y1 - (pylon_rise + bp_axis) - pylon_fillet; // FLAT above the top X screws before the round
+// -- pad extents.  motor mode: TRIMMED to the cross + a 3 mm wall above the top bolt's head-access bore (Patrick: the old
+//    pad left "tons of space between the top and the highest hole").  plate mode: legacy (extends above the top "+" screw).
+pad_y0     = (mount_to=="motor") ? pylon_rise - (motor_bolt_long/2 + motor_head_d/2 + 3)
+                                 : pylon_rise - pad_h/2;    // pad bottom (merges into the buttress top)
+pad_y1     = (mount_to=="motor") ? pylon_rise + (motor_bolt_long/2 + motor_head_d/2 + 3)
+                                 : pylon_rise + pad_h/2 + pad_top_pad; // pad top
+pad_top_flat = pad_y1 - (pylon_rise + bp_axis) - pylon_fillet; // (plate) FLAT above the top X screws before the round
+motor_top_wall = pad_y1 - (pylon_rise + motor_bolt_long/2) - motor_head_d/2;   // (motor) top LONG bolt access-bore -> pad top
 // -- Item 3: low foot bolt now clears the base-corner fillet (counterbore bottom above the round) --
 foot_lowbolt_y   = foot_h/2 - mm_bolt_y/2;                 // local Y of the low foot bolt (up from the base)
 foot_bolt_base_clear = foot_lowbolt_y - foot_cbore_d/2 - pylon_fillet; // its cbore bottom above the base round
@@ -1027,8 +1041,8 @@ guard_r_tip    = prop_radius + guard_tip_gap;        // shroud inner / frontal r
 guard_r_out    = guard_r_tip + guard_shroud_wall;    // shroud outer radius
 guard_od       = 2*guard_r_out;                      // guard outer diameter
 guard_standoff = (mm_block_aft_z - pad_aft) - prop_disc_z;  // pad face -> prop disc; the guard aft-to-prop gap
-// arc centre from +X (90 = top; bias leans toward OUTBOARD).  In motor mode OUTBOARD = the side the motor is offset
-// toward, so the lean sign follows motor_offset_dir (guard-local +X <-> pylon -Z ; see the assembly transform).
+// arc centre from +X (90 = top; bias leans toward OUTBOARD = the side the motor sits on).  The lean follows the mast
+// side (guard-local +X <-> pylon -Z), so the sign tracks motor_offset_dir.  VERIFY by eye in the assembly.
 guard_a_ctr    = 90 + guard_arc_bias * (mount_to=="motor" ? motor_offset_dir : 1);
 guard_a0       = guard_a_ctr - guard_arc/2;          // arc start / end
 guard_a1       = guard_a_ctr + guard_arc/2;
@@ -1052,17 +1066,17 @@ if (mount_to=="motor") {
   echo("=== MOTOR MOUNT (integrated: bolt to the A2212 cross; guard = washer) ===");
   echo(str("  A2212 cross: LONG ", motor_bolt_long, " up-mast (Y) x SHORT ", motor_bolt_short,
            " across width (Z) -- Patrick's REAL motor (the Motor/BasePlate STLs are ILLUSTRATIVE only).  4x M3 clearance ", motor_screw_d));
-  echo(str("  one-sided OFFSET ", motor_offset_z, " mm ", motor_offset_dir>0 ? "OUTBOARD" : "INBOARD",
-           " (dir ", motor_offset_dir, ": pylon +Z -> body -X = hinge/outboard side) -> motor/prop centre at width ",
-           round(10*motor_zc)/10, " (pad centre ", pylon_width/2, ")",
-           motor_offset_dir>0 ? " -- props swing WIDE (verified in preview)"
-                              : " -- INBOARD mirror part (props CLOSER; print for the OTHER hull)",
-           " ; CONFIRM the hinge is your outboard edge, don't trust bare L/R"));
-  echo(str("  pad face ", round(10*pad_h)/10, "(Y) x ", pylon_width, "(Z) -- FROZEN pad solid (= plate mode); the ",
-           motor_bolt_long, " up-mast cross fits inside with room; only the mount HOLES change vs origin/main"));
-  echo(str("  edge walls: outboard bolt access-bore -> width edge ", round(100*motor_edge_wall)/100,
-           " (need >=3) ", motor_edge_wall>=3 ? "OK" : "<< reduce motor_offset_z", " ; top bolt -> pad top ",
-           round(100*motor_top_wall)/100, " ", motor_top_wall>=3 ? "OK" : "<< grow pad_top_pad"));
+  echo(str("  SLENDER MAST: width ", mast_w, " (foot stays ", pylon_width, ") -> the unused inboard-top slab is removed",
+           " (~21% less material, faster print).  Motor centred at width ", round(10*motor_zc)/10,
+           motor_offset_dir>0 ? " -- OUTBOARD (props swing wide; prints FLIPPED so the slim mast lies on the bed)."
+                              : " -- the MIRROR variant for the other hull (prints as-is)."));
+  echo(str("  print BOTH dir=+1 and dir=-1 (one per hull) -- or two of one and flip (the foot is width-symmetric).",
+           " CONFIRM outboard by eye in the assembly; a mirror is probe-invisible."));
+  echo(str("  pad face ", round(10*(pad_y1-pad_y0))/10, "(Y) x ", mast_w, "(Z) -- TRIMMED to the ", motor_bolt_long,
+           " cross + walls (was the full ", pylon_width, " slab); pad top cut to +3 above the highest hole."));
+  echo(str("  edge walls: bolt access-bore -> mast edge ", round(100*motor_edge_wall)/100,
+           " (need >=3) ", motor_edge_wall>=3 ? "OK" : "<< grow mast_w", " ; top bolt -> pad top ",
+           round(100*motor_top_wall)/100, " ", motor_top_wall>=3 ? "OK" : "<< raise the pad top"));
   echo(str("  SCREW LENGTH: seat ", motor_seat_t, " + guard ", guard_t, " = ", motor_seat_t+guard_t,
            " mm of CLEARANCE before the motor face; the blind A2212 hole is only ~3-4 mm deep."));
   echo(str("    -> M3 x ", motor_screw_len, " mm is the MAX (", motor_seat_t+guard_t, " + ", motor_engage,
@@ -1145,7 +1159,12 @@ module oriented(p) {
   if (!print_ready) children();
   else if (p=="body") translate([0,0,D]) rotate([-90,0,0]) children();   // floor down
   else if (p=="lid")  translate([0,0,lid_t]) rotate([90,0,0]) children(); // outer face down
-  else if (p=="pylon") children();  // modeled flat already (Z=0 face on the bed)
+  // pylon: the slim mast must lie ON the bed.  dir>0 puts the band on the FAR (Z=pylon_width) edge -> flip about the
+  // fore-aft (X) axis so that face is on the bed (a PROPER rotation, not a mirror -> handedness kept; the teardrops were
+  // pre-inverted via td_up so they come out apex-UP).  dir<=0 already has the band on the Z=0 bed edge -> identity.
+  else if (p=="pylon" && mount_to=="motor" && motor_offset_dir>0)
+    translate([0, pad_y1, pylon_width]) rotate([180,0,0]) children();
+  else if (p=="pylon") children();
   else children();
 }
 

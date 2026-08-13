@@ -418,9 +418,29 @@ so `pad_y0`/`fg_y1` don't move.
 
 **Verified:** all parts manifold single-shell (`NoError`), both L and R; pylon **supportless** (0 cm² of true
 >48° off-bed overhang — the 4 front-access counterbores/clearance bores/foot bores are all teardrop apex-up);
-guard 0 overhang. Pylon ~**170 g** PLA (43×134×44 bed), guard **31 g** PETG (153×153×8). Edge walls: outboard
-access-bore→width edge **4.25**, top bolt→pad top **9.5**, foot-bolt cbore **4.3**, min wall between bores
-~4.3 — all ≥3.
+guard 0 overhang. Guard **31 g** PETG (153×153×8). (Pylon weight/size below, after the slender rework.)
+
+### Slender rework (Patrick, 2026-08-13) — the big material cut
+The constant-width slab was overkill: the motor lives on ONE side up top, so above the foot the pylon is now a
+**slim band** hugging the outboard edge; the unused inboard-top slab is gone and the pad top is trimmed to +3 mm
+above the highest hole. **~170 g → ~134 g PLA (−21 %), and less print time**, still printed on its side.
+- `mast_w` (**31**) sets the mast width vs the full `pylon_width` 44; **~30 is the FLOOR** set by the motor's own
+  pattern (16 short-axis + 8 head-access bore + 2×3 walls) — the A2212 pattern, not the design, limits how slim it
+  gets. `flare_lift` keeps the foot + gusset bearing-foot full-width; above `flare_y` the section is `mast_w`.
+- **Prints supportless on its side.** The slim band hugs a BED face so the width step is a top-of-build surface
+  (the layers just shrink as they rise past the mast — no floating overhang). `dir=+1` (motor OUTBOARD) puts the
+  band on the FAR edge, so the part prints **FLIPPED** (a proper rotation in `oriented()`, not a mirror) with the
+  band on the bed; the teardrop bores are **pre-inverted** (`td_up`) so they end up apex-UP after the flip. `dir=-1`
+  (the mirror for the other hull) prints as-is. Both measured **0 cm² true overhang**.
+- **Base still frozen.** The block-mating params (`mm_bolt_x/y`, `reg_depth/reg_h`, `foot_h`, `fg_y0`, `fg_reach`,
+  `pylon_root_t`, `base_aft`) are **byte-identical to origin/main**, and the Y≤34 mating solid symmetric-diffs to a
+  0.00 cm³ coincident-face sliver on the (non-mating) buttress aft face. The forward face, tongue, 4× M4 pattern,
+  and gusset bearing-foot are unchanged → it still bolts to the same housing block.
+- Pylon now **~134 g PLA, 43×128×44 bed, 1 shell, supportless**. `motor_head_d`=8 (metal washer) still fits: mast
+  edge walls 3.5, top-bolt→pad-top 3.0, foot-bolt cbore 4.3 — all ≥3. GOTCHA fixed during the rework: the width
+  mask's fore-aft span must cover `max(base_aft, pad_aft)` or it silently clips the buttress (the bending member).
+
+**Two-harness adversarial review (RC/FPV + additive DFM) — no blockers; fixes applied:**
 
 **Two-harness adversarial review (RC/FPV + additive DFM) — no blockers; fixes applied:**
 - **Screw length rounds DOWN, not up.** Stack needs **M3×14 MAX** (seat 5 + guard 5 + ~4 engage); the blind

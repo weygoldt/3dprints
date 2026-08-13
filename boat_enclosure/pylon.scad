@@ -37,15 +37,30 @@ module pylon_2d() {
   }
 }
 
-module pylon() color("Tan") linear_extrude(pylon_width) pylon_2d();
+// WIDTH MASK (slender-mast rework, 2026-08-13): the pylon no longer needs its FULL width up the whole mast -- the motor
+// sits on ONE side, so above the foot the section shrinks to a slim band (mast_z0..mast_z1) hugging the outboard edge.
+// This removes the big unused inboard-top slab (much less material / weight / print time).  Printed on the side (build
+// +Z), the slim mast lies on a BED face (mast_z1 for the flipped dir>0 print, or Z=0 for dir<=0), so the step is a
+// TOP-of-build surface -> SUPPORTLESS (the layers shrink as they rise past the mast; no floating overhang).
+module pylon_width_mask() {
+  // X must span the WHOLE silhouette (gusset at -fg_reach .. buttress base at base_aft) so the mask ONLY narrows the
+  // WIDTH (Z); it must NOT clip the fore-aft buttress (the bending member).
+  x0 = -fg_reach - 5;  xw = (max(base_aft, pad_aft) + 5) - x0;  y_hi = pad_y1 + 5;
+  union() {
+    translate([x0, -5, 0])       cube([xw, flare_y + 5, pylon_width]);          // full-width FOOT (Y up to flare_y)
+    translate([x0, flare_y, mast_z0]) cube([xw, y_hi - flare_y, mast_w]);       // slim MAST band (Y above flare_y)
+  }
+}
+module pylon() color("Tan")
+  intersection() { linear_extrude(pylon_width) pylon_2d(); pylon_width_mask(); }
 
-// teardrop clearance bore: axis +X (fore-aft, horizontal on the bed), APEX toward
-// +Z = the pylon's print-up (Z=0 face is on the bed) so the horizontal hole
-// self-supports instead of drooping.  Drop-in for `rotate([0,90,0]) cylinder(h,d)`;
-// ctr=true centers it along X (like cylinder(center=true)).
-module td_bore(h, d, ctr=false)
+// teardrop clearance bore: axis +X (fore-aft, horizontal on the bed).  APEX toward up*+Z: for the AS-PRINTED pose the
+// apex must point away from the bed so the horizontal hole self-supports.  up=+1 (dir<=0, no flip) -> apex +Z.  up=-1
+// (dir>0, the part is flipped about X in oriented()) -> model the apex -Z so it ends up +Z (up) after the flip.
+// Drop-in for `rotate([0,90,0]) cylinder(h,d)`; ctr=true centers it along X (like cylinder(center=true)).
+module td_bore(h, d, ctr=false, up=1)
   translate([ctr ? -h/2 : 0, 0, 0])
-    rotate([90,0,0]) rotate([0,90,0]) linear_extrude(h) teardrop2d(d=d, ang=45);
+    rotate([up>0 ? 90 : -90, 0, 0]) rotate([0,90,0]) linear_extrude(h) teardrop2d(d=d, ang=45);
 
 module pylon_cut() {
   cz = pylon_width/2;
@@ -58,12 +73,12 @@ module pylon_cut() {
     seat_x = pad_aft - motor_seat_t;                                   // head-seat shoulder (faces forward)
     for (h = motor_holes) {
       hy = pylon_rise + h[0];  hz = motor_zc + h[1];
-      translate([-2, hy, hz])   td_bore(seat_x + 2, motor_head_d);     // front access + head counterbore -- TEARDROP
-      translate([seat_x, hy, hz]) td_bore(motor_seat_t + 2, motor_screw_d); // screw clearance through the seat -- TEARDROP
+      translate([-2, hy, hz])   td_bore(seat_x + 2, motor_head_d, up=td_up);     // front access + head counterbore -- TEARDROP
+      translate([seat_x, hy, hz]) td_bore(motor_seat_t + 2, motor_screw_d, up=td_up); // screw clearance through the seat -- TEARDROP
     }
     if (motor_boss_reach > 0)   // central seat relief ONLY if a long boss pokes past the guard-washer (else seat stays flat)
       translate([pad_aft - (motor_boss_reach + 1), pylon_rise, motor_zc])
-        td_bore(motor_boss_reach + 3, motor_boss_d);
+        td_bore(motor_boss_reach + 3, motor_boss_d, up=td_up);
   } else {
     // legacy: mount the metal X-plate on the pad SQUARE (holes at +/-bp_axis = the plate's outer "+" turned 45deg),
     // every hole through the whole pad -> open both sides (flat-head from the plate, nut on the forward face).
@@ -86,9 +101,9 @@ module pylon_cut() {
     bz = cz + sz*mm_bolt_x/2;
     x_aft = base_aft + (pylon_root_t - base_aft) * (by/pylon_rise);
     translate([-eps, by, bz])
-      td_bore(x_aft + 2, pylon_bolt_d);                              // clearance: mating face -> aft -- TEARDROP
+      td_bore(x_aft + 2, pylon_bolt_d, up=td_up);                    // clearance: mating face -> aft -- TEARDROP
     translate([x_aft - foot_cbore_h, by, bz])
-      td_bore(foot_cbore_h + 2, foot_cbore_d);                       // head counterbore from the aft surface -- TEARDROP
+      td_bore(foot_cbore_h + 2, foot_cbore_d, up=td_up);             // head counterbore from the aft surface -- TEARDROP
   }
   // (item 3) the pylon cable-groove is GONE: the local motor's leads route
   // through the LID gland and zip-tie to the mast, so the mast face stays solid.
