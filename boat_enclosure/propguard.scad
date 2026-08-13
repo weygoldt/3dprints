@@ -54,18 +54,37 @@ module guard_spoke(a)
     translate([guard_hub_r - 1, 0, 0])   // wide root, welds into the hub
       cyl(h=guard_t, r=guard_spoke_root/2, rounding2=min(guard_round, guard_spoke_root/2-0.01),
           rounding1=min(guard_front_round, guard_spoke_root/2-0.01), anchor=BOTTOM);
-    translate([guard_r_tip + 1, 0, 0])   // thin tip, welds into the shroud/rim
+    translate([guard_r_tip - guard_bar/2 + 0.8, 0, 0])   // tip ENDS at the shroud inner face (embeds 0.8, never pokes through the outer)
       cyl(h=guard_t, r=guard_bar/2, rounding2=min(guard_round, guard_bar/2-0.01),
           rounding1=min(guard_front_round, guard_bar/2-0.01), anchor=BOTTOM);
   }
 
-// SHROUD: an arc wall with a filleted inner FOOT (reinforces the root + adds bed contact) and rounded lips
+// SHROUD: an arc wall with a filleted inner FOOT (reinforces the root + adds bed contact) and rounded lips.
+// Built tall (h_max) then trimmed by a tilted-plane mask so the top height TAPERS from h_max at the arc middle
+// (best-supported, most protection) to h_min at the ends -- a single tilted plane gives a smooth cosine taper.
 module guard_shroud_2d() let(rr = min(guard_round, guard_shroud_wall/2 - 0.05), f = guard_shroud_foot)
   offset(r=rr) offset(delta=-rr)
     polygon([[guard_r_tip - f, 0], [guard_r_out, 0], [guard_r_out, guard_shroud_h],
              [guard_r_tip, guard_shroud_h], [guard_r_tip, f]]);
+// height-taper mask: keep z <= z0 + m*u, where u = distance in the arc-centre direction -> h peaks at the middle
+module guard_height_mask()
+  let(ext = guard_full_ring ? 0 : guard_shroud_ext,
+      ca  = cos(guard_arc/2 + ext),
+      m   = (guard_shroud_h - guard_shroud_h_min) / (guard_r_tip * (1 - ca)),
+      z0  = guard_shroud_h - m*guard_r_tip,
+      tilt = atan(m), BIG = 2000)
+  rotate([0,0,guard_a_ctr]) translate([0,0,z0]) rotate([0,-tilt,0]) translate([0,0,-BIG]) cube(2*BIG, center=true);
 module guard_shroud_wall_m()
-  rotate([0,0,guard_a0]) rotate_extrude(angle = guard_full_ring ? 360 : guard_arc, $fn=260) guard_shroud_2d();
+  intersection() {
+    rotate([0,0,guard_a0 - (guard_full_ring?0:guard_shroud_ext)])
+      rotate_extrude(angle = guard_full_ring ? 360 : guard_arc + 2*guard_shroud_ext, $fn=280) guard_shroud_2d();
+    if (guard_full_ring) translate([0,0,-1]) cylinder(h=guard_shroud_h+2, r=guard_r_out+1); else guard_height_mask();
+  }
+
+// hub lightening holes -- 4 in the band between the bore and the bolt circle, on the diagonals BETWEEN the 4 bolts
+module guard_hub_lightening()
+  for (ha = [0,90,180,270]) rotate([0,0,ha]) translate([11, 0, -1])
+    cylinder(h=guard_t+2, d=7);
 
 module guard_full() {
   spoke_as = guard_full_ring
@@ -80,6 +99,7 @@ module guard_full() {
     }
     translate([0,0,-1]) cylinder(h=guard_t+2, d=guard_bore_d);                      // central boss bore
     for (p = guard_mount_xy) translate([p[0],p[1],-1]) cylinder(h=guard_t+2, d=guard_bolt_d); // 4x M3 mount holes
+    if (guard_hub_light) guard_hub_lightening();                                    // relieve the hub disc
   }
 }
 

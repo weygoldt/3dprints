@@ -323,13 +323,17 @@ pad's 4× M3 (`bp_pitch` square, ±`bp_axis`) + 11.5 boss bore — no new holes;
 3. **ROUNDED edges** — lives in turbulent air, so no sharp corners: `guard_round` rounds aft/top edges,
    `guard_front_round` softens the frontal/intake edges, spokes are **tapered** (`guard_spoke_root` 8 →
    `guard_bar` 3, ~2.7:1) via a hull of rounded cylinders.
-4. **SHROUD** (`guard_shroud`) — a short aft cowl LIP wrapping the tips: catches things swept in from the
-   **side**, not just head-on. It's a vertical wall off the flat grille ⇒ **prints supportless**; a filleted
-   inner FOOT (`guard_shroud_foot`) spreads the root stress across layers + adds bed contact.
+4. **SHROUD** (`guard_shroud`) — an aft cowl wall wrapping the tips: catches things swept in from the **side**,
+   not just head-on. It's a vertical wall off the flat grille ⇒ **prints supportless**; a filleted inner FOOT
+   (`guard_shroud_foot`) spreads the root stress across layers + adds bed contact. Its height **TAPERS** from
+   `guard_shroud_h` (28) at the arc MIDDLE to `guard_shroud_h_min` (11) at the ends — most mass/protection
+   where the spokes best support it, least where they don't (a single tilted-plane cut → smooth cosine taper).
+   The spoke tips **weld into the shroud's inner face** (never poke through the outer), and the shroud arc
+   extends `guard_shroud_ext` past each end spoke so the full spoke backs it (no half-contact/dangling end).
 
-**Numbers (defaults):** OD 221, arc 135°, hub r24, 1 ring + 5 tapered spokes, shroud r107.5–109.7 × 28 mm
-tall × 2.2 wall. → **47 g** PETG, single manifold shell, **supportless** (0.21 cm² off-bed overhang;
-PrusaSlicer auto-support = 0 cm³ at the 50° threshold), 50 cm² bed contact, 153×153×28 mm footprint.
+**Numbers (defaults):** OD 221, arc 135°, lightened hub r24 (`guard_hub_light`: 4 relief holes), 1 ring + 5
+tapered spokes, shroud r107.5–109.7 × 28→11 mm tapered × 2.2 wall. → **42 g** PETG, single manifold shell,
+**supportless** (0.21 cm² off-bed overhang; PrusaSlicer 0 cm³ support at 50°), 153×153×28 mm footprint.
 
 **Export / render** (from `boat_enclosure/`):
 ```

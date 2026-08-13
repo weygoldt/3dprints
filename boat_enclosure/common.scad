@@ -953,11 +953,14 @@ guard_spokes      = 5;      // frontal spokes across the arc (fewer = cleaner; i
 guard_bar         = 3.0;    // frontal ring + spoke-TIP width (thin/elegant)
 guard_spoke_root  = 8;      // spoke width at the HUB -- spokes TAPER ~2.7:1 to guard_bar at the rim (reads intentional + strong root)
 guard_shroud      = true;   // the aft shroud wall (side protection; a vertical wall -> printed supportless)
-guard_shroud_h    = 28;     // shroud aft rise (Z) -- a short cowl LIP (light/elegant).  NOTE: the disc plane is guard_standoff
-                            // (34) back, so this lip stops ~6 mm short of it -- raise toward 34 if in-plane side strikes matter
+guard_shroud_h    = 28;     // shroud aft rise (Z) at the arc MIDDLE (top-outboard) -- the max; tallest where the spokes best
+                            // support it and protection matters most.  NOTE: disc plane is guard_standoff (34) back.
+guard_shroud_h_min = 11;    // shroud rise at the arc ENDS -- the min (>= guard_t so the spokes still weld to it).  The top
+                            // tapers h_max(middle) -> this(ends): most mass/protection where best supported, least where not.
 guard_shroud_wall = 2.2;    // shroud radial thickness (thinned)
 guard_shroud_foot = 2.5;    // filleted FOOT at the shroud's inner base -> spreads the root stress across layers (the reviewer's
                             // main reliability fix: a side strike loads the wall root in tension ACROSS layers) + adds bed contact
+guard_hub_light   = true;   // relieve the mount hub with lightening holes (save material/weight -- Patrick: it's a full disc)
 guard_bore_d      = bp_bore + 1.5;   // 11.5 central boss clearance (motor boss pokes forward; matches the pad)
 guard_bolt_d      = bp_screw_d;      // 3.4 M3 clearance (matches the pad -- a vibration mount wants tight holes)
 // -- derived --
@@ -971,6 +974,8 @@ guard_a1       = guard_a_ctr + guard_arc/2;
 guard_full_ring = guard_arc >= 359.9;
 guard_ring_radii = [ for (i=[1:guard_rings]) guard_hub_r + i*(guard_r_tip - guard_hub_r)/(guard_rings+1) ];
 guard_mount_xy   = [ for (sx=[-1,1], sy=[-1,1]) [sx*bp_axis, sy*bp_axis] ];  // 4 M3 -> land on the pad pattern
+guard_shroud_ext = atan((guard_bar/2) / guard_r_tip);   // extend the shroud arc this far past each end spoke so the
+                                                        // full spoke width backs it (no half-contact / dangling end spoke)
 
 // =====================================================================
 //  HELPERS  (ported)
