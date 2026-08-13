@@ -11,6 +11,8 @@
 //       section: flat trailing base, gentle taper, rounded leading edge.
 //    3. NUT.  A captive M5 hex nut in the 3-prong end, so the thumbscrew
 //       can actually be pulled up tight one-handed.
+//    4. FLEX. The slots run 3.3 mm PAST the mating knuckle, so the prongs
+//       have free length to spring on instead of hinging on their roots.
 //
 //  ------------------------------------------------------------------
 //  FRAME  (model axes -> boat axes, arm hanging UNDER the hull)
@@ -43,19 +45,22 @@
 //    * the chord ramps up as an upward-facing slope;
 //    * the pivot bore is a 45 deg teardrop, so nothing droops into it
 //      (PETG bridges worse than PLA).
-//  The only sub-45 surfaces left are the slot roofs, which bridge 3.1 mm.
+//  Since the slots now run out to r=11.05, past where the body starts to
+//  taper, there are NO sub-45 surfaces left at all -- not even the slot-roof
+//  bridges the earlier revision had.  Measured: 0.00 mm^2.
 //
 //  ------------------------------------------------------------------
-//  ARTICULATION (measured, fitcheck.py, zero-interference range)
+//  ARTICULATION (measured, fitcheck.py, contiguous zero-interference band)
 //    into a GoPro mount     -100 .. +90 deg
-//    our end into a socket   -80 .. +100 deg
-//    arm to arm              -90 .. +40 deg
+//    our end into a socket   -90 .. +100 deg
+//    arm to arm             -110 .. +80 deg
 //  The original arms were clear at EVERY angle, because their body was a
 //  15 mm slab exactly matching the knuckle diameter -- two such slabs
 //  sharing a pivot can never foul.  The nose fairing is 20 mm deep and so
-//  gives that up.  This is the deliberate cost of the streamlining; 0 deg
-//  (collinear) has wide clearance either side, which is what the arm is
-//  actually used at.
+//  gives that up.  Holding the section at knuckle height until the slots end
+//  (x = pocket_r, not tab_r) buys a lot of it back: arm-to-arm went from
+//  -90..+40 to -110..+80 for free.  0 deg (collinear) has wide clearance
+//  either side, which is what the arm is actually used at.
 // =====================================================================
 
 include <../BOSL2/std.scad>
@@ -77,6 +82,13 @@ bore_d      = 5.30;   // M5 GoPro thumbscrew clearance (measured 5.296)
 prong_out_t = 3.40;   // OUTER prong thickness, 3-prong end -- reinforcement
 joint_clr   = 0.25;   // radial clearance of the slot pocket
 root_fillet = 0.80;   // fillet where the slot floor meets the prong faces
+// Extra slot depth PAST the mating knuckle, so each prong has free length to
+// spring on.  Without it the prongs root out right where the mating part sits,
+// and every bit of the spread needed to get a camera in lands on the root
+// fillet.  Root stress goes as t/L^2, so ~2.5 mm of extra length is worth far
+// more than it costs.  Tips stay at R7.5 -- that is the standard, and our
+// 2-prong fingers have to enter a real GoPro's R7.75 pocket.
+prong_free  = 2.50;
 oh_ang      = 45;     // max overhang measured from vertical
 
 // ---------------------------------------------------------------- strut
@@ -120,6 +132,10 @@ boss_h    = nut_trap                                        // local thickening
               : 0;
 nut_r     = (nut_af + nut_af_clr)/sqrt(3);   // hex circumradius, 4.76
 
+// How far the slot pockets reach from the pivot.  Full slot width is held out
+// to tab_r + joint_clr + prong_free; only past that does the fillet close in.
+pocket_r  = tab_r + joint_clr + root_fillet + prong_free;   // 11.05
+
 // ---- knuckle style ---------------------------------------------------
 // "pad"  pivot sits one full radius up, so the knuckle circle is tangent to
 //        the bed and a flat pad is hulled under it to give the flanks a 45 deg
@@ -153,19 +169,19 @@ function strut_norm(f) =
 // Station geometry along the arm.  Additive ramps: end A, then end B.
 function st_hw(x, L) =
       w3_half
-    + (beam_t/2 - w3_half) * sstep(tab_r, tab_r + flare_len, x)
-    + (w2_half - beam_t/2) * sstep(L - tab_r - neck_len, L - tab_r, x);
+    + (beam_t/2 - w3_half) * sstep(pocket_r, pocket_r + flare_len, x)
+    + (w2_half - beam_t/2) * sstep(L - pocket_r - neck_len, L - pocket_r, x);
 
 function st_ch(x, L) =
       tab_top
-    + (beam_c - tab_top) * sstep(tab_r, tab_r + chord_len, x)
-    + (tab_top - beam_c) * sstep(L - tab_r - chord_len, L - tab_r, x);
+    + (beam_c - tab_top) * sstep(pocket_r, pocket_r + chord_len, x)
+    + (tab_top - beam_c) * sstep(L - pocket_r - chord_len, L - pocket_r, x);
 
 // 0 at both knuckles (plain rectangle, matching the knuckle prism exactly)
 // -> 1 through the middle (full strut section).
 function st_s(x, L) =
-      sstep(tab_r, tab_r + chord_len, x)
-    * (1 - sstep(L - tab_r - chord_len, L - tab_r, x));
+      sstep(pocket_r, pocket_r + chord_len, x)
+    * (1 - sstep(L - pocket_r - chord_len, L - pocket_r, x));
 
 // Closed 2D station polygon, in (y, z).  Right flank up, left flank down.
 function st_pts(x, L, n = 40) =
@@ -176,15 +192,15 @@ function st_pts(x, L, n = 40) =
     );
 
 // Transition knots.  Both end-A ramps are covered by one dense band, ditto B.
-function _tA(L) = tab_r + max(chord_len, flare_len);
-function _tB(L) = L - tab_r - max(chord_len, neck_len);
+function _tA(L) = pocket_r + max(chord_len, flare_len);
+function _tB(L) = L - pocket_r - max(chord_len, neck_len);
 
 function station_xs(L) =
     let (tA = _tA(L), tB = _tB(L))
     concat(
         [0],
-        [for (i = [0:n_station]) tab_r + i/n_station * (tA - tab_r)],
-        [for (i = [0:n_station]) tB   + i/n_station * ((L - tab_r) - tB)],
+        [for (i = [0:n_station]) pocket_r + i/n_station * (tA - pocket_r)],
+        [for (i = [0:n_station]) tB       + i/n_station * ((L - pocket_r) - tB)],
         [L]
     );
 
@@ -231,8 +247,7 @@ module beam_loft(L) {
 // and only beyond that does the fillet close in.
 module pocket(px, yc) {
     translate([px, yc, pivot_z])
-        cyl(r = tab_r + joint_clr + root_fillet, h = slot_w,
-            rounding = root_fillet, orient = BACK);
+        cyl(r = pocket_r, h = slot_w, rounding = root_fillet, orient = BACK);
 }
 
 // 45 deg teardrop bore: BOSL2 teardrop() lies along Y with its point up +Z.

@@ -22,7 +22,8 @@ BORE_D      = 5.30
 PRONG_OUT_T = 3.40
 JOINT_CLR   = 0.25
 ROOT_FILLET = 0.80
-POCKET_R    = TAB_R + JOINT_CLR + ROOT_FILLET
+PRONG_FREE  = 2.50     # extra slot depth past the mating knuckle, for flex
+POCKET_R    = TAB_R + JOINT_CLR + ROOT_FILLET + PRONG_FREE
 OH_ANG      = 45.0
 FACET_TOL   = 1.5      # deg -- the knuckle flank IS 45 deg, so faceting of the
                        # circle puts individual triangles a fraction over it
@@ -331,6 +332,34 @@ def main():
         print(f"     knuckle {name}: max radius beyond the pivot {worst:.3f} mm")
         check(worst <= TAB_R + 0.02,
               f"knuckle {name} free end inside R{TAB_R} (max {worst:.3f})")
+
+    print("\n[4c] prong free length -- how far the slots run past the mating knuckle")
+    for name, px, sgn in (("A", 0.0, +1), ("B", L, -1)):
+        # walk +x from the pivot along a slot and find where it closes up
+        yslot = U if name == "A" else 0.0
+        reach = 0.0
+        shut = 0
+        for i in range(1, 400):
+            # 0.013 offset keeps samples off exact geometric planes (x=7.500 is
+            # the knuckle's tangent plane, where a ray grazes coincident facets
+            # and returns an odd crossing count)
+            xx = px + sgn*(i*0.05 + 0.013)
+            iv = ray_intervals(near_axis(tris, 0, xx), (xx, -50.0, PIVOT_Z), 1)
+            iv = [(a-50, b-50) for a, b in iv]
+            # slot still open if no solid spans the slot centre
+            if not any(a < yslot < b for a, b in iv):
+                reach = abs(xx - px)
+                shut = 0
+            else:
+                shut += 1
+                if shut >= 3:      # ignore single-sample grazing glitches
+                    break
+        free = reach - (TAB_R + JOINT_CLR)
+        print(f"     knuckle {name}: slot runs to r={reach:.2f}, "
+              f"{free:.2f} mm past the R{TAB_R}+{JOINT_CLR} mating envelope")
+        check(free >= PRONG_FREE - 0.35,
+              f"knuckle {name} prongs have >= {PRONG_FREE} mm of free length "
+              f"to flex on (got {free:.2f})")
 
     # ---------------------------------------------------------------- 5
     if not args.gauge:

@@ -67,10 +67,10 @@ Arm names are **pivot-to-pivot** distance in mm.
 
 Slicer notes:
 
-- **Turn support OFF explicitly.** Do not just trust the default. The slot roofs
-  are legitimate 3.1 mm *bridges*, but a stock 45–55° support threshold can still
-  flag them, and auto-support will then pack PETG into the GoPro slots — exactly
-  the surfaces that must stay clean for the joint to close.
+- **Turn support OFF explicitly.** Do not just trust the default. Nothing on this
+  part overhangs past 45°, but a stock 45–55° threshold sits right on that line,
+  and auto-support will then pack PETG into the GoPro slots — exactly the surfaces
+  that must stay clean for the joint to close.
 - **Use a brim.** The strut stands 20 mm tall on a 5 mm wide foot over 155 mm of
   length; that is a narrow footprint for PETG, whose shrinkage will lift the ends
   given the chance. Bed contact is ~750 mm², about a third less than the arms
@@ -78,6 +78,30 @@ Slicer notes:
 - Bump perimeters to **4–5**. The strut is only 10 mm thick, so perimeters do
   most of the structural work and the part comes out nearly solid.
 - Flat face on the bed — that is the only orientation this is designed for.
+
+## Prong flex
+
+The slots run **3.3 mm past** the mating knuckle (`prong_free = 2.5`, pocket
+radius 11.05 vs the R7.5 + 0.25 mating envelope). Without that the prongs root
+out exactly where the mating part sits, so all the spread needed to get a camera
+in and out lands on the root fillet.
+
+Root stress in a cantilever goes as `t/L²`, so moving the root from r=8.55 out to
+r=11.05 is worth roughly **40 % less root stress** for the same spread, and makes
+the prong about **2.2× more compliant** — it springs instead of hinging. (Scaling
+argument, not FEA, but the exponent is what matters here.)
+
+The width flare starts *where the slots end* rather than at the knuckle edge, so
+the prong root sits in full-thickness 3.40 mm material instead of in the taper.
+Two things fell out of that for free:
+
+- there are now **no sub-45° surfaces anywhere** — even the slot-roof bridges the
+  previous revision had are gone (0.00 mm²), because the slots run past the point
+  where the body starts to rise;
+- arm-to-arm articulation went from −90…+40° to **−110…+80°**.
+
+Tips stay at R7.5 — that is the standard, and our 2-prong fingers have to enter a
+real GoPro's R7.75 pocket, so the length had to come from the root end.
 
 ## Captive M5 nut
 
@@ -143,8 +167,8 @@ exactly-nominal GoPro part. Range with **zero** interference:
 | pairing | clear range |
 |---|---|
 | into a GoPro mount | −100 … +90° |
-| our end into a GoPro socket | −80 … +100° |
-| arm to arm | −90 … +40° |
+| our end into a GoPro socket | −90 … +100° |
+| arm to arm | −110 … +80° |
 | *original arms, same test* | *every angle* |
 
 The originals never foul because their body is a 15 mm slab exactly matching the
