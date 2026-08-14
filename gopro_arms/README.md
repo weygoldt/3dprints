@@ -343,14 +343,15 @@ past 30 mm to recess 5 mm of screw head.
 | **M5×16 socket cap + M5 nut** | what it is built around. Head 0.30 below its face, nut 0.30 below its own, tip stopping 0.40 inside the nut pocket with 3.9 of the nut's 4.0 mm engaged — **nothing protrudes anywhere.** Driven with a 4 mm key, which is far more torque than a thumbscrew and is half the point. |
 | GoPro thumbscrew + M5 nut | as `arm.scad`; the head just sits proud |
 
-### Support, in four places
+### Support, in five places
 
 | | area (100 mm arm) | |
 |---|---|---|
 | screw pockets | 56.49 mm² | hex flat roof + the counterbore's 90° cap |
 | body bottom edges | 262.89 mm² | the r2.5 fillets, full length of the underside |
-| knuckle undersides | 156.85 mm² | the centred pivot's bill: **tangent to the bed, 90°** |
+| knuckle undersides | 127.72 mm² | the centred pivot's bill: **tangent to the bed, 90°** |
 | pivot bores | 48.80 mm² | round instead of teardropped — **inside a Ø5.3 hole** |
+| boss rims | 17.59 mm² | the r1.25 rounds, the only one bought for looks |
 | **unclassified** | **0.00 mm²** | everything else is supportless by construction |
 
 The knuckle undersides are the only one of the four that does **not** grow with
@@ -370,7 +371,8 @@ geometry and checks the measurement against it:
 | pockets | 56.49 | 56.49 |
 | fillets | 257.75 | 262.89 |
 | bores | 45.07 | 48.80 |
-| knuckle undersides | 154.31 | 156.85 |
+| knuckle undersides | 125.84 | 127.72 |
+| boss rims | 17.23 | 17.59 |
 | countersink | 0.00 | 0.00 |
 
 and the fillet prediction tracks at every length (67.95 vs 66.74 at 50 mm,
@@ -388,9 +390,46 @@ because a facet that straddles the 46.5° faceting cut is counted whole — the
 knuckle undersides land within 1.6 % because at a tangent circle the strip is a
 full quarter of arc, wide enough that the straddling facets barely register.
 
-`sb_rb = 0`, `pkt_peak = true`, `bore_round = false` and
+`sb_rb = 0`, `pkt_peak = true`, `bore_round = false`, `boss_rim_r = 0` and
 `s_pivot_z = tab_r/sqrt(2)` give the supportless part back — square bottom
-edges, a nut seating on a 45° peak, a pointed bore, a knuckle cut off at 45°.
+edges, a nut seating on a 45° peak, a pointed bore, square boss rims, a knuckle
+cut off at 45°.
+
+### The boss rims, and a reversed decision
+
+**Both bosses have an r1.25 round on their outer rim.** This file used to argue
+the opposite — that the knuckle silhouette already leans past 45° where it meets
+the bed, so rolling the rim would tip that underside further still, and *a rim
+chamfer is only free on geometry that meets the bed vertically*.
+
+That is true and it is not the point. The knuckle here is **tangent** to the
+bed: its underside leaves at 90° and is already the largest supported region on
+the part. A rim round adds **area** to a class that is already being paid for,
+and adds **no new angle**, because 90° is where that surface starts either way.
+Measured, the whole bill is **17.59 mm² across both bosses** against the
+127.72 mm² of knuckle underside it sits on the edge of — and **bed contact does
+not move at all** (575.16 mm² before and after), because a circle tangent to the
+bed contributes a *line*, not an area, so there was never any bed face there to
+lose.
+
+The shape is copied from the donor buckle, whose nut boss has exactly this
+feature. Measured off that mesh it is **R1.24, rms 6 µm over 24 points** — a
+nominal 1.25 — so `boss_rim_r = 1.25` is what both parts now use, one constant
+shared through `arm_simple.scad` so the three bosses across the two models
+cannot drift apart.
+
+`arm.scad` keeps its square rim and its STL is byte-identical across this
+change, along with the streamlined set, the streamlined gauge and the clamp.
+It is printed **without** support and cannot afford to lift the last of a boss
+off the bed; the simple arm already supports that whole underside.
+
+Checked two ways, because they catch different things. The **area** is predicted
+by integrating the rim itself — the surface swept by rolling a circle of radius
+`boss_rim_r` round the knuckle outline, counting only the part whose downward
+component beats the budget — and held to ±25%. But a **chamfer of the same width
+has almost the same area and walks straight through that band** (it did, in
+mutation testing). So the verifier also walks the boss's outer face outward in
+radius and holds it to the arc: both bosses sit on an r1.25 circle to **7 µm**.
 
 ### The centred pivot
 
@@ -784,6 +823,15 @@ above solid material where it begins and 1.06 mm above it where it ends**: two
 to five layers of air at 0.2 mm, directly over a wide flat shelf. A short
 bridge, not a cliff.
 
+**Its outer rim is rounded r1.25**, matching the donor's own nut boss on the
+other end of the same part (measured R1.24 there) and the simple arm's bosses,
+all off the one `boss_rim_r`. On this part it costs *nothing at all*: the boss
+never touches the bed, and the round pulls its lowest point **up and away** from
+the shelf it bridges to rather than down onto it. The flat face still runs out
+to r 6.1155 — 1.715 mm of it clear of the Ø8.8 counterbore — so the head's seat
+never meets the round. Measured on the export, the surface beyond the flat sits
+on that r1.25 circle to **0.2 µm**.
+
 ### Print it
 
 **Not** like the arms. This part prints on its **y = 0 face** (`+Y` up) and it
@@ -973,7 +1021,7 @@ the two set differences through `buckle_diff.scad` and measures those:
 
 | | |
 |---|---|
-| `added` | `buckle()` − donor. Must be **459.926 mm³** against 459.969 predicted from the boss area less the Ø8.8 bore, × 4.196. |
+| `added` | `buckle()` − donor. Must be **444.991 mm³** against 445.042 predicted — the boss with its r1.25 rim, less the Ø8.8 bore, over 4.196. |
 | `removed` | donor − `buckle()`. 56.743 mm³, both pockets. |
 | `*_stray` | each of the above minus a conservative fence round where the change is *allowed* to be. Both read **0.000000 mm³**. |
 | `ctrl` | the donor differenced against itself shifted 0.5 mm. Must be non-zero — 769.6 mm³ — or the boolean-and-measure path is blind. |
@@ -1008,12 +1056,28 @@ Nine mutants, each aimed at one claim, all caught:
 | nut pocket made round (`$fn` 6 → 96) | not a hexagon; 9.2327 across flats; turns 60° |
 | nut hex 10 % oversize | 8.800 across flats; turns 12.29°; 8.84 mm³ outside the fences |
 | nut pocket 0.4 too shallow | floor 8.916 ≠ 9.316; nut would stand 0.100 proud |
-| boss grown to r 7.45 | added 476.4 ≠ 459.97 mm³; 9.70 mm³ outside the fence; bbox grows in Y |
+| boss grown to r 7.45 | added 476.4 ≠ 445.04 mm³; 9.70 mm³ outside the fence; bbox grows in Y |
 | countersink removed | relief rises 0.000/mm, not 45°; mouth 5.461 misses da 5.70 by −0.239 |
 | an extra notch cut in the middle prong | 6.000 mm³ of removed material outside both fences |
 | head pocket driven 1 mm off the pivot | 2.0000 out of round; 6.800 across; and `[4]`'s control trips |
 | nut pocket put on the head prong | floor reads the donor's own 8.903, depth 3.886 — our cut is missing |
 | boss 0.5 too thin | `assert` at render time — the floor wall falls under `nut_wall` |
+
+Six more, aimed at the boss rims across both models, all caught:
+
+| mutant | caught by |
+|---|---|
+| arm: rim removed (`boss_rim_r = 0`) | rim area 33.6 ≠ 17.2 owed; profile 760 µm off the arc |
+| arm: rim doubled to 2.50 | 16 checks — outer prong 5.624, outer face +11.139 ≠ 11.35 |
+| arm: rim made a **chamfer**, not a round | profile 356 µm off the arc — *the area band missed this one* |
+| buckle: rim removed | added 459.9 ≠ 445.04 mm³; profile 760 µm off |
+| buckle: rim halved to 0.60 | added 456.4 ≠ 445.04 mm³; profile 492 µm off |
+| buckle: rounded the **inboard** rim instead | the outer face is not rounded at all — 760 µm off |
+
+**The chamfer mutant is the one that earned its keep.** A chamfer of the same
+width has almost the same overhang area, so the ±25% area band passed it
+happily; only measuring the *profile* against the arc catches it. Both models
+now check the shape as well as the area.
 
 **The first attempt at the notch mutant was a dud, and that is worth recording.**
 It cut a 3 × 3 mm cube centred on the pivot axis — which sits entirely inside

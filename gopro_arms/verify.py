@@ -76,6 +76,11 @@ S_HD_D      = HEAD_D + HEAD_CLR                                # 8.80
 S_HD_DEPTH  = HEAD_H + HEAD_SEAT                               # 5.30
 S_BOSS_NUT  = max(0.0, S_PKT_DEPTH + NUT_WALL - PRONG_OUT_T)   # 2.40
 S_BOSS_HD   = max(0.0, S_HD_DEPTH + NUT_WALL - PRONG_OUT_T)    # 3.40
+# A quarter-round on each boss's outer rim, copied from the donor buckle's own
+# nut boss (measured R1.24 off that mesh, i.e. a nominal 1.25).  arm.scad keeps
+# square rims -- it is printed WITHOUT support and cannot afford to lift the
+# last of a boss off the bed; arm_simple already supports that whole underside.
+S_BOSS_RIM  = 1.25
 # The simple variant CENTRES the pivot: it sits at TAB_R, so the knuckle is the
 # full R7.5 circle, tangent to the bed, and the part is symmetric about the
 # pivot plane.  Floor and crown stop being two numbers -- every wall around the
@@ -112,6 +117,7 @@ BODY_FILLET = 0.0        # bottom-edge fillet radius; 0 = no body underside
                          # overhang to excuse (the strut has a flat Kamm base)
 BORE_ROUND  = False      # plain round pivot bore instead of a 45 deg teardrop
 HEAD_CS     = 0.0        # countersink at the bore mouth, head side; 0 = none
+BOSS_RIM_R  = 0.0        # quarter-round on each boss's outer rim; 0 = square
 PKT_FLOOR_MIN = 1.20     # the LOADED pocket's floor: what the streamlined arm
                          # has shipped with.  The simple variant raises it,
                          # because it paid part height for exactly that.
@@ -146,7 +152,7 @@ def configure(simple):
     """
     global PKT_SPEC, PKT_PEAK, PKT_PRESS, SECTION, XPROBE, BODY_FILLET
     global BORE_ROUND, HEAD_CS, PKT_FLOOR_MIN, PIVOT_Z, TAB_TOP, SB_H
-    global SYMMETRIC, SLOT_FLAT
+    global SYMMETRIC, SLOT_FLAT, BOSS_RIM_R
     if not simple:
         return
     SYMMETRIC = abs(S_PIVOT_Z - TAB_R) < 1e-9
@@ -161,6 +167,7 @@ def configure(simple):
     BODY_FILLET = SB_RB
     BORE_ROUND = True
     HEAD_CS = S_HEAD_CS
+    BOSS_RIM_R = S_BOSS_RIM
     PKT_SPEC = ((S_NUT_SIDE,  'hex',   S_PKT_AF, S_PKT_DEPTH, S_BOSS_NUT),
                 (-S_NUT_SIDE, 'round', S_HD_D,   S_HD_DEPTH,  S_BOSS_HD))
     PKT_PEAK = False         # flat roof, printed with support
@@ -631,6 +638,8 @@ def main():
     bore_area = 0.0
     flank_area = 0.0
     flank_worst = 0.0
+    rim_area = 0.0
+    rim_worst = 0.0
     cs_area = 0.0
     cs_worst = 0.0
     bad = defaultdict(float)
@@ -668,12 +677,27 @@ def main():
                 if (r0 <= pkt_radius(kind, size) + 0.15
                         and lo_y - 0.05 <= cen[1] <= hi_y + 0.05):
                     in_pkt = True
+        # The boss's rounded outer RIM.  It is tested BEFORE the flank on
+        # purpose: the round starts AT the full knuckle radius and only pulls
+        # in from there, so its first 28 deg sit inside the flank's +/-0.15
+        # band.  Left in that order the same surface would be split between two
+        # classes and make both predictions meaningless -- the flank would read
+        # high, the rim low, and neither number would mean anything.
+        in_rim = False
+        if BOSS_RIM_R > 0:
+            for side, kind, size, depth, boss in PKT_SPEC:
+                y_out = side*(W3_HALF + boss)
+                lo_y, hi_y = sorted((y_out, y_out - side*BOSS_RIM_R))
+                if (lo_y - 0.05 <= cen[1] <= hi_y + 0.05
+                        and TAB_R - BOSS_RIM_R - 0.20 <= r0 <= TAB_R + 0.15):
+                    in_rim = True
         # The knuckle flank, on the strip between the 45 deg tangent and the
         # bed.  Tested on the RADIUS from the pivot, so it cannot excuse
         # anything but the cut circle itself -- and it has to come before the
         # body fillet below, which would otherwise swallow the knuckles too
         # (it excuses everything under z = BODY_FILLET along the whole arm).
-        in_flank = (flank_oh > OH_ANG + 1e-9
+        in_flank = (not in_rim
+                    and flank_oh > OH_ANG + 1e-9
                     and cen[2] < flank_top + 0.05
                     and abs(min(r0, r1) - TAB_R) <= 0.15)
         # The body's bottom-edge FILLET.  A fillet is tangent to the bed face,
@@ -691,10 +715,12 @@ def main():
                  and min(r0, r1) <= BORE_D/2 + HEAD_CS + 0.15
                  and cs_lo - 0.05 <= cen[1] <= cs_hi + 0.05)
         if (not in_slot and not in_pkt and not in_fillet and not in_bore
-                and not in_flank and not in_cs):
+                and not in_flank and not in_cs and not in_rim):
             worst_oh = max(worst_oh, ang_oh)
         if in_flank:
             flank_worst = max(flank_worst, ang_oh)
+        if in_rim:
+            rim_worst = max(rim_worst, ang_oh)
         if in_cs and not in_bore:
             cs_worst = max(cs_worst, ang_oh)
         if -n[2] <= lim:                  # within the 45 deg budget + faceting
@@ -704,6 +730,8 @@ def main():
             slot_area += a
         elif in_pkt:
             pkt_area += a
+        elif in_rim:
+            rim_area += a
         elif in_flank:
             flank_area += a
         elif in_cs:
@@ -750,8 +778,12 @@ def main():
         # proud of the body on the other half; at end B the free half less the
         # central gap, the body side being exactly as wide as the knuckle.
         flank_arc = TAB_R*(math.acos(lim) - math.acos(min(1.0, PIVOT_Z/TAB_R)))
-        flank_wid = ((2*W3_HALF + boss_of(-1) + boss_of(+1) - 2*SLOT_W)
-                     + (boss_of(-1) + boss_of(+1))
+        # The last BOSS_RIM_R of each boss is RIM, not flank -- it has pulled in
+        # off the full radius and is classified above.  Both places a boss
+        # appears in this width have to lose it.
+        fb = lambda s: max(0.0, boss_of(s) - BOSS_RIM_R)
+        flank_wid = ((2*W3_HALF + fb(-1) + fb(+1) - 2*SLOT_W)
+                     + (fb(-1) + fb(+1))
                      + (2*W2_HALF - SLOT_W))
         flank_exp = flank_arc*flank_wid
         shape = "full circle, tangent to the bed" if SYMMETRIC else "cut circle"
@@ -760,6 +792,36 @@ def main():
               f"{flank_oh:.2f} deg, not {OH_ANG}, because the pivot is at "
               f"{PIVOT_Z:.2f}; {flank_arc:.2f} mm of arc along {flank_wid:.1f} "
               f"mm of knuckle)")
+    if BOSS_RIM_R > 0:
+        # Predicted by integrating the rim itself rather than by a rule of
+        # thumb.  The rim is the surface swept by rolling a circle of radius
+        # BOSS_RIM_R round the knuckle outline at the boss's outer face: at
+        # station `a` (0 where it leaves the straight boss, 90 deg at the outer
+        # face) the outline has pulled in by rr*(1-cos a) and advanced
+        # rr*sin a, and the outward normal there is cos(a) radially plus sin(a)
+        # along the boss axis.  Only the part whose DOWNWARD component beats
+        # the budget is overhang, and on a circle tangent to the bed that is
+        # most of the bottom quadrant and none of the top.
+        rim_exp = 0.0
+        nA = 240
+        dA = (math.pi/2)/nA
+        dT = 2*math.pi/(4*nA)
+        for i in range(nA):
+            aa = (i + 0.5)*dA
+            rad = TAB_R - BOSS_RIM_R*(1 - math.cos(aa))
+            for j in range(4*nA):
+                th = (j + 0.5)*dT
+                if PIVOT_Z + TAB_R*math.sin(th) < 0:      # below the bed cut
+                    continue
+                if -math.cos(aa)*math.sin(th) > lim:
+                    rim_exp += rad*dT*BOSS_RIM_R*dA
+        rim_exp *= sum(1 for s, _k, _sz, _d, b in PKT_SPEC if b > 0)
+        print(f"     boss RIM-round area        {rim_area:8.2f} mm^2  "
+              f"(vs {rim_exp:.2f} predicted -- r{BOSS_RIM_R} rolled round "
+              f"{sum(1 for s, _k, _sz, _d, b in PKT_SPEC if b > 0)} bosses, "
+              f"steepest {rim_worst:.2f} deg)")
+        RIM_EXP = rim_exp
+        RIM_MEAS = rim_area
     print(f"     unclassified overhang area {sum(bad.values()):8.2f} mm^2")
     # What this is really guarding is PEEL, and peel scales with the length the
     # part contracts over -- a 155 mm arm lifting its ends is the failure, a
@@ -785,6 +847,52 @@ def main():
               f"body fillet overhang {fil_area:.1f} mm^2 is the {fil_exp:.1f} an "
               f"r{BODY_FILLET} fillet owes (+/-25%) -- present, and no bigger "
               f"than the edge it is supposed to be")
+    if BOSS_RIM_R > 0:
+        # The rim is the newest thing on this part and the one the file used to
+        # argue against, so it is held to the area its own geometry owes rather
+        # than to a cap.  Too small means it did not get rolled; too large
+        # means it is eating knuckle it has no business eating.
+        check(0.75*RIM_EXP <= RIM_MEAS <= 1.25*RIM_EXP,
+              f"boss rim overhang {RIM_MEAS:.1f} mm^2 is the {RIM_EXP:.1f} an "
+              f"r{BOSS_RIM_R} round owes (+/-25%) -- present, and no bigger than "
+              f"the rim it is supposed to be")
+        # And it is CHEAP, which is the whole argument for allowing it: it lands
+        # on a surface that is already 90 deg and already supported.
+        check(RIM_MEAS < 0.25*flank_area,
+              f"it costs {RIM_MEAS:.1f} mm^2 against the {flank_area:.1f} mm^2 of "
+              f"knuckle flank already being supported next to it -- a fifth of "
+              f"the bill for the surface it sits on, not a new problem")
+        # And the SHAPE, which the area band above cannot see: a CHAMFER of the
+        # same width has almost the same overhang area and slips straight
+        # through it (it did, in mutation testing).  So walk the boss's outer
+        # face outward in radius and hold it to the arc itself.  Probed at
+        # x = 0 going up (+Z) from the pivot, where nothing but the knuckle and
+        # the bosses lie in the way -- the slab body is only 8.90 wide and stops
+        # well inside them.
+        print("     boss rim profile, on the outer face:")
+        cr = TAB_R - BOSS_RIM_R
+        for side, _k, _sz, _d, boss in PKT_SPEC:
+            if boss <= 0:
+                continue
+            face = side*(W3_HALF + boss)
+            worst, pts = 0.0, []
+            for rq in (cr + 0.25, cr + 0.60, cr + 0.95, cr + 1.15):
+                z = PIVOT_Z + rq
+                t2 = near_axis(near_axis(tris, 0, 0.0), 2, z)
+                iv = [(p-50, q-50) for p, q in ray_intervals(t2, (0.0, -50.0, z), 1)]
+                if not iv:
+                    continue
+                y = max(q for _p, q in iv) if side > 0 else min(p for p, _q in iv)
+                pred = face - side*(BOSS_RIM_R - math.sqrt(
+                    max(0.0, BOSS_RIM_R**2 - (rq - cr)**2)))
+                pts.append(f"r={rq:.2f}->{y:+.3f}")
+                worst = max(worst, abs(y - pred))
+            nm = '+Y' if side > 0 else '-Y'
+            print(f"       {nm}: " + ", ".join(pts))
+            check(worst < 0.03,
+                  f"{nm} boss rim sits on an r{BOSS_RIM_R} arc to "
+                  f"{1000*worst:.0f} um -- a true round, not a chamfer of the "
+                  f"same width")
     if HEAD_CS > 0:
         print(f"     bore-mouth COUNTERSINK      {cs_area:8.2f} mm^2  "
               f"(steepest facet {cs_worst:.2f} deg -- a 45 deg cone sits ON "

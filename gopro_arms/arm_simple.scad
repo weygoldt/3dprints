@@ -116,8 +116,12 @@
 //    GoPro thumbscrew  + M5 nut     as arm.scad; the head just sits proud
 //
 //  ------------------------------------------------------------------
-//  SUPPORT.  This is the one part of the project that needs it, in FOUR
-//  places, and all four are deliberate:
+//  SUPPORT.  This is the one part of the project that needs it, in FIVE
+//  places, and all five are deliberate:
+//    * the BOSS RIMS, r1.25, the cheapest of the five and the only one bought
+//      for looks: ~17.6 mm^2 across both bosses, against the ~128 mm^2 of
+//      knuckle underside it sits on the edge of.  It buys no strength and
+//      loses none; boss_rim_r = 0 removes it without touching anything else.
 //    * the SCREW POCKETS.  pkt_peak = false leaves the hex a flat ceiling
 //      pkt_r wide, and the head counterbore is a round bore whose roof is a
 //      ceiling however you cut it.  ~56 mm^2.  DIG IT OUT BEFORE THE NUT AND
@@ -148,10 +152,16 @@
 //  try if a print lifts: it widens the footing from 3.90 to 8.90 mm without
 //  touching the joint.
 //
-//  The bosses stay sharp on purpose: the knuckle silhouette already leans past
-//  45 deg where it meets the bed, so a chamfer around the boss rim would tip
-//  that underside further still.  A rim chamfer is only free on geometry that
-//  meets the bed vertically.
+//  The bosses' outer rims are ROUNDED, r1.25, and this file used to argue the
+//  opposite -- that the knuckle silhouette already leans past 45 deg where it
+//  meets the bed, so rolling the rim would tip that underside further still.
+//  That is true and it is not the point.  The knuckle here is TANGENT to the
+//  bed: its underside leaves at 90 deg and is already the largest supported
+//  region on the part.  A rim round adds AREA to a class that is already being
+//  paid for, and adds no new angle, because 90 deg is where that surface
+//  starts with or without it.  It is a fifth supported region on a part that
+//  has four, not a new kind of problem -- see SUPPORT below for the measured
+//  bill.  boss_rim_r = 0 puts the square rims back.
 // =====================================================================
 
 lib = true;          // suppress arm.scad's standalone preview
@@ -428,12 +438,51 @@ module sb_loft(L) {
 // Local thickening of BOTH outer prongs, one per pocket.  Same silhouette
 // as the knuckle, so each stands on the bed like everything else and dies
 // out at R7.5 instead of leaving a step in the joint envelope.
+//
+// THE OUTER RIM IS ROUNDED, and it did not use to be.  The argument against it
+// was printability and it was correct as far as it went: the knuckle here is
+// TANGENT to the bed, so a rim round lifts the last boss_rim_r of the boss off
+// the bed and turns it into overhang.  What that argument missed is that the
+// surface it protects is ALREADY the worst overhang on the part -- a tangent
+// circle leaves the bed at 90 deg, and 157 mm^2 of knuckle underside is
+// supported here whatever this rim does.  The round adds area to a class that
+// is already paid for; it does not add a new angle, because 90 deg is where
+// that underside starts either way.
+//
+// Measured, the whole bill for both bosses is in verify.py [5]: the rim's own
+// overhang area, and the bed contact it gives up at each boss's outer end.
+//
+// The shape is copied from the donor buckle, whose nut boss has exactly this
+// round and is where the idea came from -- measured off that mesh at R1.24
+// (rms 6 um over 24 points), i.e. a nominal 1.25.  Set boss_rim_r = 0 and the
+// bosses go back to square, which is the lever if a print lifts at the ends.
+boss_rim_r = 1.25;   // quarter-round on each boss's outer rim
+rim_stn    = 16;     // stations round the quarter -- the hull of consecutive
+                     // slabs is a cone frustum, so it sits just INSIDE the arc
+
+// A boss on +Y, from w3_half out to w3_half + h.  The straight part first,
+// then the rim rolled off by insetting the SAME silhouette as it advances --
+// which keeps the round on the knuckle's own outline instead of inventing a
+// second one, exactly as the boss itself does.
+module side_boss_pos(h) {
+    rr = min(boss_rim_r, h);
+    if (h > rr)
+        tab_solid(w3_half, w3_half + h - rr, s_pivot_z);
+    if (rr > 0)
+        for (i = [0 : rim_stn - 1]) hull() for (j = [i, i + 1]) {
+            a = j/rim_stn * 90;
+            translate([0, w3_half + h - rr + rr*sin(a), 0]) rotate([90, 0, 0])
+                linear_extrude(height = 0.01)
+                    offset(delta = -rr*(1 - cos(a))) tab_profile2d(s_pivot_z);
+        }
+}
+
 // One boss, `h` thick, standing off the stack face on `side`.
 module side_boss(side, h) {
-    if (h > 0)
-        tab_solid(side < 0 ? -(w3_half + h) : w3_half,
-                  side < 0 ? -w3_half       : w3_half + h,
-                  s_pivot_z);
+    if (h > 0) {
+        if (side < 0) mirror([0, 1, 0]) side_boss_pos(h);
+        else                            side_boss_pos(h);
+    }
 }
 
 // The two are different thicknesses: each is only as deep as its own pocket.

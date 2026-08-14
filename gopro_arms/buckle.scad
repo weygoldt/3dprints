@@ -191,10 +191,19 @@ assert(clip_knuckle_r - hd_d/2 >= 1.50,
 // buckle's tab_solid(): the one silhouette anything added here is allowed to
 // have.  $fn = 180 puts the polygon's CIRCUMradius at clip_knuckle_r, so the
 // measured maximum is the number above and not a hair over it.
-module bk_disc(x0, x1) {
-    translate([x0, clip_pivot_y, clip_pivot_z])
-        rotate([0, 90, 0])
-            cylinder(r = clip_knuckle_r, h = x1 - x0, $fn = 180);
+// `rim` rolls the OUTER (high-x) edge off by a quarter-round.  The donor's own
+// nut boss has exactly this feature -- measured R1.24 off that mesh, rms 6 um
+// over 24 points, so a nominal 1.25 -- and boss_rim_r comes from
+// arm_simple.scad, which now rounds its bosses the same way.  One number for
+// all three bosses on the two parts; they cannot drift.
+//
+// Unlike the arms' rims this one costs nothing at all in bed contact: this
+// boss never touches the bed, it bridges to the donor's shelf, and the round
+// pulls its lowest point UP and away from that shelf rather than down onto it.
+module bk_disc(x0, x1, rim = 0) {
+    translate([(x0 + x1)/2, clip_pivot_y, clip_pivot_z])
+        cyl(r = clip_knuckle_r, h = x1 - x0, rounding2 = rim,
+            orient = RIGHT, $fn = 180);
 }
 
 // The press-fit nut pocket, opening on the donor's boss face and running
@@ -234,7 +243,7 @@ module buckle() {
     difference() {
         union() {
             import(clip_stl, convexity = 12);
-            bk_disc(clip_face_hd, bk_face_hd);
+            bk_disc(clip_face_hd, bk_face_hd, boss_rim_r);
         }
         bk_nut_pocket();
         bk_head_pocket();

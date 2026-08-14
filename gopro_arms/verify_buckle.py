@@ -32,7 +32,9 @@ from verify import (load, bbox, volume, near_axis, ray_intervals,   # noqa: E402
                     ray_hits, normal)
 from verify import (NUT_AF, NUT_T, NUT_WALL, TAB_R,                 # noqa: E402
                     HEAD_D, HEAD_DA, S_PKT_AF, S_PKT_DEPTH, S_HD_D,
-                    S_HD_DEPTH, S_HEAD_CS)
+                    S_HD_DEPTH, S_HEAD_CS, S_BOSS_RIM)
+
+BOSS_RIM = S_BOSS_RIM   # the same rim round arm_simple.scad rolls on its bosses
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 TMP = os.environ.get('TMPDIR', '/tmp')
@@ -266,14 +268,28 @@ def main(path):
         """A regular n-gon of CIRCUMradius r, which is what $fn = n gives."""
         return 0.5*n*r*r*math.sin(2*math.pi/n)
 
+    def boss_volume(R, rr, h, n=180, steps=20000):
+        """The boss, with a quarter-round of radius rr rolled off its outer rim.
+
+        Straight for h - rr, then a stack of discs whose radius follows the
+        arc: at t above where the round starts, R - rr + sqrt(rr^2 - t^2),
+        which is R at t = 0 and R - rr at t = rr.
+        """
+        v = poly_area(n, R)*(h - rr)
+        for i in range(steps):
+            t = (i + 0.5)*rr/steps
+            v += poly_area(n, R - rr + math.sqrt(rr*rr - t*t))*(rr/steps)
+        return v
+
     added = render('added')
     av = volume(added) if added else 0.0
     # What the boss is, minus what the counterbore takes straight back out of
     # it: the counterbore is wider than the boss is long, so it passes clean
-    # through and the prediction is two areas and one length.
-    pred_add = (poly_area(180, KNUCKLE_R) - poly_area(96, S_HD_D/2))*BOSS_HD
-    print(f"     added   {av:8.3f} mm^3  (boss {poly_area(180, KNUCKLE_R):.2f} mm^2 "
-          f"less the {S_HD_D} bore, x {BOSS_HD:.3f} -> {pred_add:.3f} predicted)")
+    # through, and it is nowhere near the rim -- 4.40 against the round's
+    # innermost radius of KNUCKLE_R - BOSS_RIM -- so the two do not interact.
+    pred_add = boss_volume(KNUCKLE_R, BOSS_RIM, BOSS_HD) - poly_area(96, S_HD_D/2)*BOSS_HD
+    print(f"     added   {av:8.3f} mm^3  (boss with an r{BOSS_RIM} rim, less the "
+          f"{S_HD_D} bore, over {BOSS_HD:.3f} -> {pred_add:.3f} predicted)")
     check(abs(av - pred_add) < 0.1,
           f"we added {av:.3f} mm^3 against {pred_add:.3f} predicted -- the boss "
           f"is the right size and the counterbore really does go through it")
@@ -419,6 +435,41 @@ def main(path):
           f"the boss is {seg[1] - FACE_HD:.3f} thick, which is what a {5.00} tall "
           f"head plus {NUT_WALL} of floor needs beyond the donor's "
           f"{FACE_HD - SLOT_HD:.3f} of prong")
+
+    # ---- the rim round, measured as a radius, not eyeballed ----------
+    # The donor rolls its nut boss's rim off at R1.24; this matches it on the
+    # head boss so the two ends of the same part agree.  Checked by finding
+    # where the flat face gives out and then holding the surface beyond it to
+    # the arc that should be there -- "it looks rounded" is not a measurement.
+    def outer_x(r):
+        iv = spans_x(tris, *at(r, 0.0))
+        s = [q for q in iv if q[1] > FACE_HD + 0.05]
+        return s[-1][1] if s else None
+
+    cr, cx = KNUCKLE_R - BOSS_RIM, BK_FACE - BOSS_RIM
+    # Sampled, not bisected.  Hunting for "where the face stops being flat"
+    # cannot work here: the round leaves its tangent point QUADRATICALLY, so
+    # x has only fallen a micron 0.05 mm out along the radius, and any
+    # threshold you pick reports the tangent point 0.05 too far out.  Ask
+    # instead whether the face IS flat everywhere it should be.
+    flat = [outer_x(r) for r in (4.6, 5.2, 5.8, cr - 0.02)]
+    check(all(v is not None and abs(v - BK_FACE) < 1e-3 for v in flat),
+          f"the face is dead flat at {BK_FACE} all the way out to r={cr:.4f} == "
+          f"knuckle {KNUCKLE_R} less the r{BOSS_RIM} rim, where the round starts")
+    flat_r = cr
+    worst_r, shown = 0.0, []
+    for rq in (cr + 0.2, cr + 0.5, cr + 0.9, cr + 1.15):
+        v = outer_x(rq)
+        pr = cx + math.sqrt(max(0.0, BOSS_RIM**2 - (rq - cr)**2))
+        shown.append(f"r={rq:.3f}->{v:.4f}")
+        worst_r = max(worst_r, abs(v - pr))
+    print("     rim profile: " + ", ".join(shown))
+    check(worst_r < 0.01,
+          f"and the surface beyond it sits on that circle to {1000*worst_r:.1f} um "
+          f"-- a true quarter-round, not a chamfer")
+    check(flat_r - S_HD_D/2 > 0.5,
+          f"the round leaves {flat_r - S_HD_D/2:.3f} mm of flat face round the "
+          f"{S_HD_D} counterbore, so it never touches the head's seat")
 
     # ---------------------------------------------------------------- 6
     print("\n[6] the 45 deg relief under the head")
