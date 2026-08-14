@@ -36,42 +36,46 @@
 //     pocket_r either way.  The 20 mm chord never was the binding
 //     constraint; it only starts ramping up once it is already past it.
 //
-//  2. SCREW POCKETS.  A PRESS-FIT nut pocket in BOTH outer prongs instead of
-//     one, so the nut can go on whichever side you can reach and a plain
-//     machine screw can replace the knurled GoPro thumbscrew.  The nut bears
-//     on the pocket FLOOR, which is the inboard end, so screw tension pulls
-//     it onto solid material rather than trying to lift it out.
+//  2. SCREW POCKETS.  One in each outer prong, and they are NOT the same
+//     pocket, because one shape cannot do both jobs.  The nut side is a
+//     press-fit hex; the far side is a plain round counterbore that takes the
+//     barrel head flush.  Both parts bear on their pocket FLOOR, the inboard
+//     end, so screw tension pulls each onto solid material.
 //
 //  ------------------------------------------------------------------
-//  WHY THE POCKET IS SIZED TO THE NUT AND NOT THE HEAD
+//  WHY TWO DIFFERENT POCKETS
 //
-//  It was 8.80 across flats, sized to swallow an 8.50 barrel head flush.  In
-//  the hand that is the wrong trade: the nut then has 0.80 mm of play and
-//  rattles, and the streamlined arm already rattles at 0.20.
+//  Both were 8.80 across flats, sized to swallow an 8.50 barrel head.  That
+//  leaves the 8.00 nut 0.80 mm of play, and it rattles -- the streamlined arm
+//  already rattles at 0.20.  Sizing them both to the nut instead fixes the
+//  rattle and throws away the flush head: 8.50 will not enter 8.00 flats at
+//  all, so the head stands fully proud.
 //
-//  The two cannot be reconciled, which is worth writing down so nobody tries
-//  again.  A barrel head needs 4.25 mm of clearance in EVERY radial
-//  direction.  A nut that will not rattle needs the flats at 4.00.  No
-//  single outline satisfies both, and stepping the pocket -- head counterbore
-//  at the mouth, hex deeper -- does not rescue it either: the nut has to pass
-//  through the counterbore to reach the hex, so the counterbore has to clear
-//  the nut's 9.24 across-corners, and the depths add instead of overlapping.
-//  That lands the stack past 30 mm for a 5 mm saving in screw head height.
+//  Neither compromise is necessary once you stop insisting the two pockets
+//  match.  A screw head needs a SEAT; only a nut needs ANTI-ROTATION.  So the
+//  head gets a round bore, the nut gets a hex, and each is sized and sunk for
+//  exactly what goes in it.  The cost is that the nut now lives on nut_side
+//  permanently -- which, with a press fit, is what happens anyway.
 //
-//  So: pocket 8.00 across flats, a press fit on the nut, and the head sits
-//  ON the face like a thumbscrew does.  Dropping the head depth as well
-//  takes the pocket from 5.30 to 4.30 and the stack from 22.70 to 20.70.
+//  For the record, so nobody re-derives it: a barrel head needs 4.25 mm of
+//  clearance in EVERY radial direction and a nut that will not rattle needs
+//  the flats at 4.00, so no single outline satisfies both.  Stepping ONE
+//  pocket does not rescue it either -- the nut has to pass through the head
+//  counterbore to reach the hex below, so that counterbore must clear the
+//  nut's 9.24 across-corners, and the two depths add instead of overlapping,
+//  which puts the stack past 30 mm to recess 5 mm of screw head.
 //
 //  ------------------------------------------------------------------
 //  WHAT FITS IT
-//    M5x20 socket cap  + M5 nut     the pairing this is built around.  Head
-//                                   stands on the face, driven with a 4 mm
-//                                   key -- far more torque than a thumbscrew,
-//                                   which is the point.  The tip lands 0.7 mm
-//                                   inside the far face, so nothing protrudes.
-//    GoPro thumbscrew  + M5 nut     as arm.scad, now with a choice of side
-//  A hex-head bolt press-fits the pocket too, but then BOTH ends are captive
-//  and nothing can be turned -- use it only against a free nut outside.
+//    M5x16 socket cap  + M5 nut     the pairing this is built around.  Head
+//                                   sits 0.30 below its face, nut 0.30 below
+//                                   its own, and the tip stops 0.40 inside
+//                                   the nut pocket with 3.9 of the nut's 4.0
+//                                   mm engaged.  Nothing protrudes anywhere.
+//                                   Driven with a 4 mm key, which is far more
+//                                   torque than a thumbscrew and is half the
+//                                   point of the whole arrangement.
+//    GoPro thumbscrew  + M5 nut     as arm.scad; the head just sits proud
 //
 //  ------------------------------------------------------------------
 //  SUPPORT.  This is the one part of the project that wants it, and only in
@@ -94,22 +98,33 @@ lib = true;          // suppress arm.scad's standalone preview
 include <arm.scad>
 
 // ------------------------------------------------------- screw / pockets
-// THE ONE TRADE IN THIS PART, and it is forced by arithmetic, not taste.
+// TWO DIFFERENT POCKETS, because one shape cannot do both jobs.
 //
 // An M5 nut is 8.00 across flats.  An M5 barrel head (DIN 912 socket cap) is
-// 8.50 ACROSS -- wider than the nut is.  A single pocket cannot do both jobs:
-// the head needs 4.25 mm of clearance in EVERY radial direction, and a nut
-// that is not going to rattle needs the flats at 4.00.  There is no shape
-// that satisfies both.
+// 8.50 ACROSS -- wider than the nut is.  The head needs 4.25 mm of clearance
+// in EVERY radial direction; a nut that is not going to rattle needs the
+// flats at 4.00.  No single outline satisfies both, and stepping one pocket
+// does not rescue it either: the nut has to PASS THROUGH the head counterbore
+// to reach the hex below, so that counterbore must clear the nut's 9.24
+// across-corners, and the two depths add instead of overlapping -- which puts
+// the stack past 30 mm to recess 5 mm of screw head.
 //
-//   pkt_af = 8.00   PRESS FIT on the nut.  The barrel head no longer recesses
-//                   -- it sits on the face, the way a thumbscrew does.
-//   pkt_af = 8.80   the barrel head sits flush, but the nut has 0.80 mm of
-//                   play and rattles.  (The streamlined arm rattles at 0.20.)
+// So stop trying.  The pockets do not have to match:
 //
-// Sized for the nut, because a mount that shakes loose is worse than a screw
-// head standing proud.  Flip the one number to swap the trade back.
-pkt_af    = 8.00;
+//   nut_side   HEX 8.00 across flats, nut_depth deep -- a PRESS FIT.  The nut
+//              goes in once and stays.  Nothing to spin, nothing to rattle.
+//   far side   ROUND hd_d across, hd_depth deep -- the barrel head drops in
+//              FLUSH.  A screw head needs no anti-rotation, only a seat, so
+//              a plain bore is the right shape and a hex would be pretence.
+//
+// What this gives up is the nut going on either side; it now lives on
+// nut_side permanently.  With a press fit that is what happens anyway.
+//
+// Both parts bear on their pocket FLOOR, the inboard end, so screw tension
+// pulls each onto solid material instead of trying to lift it out.
+nut_side  = -1;      // which outer prong takes the press-fit nut
+
+pkt_af    = 8.00;    // nut pocket, across flats
 // Modelled at NOMINAL on purpose.  FDM lays pockets down a touch undersize,
 // and that is where the interference comes from -- asking for it in the model
 // as well would stack two tolerances the same way.  Tune it on `sgauge`
@@ -121,37 +136,40 @@ pkt_af    = 8.00;
 // flat roof is what a nut actually wants to seat against.
 pkt_peak  = false;
 
-// The head, kept as a parameter so the geometry can answer for itself
-// whether it recesses rather than leaving it to a comment.
-head_d     = 8.50;   // DIN 912 socket cap, M5: across
+head_d     = 8.50;   // DIN 912 socket cap ("barrel head"), M5: across
 head_h     = 5.00;   // ... and tall
 head_clr   = 0.30;
-head_seat  = 0.30;
+head_seat  = 0.30;   // so the head sits just below flush
 
-pkt_r     = pkt_af/sqrt(3);                        // 4.619 circumradius
-pkt_seats_head = pkt_af >= head_d + head_clr;      // false at 8.00
-// No point carrying head depth in a pocket the head cannot enter.
-pkt_depth = pkt_seats_head ? max(nut_t + nut_seat, head_h + head_seat)
-                           : nut_t + nut_seat;     // 4.30
-sboss_h   = max(0, pkt_depth + nut_wall - prong_out_t);       // 2.40 per side
+pkt_r     = pkt_af/sqrt(3);                    // 4.619 circumradius
+pkt_depth = nut_t + nut_seat;                  // 4.30
+hd_d      = head_d + head_clr;                 // 8.80
+hd_depth  = head_h + head_seat;                // 5.30
 
-sw3_half  = w3_half + sboss_h;                                // 10.35 -> 20.7 stack
+// Each side's boss is only as deep as its own pocket needs.
+boss_nut  = max(0, pkt_depth + nut_wall - prong_out_t);   // 2.40
+boss_hd   = max(0, hd_depth  + nut_wall - prong_out_t);   // 3.40
+sw3_nut   = w3_half + boss_nut;                           // 10.35
+sw3_hd    = w3_half + boss_hd;                            // 11.35
+sw3_max   = max(sw3_nut, sw3_hd);                         // -> 21.7 stack
 
-// Roof and floor both have to stay inside the knuckle.
+// Roof and floor of BOTH pockets have to stay inside the knuckle.
 pkt_top   = pivot_z + pkt_af/2 + (pkt_peak ? pkt_r/2 : 0);
-assert(pkt_top <= tab_top - 0.45,
-       str("pocket roof breaks out of the knuckle crown (top ", pkt_top,
-           " vs tab_top ", tab_top, ") -- the pocket is too big for an R",
-           tab_r, " knuckle"));
-assert(pivot_z - pkt_af/2 >= 0.80,
-       "pocket bottom flat leaves less than 0.80 mm of material to the bed");
-// Whatever it is sized for, it must still stop the nut turning: the nut's
-// corners have to stand outside the pocket's flats.
+assert(max(pkt_top, pivot_z + hd_d/2) <= tab_top - 0.45,
+       str("a pocket roof breaks out of the knuckle crown (nut ", pkt_top,
+           ", head ", pivot_z + hd_d/2, " vs tab_top ", tab_top, ")"));
+assert(min(pivot_z - pkt_af/2, pivot_z - hd_d/2) >= 0.80,
+       "a pocket floor leaves less than 0.80 mm of material to the bed");
+// The nut pocket must still stop the nut turning: its corners have to stand
+// outside the pocket's flats.
 assert(pkt_af/2 < nut_af/sqrt(3) - 0.05,
-       "pocket is so wide the M5 nut spins freely in it -- it is not a nut trap");
+       "nut pocket is so wide the M5 nut spins freely -- it is not a trap");
 // ... and not be so tight that no nut will ever enter it.
 assert(pkt_af >= nut_af - 0.25,
-       "pocket is more than 0.25 under the nut: an interference nothing seats");
+       "nut pocket is more than 0.25 under the nut: nothing will seat it");
+// The head pocket has one job and it is worth asserting it does it.
+assert(hd_d >= head_d + 0.10,
+       "head counterbore is not wider than the head -- it will not seat");
 
 // -------------------------------------------------------------- the body
 // A constant slab, exactly as tall as the knuckle, so there is no chord
@@ -213,11 +231,17 @@ module sb_loft(L) {
 // Local thickening of BOTH outer prongs, one per pocket.  Same silhouette
 // as the knuckle, so each stands on the bed like everything else and dies
 // out at R7.5 instead of leaving a step in the joint envelope.
+// One boss, `h` thick, standing off the stack face on `side`.
+module side_boss(side, h) {
+    if (h > 0)
+        tab_solid(side < 0 ? -(w3_half + h) : w3_half,
+                  side < 0 ? -w3_half       : w3_half + h);
+}
+
+// The two are different thicknesses: each is only as deep as its own pocket.
 module sboss() {
-    if (sboss_h > 0) {
-        tab_solid(-sw3_half, -w3_half);
-        tab_solid( w3_half,   sw3_half);
-    }
+    side_boss( nut_side, boss_nut);
+    side_boss(-nut_side, boss_hd);
 }
 
 // Pocket outline: hex with flats TOP AND BOTTOM.  That orientation is still
@@ -234,12 +258,21 @@ module spkt_profile2d() {
     }
 }
 
-// The pocket itself, opening on one outboard face.  side = -1 or +1.
-module spkt(side) {
+// The press-fit nut pocket, opening on the `side` face.
+module spkt_nut(side) {
     mirror([0, side < 0 ? 0 : 1, 0])
-        translate([0, -(sw3_half - pkt_depth), pivot_z])
+        translate([0, -(sw3_nut - pkt_depth), pivot_z])
             rotate([90, 0, 0])
                 linear_extrude(height = pkt_depth + 0.5) spkt_profile2d();
+}
+
+// The barrel-head counterbore, opening on the `side` face.  A plain round
+// bore: a screw head needs a seat, not anti-rotation, and its roof is a
+// ceiling either way -- which is fine, the pockets are printed supported.
+module spkt_head(side) {
+    translate([0, side*(sw3_hd - hd_depth), pivot_z])
+        rotate([side > 0 ? -90 : 90, 0, 0])
+            cylinder(d = hd_d, h = hd_depth + 0.5, $fn = 96);
 }
 
 // ---------------------------------------------------------------- the arm
@@ -254,13 +287,13 @@ module arm_simple(L) {
             translate([L, 0, 0]) tab_solid(-w2_half, w2_half);  // 2-prong knuckle
             sb_loft(L);
         }
-        bore(0, 6*sw3_half);
-        bore(L, 6*sw3_half);
+        bore(0, 6*sw3_max);
+        bore(L, 6*sw3_max);
         pocket(0,  u);        // 3-prong: slots centred on +/- 3.00
         pocket(0, -u);
         pocket(L,  0);        // 2-prong: central gap, same width as a slot
-        spkt(-1);
-        spkt(+1);
+        spkt_nut( nut_side);
+        spkt_head(-nut_side);
     }
 }
 
@@ -285,13 +318,13 @@ module gauge_simple() {
             }
             translate([Lg - tab_r, -w2_half, 0]) cube([tab_r, 2*w2_half, sb_h]);
         }
-        bore(0,  6*sw3_half);
-        bore(Lg, 6*sw3_half);
+        bore(0,  6*sw3_max);
+        bore(Lg, 6*sw3_max);
         pocket(0,  u);
         pocket(0, -u);
         pocket(Lg, 0);
-        spkt(-1);
-        spkt(+1);
+        spkt_nut( nut_side);
+        spkt_head(-nut_side);
     }
 }
 

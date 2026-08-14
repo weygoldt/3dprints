@@ -67,7 +67,7 @@ module arm_set() {
 
 // Same, for the simple variant.  Pitch off the wider bossed stack.
 module simple_set() {
-    pitch = 2*sw3_half + 6;
+    pitch = 2*sw3_max + 6;
     for (i = [0 : len(arm_lengths) - 1])
         translate([0, i*pitch, 0]) arm_simple(arm_lengths[i]);
 }
