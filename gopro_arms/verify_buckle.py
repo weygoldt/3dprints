@@ -323,6 +323,9 @@ def main(path):
     sp = spans_x(tris, y, z)
     seg = [s for s in sp if abs(s[1] - SLOT_NUT) < 0.02]
     floor = seg[0][0] if seg else 0.0
+    nut_floor_m = floor
+    # The face the nut is sunk below, read at a radius outside the pocket.
+    nut_face_m = spans_x(tris, *at(5.0, 0.0))[0][0]
     check(abs(floor - NUT_FLOOR) < 0.02,
           f"floor at x={floor:.3f} == face {FACE_NUT} + pkt_depth {S_PKT_DEPTH}")
     check(abs((floor - FACE_NUT) - S_PKT_DEPTH) < 0.02,
@@ -399,6 +402,7 @@ def main(path):
     y, z = at(4.0, 0.0)
     sp = spans_x(tris, y, z)
     seg = [s for s in sp if abs(s[0] - SLOT_HD) < 0.02][0]
+    hd_floor_m = seg[1]
     check(abs(seg[1] - HD_FLOOR) < 0.02,
           f"floor at x={seg[1]:.3f} == boss face {BK_FACE:.3f} - hd_depth "
           f"{S_HD_DEPTH}")
@@ -482,6 +486,46 @@ def main(path):
          f"own shelf -- {max(gaps)/0.20:.0f} layers at 0.20, over a wide flat, "
          f"which is the smallest of this part's four support jobs"
          if gaps else "the boss underside has nothing beneath it to bridge to")
+
+    # ---------------------------------------------------------------- 8
+    # WHAT SCREW, worked out from the two faces rather than from memory.  The
+    # file used to claim an M5x20 with "nothing protruding on either side",
+    # which is wrong by 2.5 mm -- the sort of number that is only ever checked
+    # when someone has the part and the screw in their hands.  So it is checked
+    # here, off the mesh, in the units the shop sells.
+    print("\n[8] what screw actually fits")
+    nut_far = nut_floor_m - NUT_T          # the nut bears on its floor and
+    full = hd_floor_m - nut_far            # stands off it toward the face
+    proud = hd_floor_m - nut_face_m
+    print(f"     head bears at x={hd_floor_m:.3f}, nut spans {nut_far:.3f}"
+          f"..{nut_floor_m:.3f}, boss face {nut_face_m:.3f}")
+    print(f"     shank for a FULL nut  >= {full:.3f}")
+    print(f"     shank before it stands proud <= {proud:.3f}")
+    for L in (16, 18, 20, 25):
+        tip = hd_floor_m - L
+        eng = min(NUT_T, max(0.0, nut_floor_m - tip))
+        pr = nut_face_m - tip
+        print(f"     M5x{L}: {eng:.3f}/{NUT_T} of the nut engaged, "
+              + (f"stands {pr:.3f} proud" if pr > 0 else "nothing proud"))
+    check(full <= proud + 1e-9,
+          f"the window {full:.3f}..{proud:.3f} is the right way round -- a screw "
+          f"that fills the nut can in principle still sit flush, which is what "
+          f"nut_seat {S_PKT_DEPTH - NUT_T:.2f} buys")
+    # Not a failure, a fact about what the shop sells: the window is only as
+    # wide as nut_seat, and M5 comes in even lengths.
+    warn(any(full <= L <= proud for L in (16, 18, 20, 25)),
+         f"no standard M5 length lands in the {proud-full:.3f} mm window, so the "
+         f"screw is a genuine either/or -- see the next line for which way")
+    # M5x16 is the one to buy: it protrudes nowhere, and 2.785 mm of engagement
+    # is ~3.5 turns of steel-on-steel thread.  The joint fails in the PETG round
+    # the pocket long before an M5 thread strips, so full engagement buys
+    # nothing here and 0.485 mm of screw sticking out of the boss face costs
+    # snagging on a part whose whole job is to be clipped on and off.
+    eng16 = min(NUT_T, max(0.0, nut_floor_m - (hd_floor_m - 16)))
+    check(eng16 >= 2.0 and (nut_face_m - (hd_floor_m - 16)) <= 0,
+          f"M5x16 engages {eng16:.3f} mm of nut and protrudes nowhere -- that is "
+          f"the one to buy; an M5x18 fills the nut but stands "
+          f"{nut_face_m - (hd_floor_m - 18):.3f} proud of the boss face")
 
     print()
     if FAIL:

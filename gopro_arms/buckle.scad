@@ -101,11 +101,19 @@
 //
 //  ------------------------------------------------------------------
 //  WHAT FITS IT
-//    M5x20 socket cap + M5 nut.  Head sunk head_seat below the boss face, nut
-//    sunk nut_seat below its own, nothing protruding on either side, driven
-//    with a 4 mm key instead of a thumb.  Grip length across the assembly is
-//    longer than the arm's because the head boss is thicker -- measure before
-//    buying; a 16 will not reach.
+//    M5x16 socket cap + M5 nut, driven with a 4 mm key instead of a thumb.
+//
+//    The head bears on its counterbore floor at x 22.531 and the nut spans
+//    5.316..9.316, so a shank needs 17.215 to fill the nut and may not exceed
+//    17.515 before it pokes out of the boss face.  NOTHING STANDARD LANDS IN
+//    THAT 0.30 WINDOW, so it is a real either/or:
+//      M5x16   2.785 of the nut's 4.00 engaged, nothing proud anywhere
+//      M5x18   the whole nut, standing 0.485 proud of the boss face
+//    Buy the 16.  2.785 mm is ~3.5 turns of steel on steel, and this joint
+//    fails in the PETG round the pocket long before an M5 thread strips -- so
+//    the extra engagement buys nothing, while 0.485 of screw sticking out of a
+//    part whose whole job is to be clipped on and off costs snagging.
+//    verify_buckle.py [8] re-derives all of this from the mesh.
 // =====================================================================
 
 // arm_simple.scad carries every pocket number this file uses -- pkt_af,

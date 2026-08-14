@@ -792,11 +792,29 @@ reasons: the hex roof is flat, the head counterbore's roof is a ceiling however
 you cut it, the donor's pivot bore is round, and the boss underside bridges to
 the shelf. **Dig the pockets out before the nut and the screw go in.**
 
-**What fits it:** M5 socket cap + M5 nut. Head sunk 0.30 below the boss face,
-nut 0.30 below its own, nothing protruding either side, driven with a 4 mm key
-instead of a thumb. The grip length across the assembly is longer than the arm's
-because the head boss is thicker — **measure before buying; an M5×16 will not
-reach.**
+**What fits it: an M5×16 socket cap + M5 nut**, driven with a 4 mm key instead
+of a thumb. Head sunk 0.30 below the boss face, nut 0.30 below its own.
+
+The screw length is a genuine either/or, and worth stating because the obvious
+guess is wrong. The head bears on its counterbore floor at x 22.531 and the nut
+spans 5.316…9.316, so a shank needs **17.215** to fill the nut and may not
+exceed **17.515** before it pokes out of the boss face. **Nothing standard lands
+in that 0.30 mm window:**
+
+| | |
+|---|---|
+| M5×16 | 2.785 of the nut's 4.00 engaged, **nothing proud anywhere** |
+| M5×18 | the whole nut, standing **0.485 proud** of the boss face |
+| M5×20 | the whole nut, standing **2.485 proud** — no |
+
+Buy the 16. 2.785 mm is ~3.5 turns of steel on steel, and this joint fails in
+the PETG round the pocket long before an M5 thread strips, so the extra
+engagement buys nothing — while half a millimetre of screw sticking out of a
+part whose whole job is to be clipped on and off costs snagging.
+`verify_buckle.py` `[8]` re-derives every number above from the mesh, because
+the file previously claimed an M5×20 with "nothing protruding", which is wrong
+by 2.5 mm — exactly the kind of number nobody checks until they are holding the
+part and the screw.
 
 ## Verifying
 
