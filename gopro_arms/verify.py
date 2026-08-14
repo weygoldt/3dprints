@@ -9,9 +9,15 @@ Usage:  python3 verify.py <arm.stl> --length 100
         python3 verify.py <simple.stl> --length 100 --simple
 
 --simple switches the expectations to arm_simple.scad: a slab body instead of
-a strut, and a screw pocket in BOTH outer prongs instead of a nut trap in one.
-Everything about the GoPro interface itself is checked identically either way,
-because it IS identical -- that is the point of the variant.
+a strut, a screw pocket in BOTH outer prongs instead of a nut trap in one, and
+a pivot raised from 5.303 to 6.000.
+
+The MATING interface is checked identically either way, because it IS identical
+-- same 3 mm grid, same clearances, same R7.5 envelope; that is the point of
+the variant.  The pivot height is not part of that interface: it is measured
+from the BED, which no mating part can see.  What it does move is everything
+centred on it -- the pocket floors, the bore, the body height, and the angle
+the knuckle flank leaves the bed at -- so those expectations move with it.
 """
 import argparse
 import math
@@ -69,6 +75,18 @@ S_HD_D      = HEAD_D + HEAD_CLR                                # 8.80
 S_HD_DEPTH  = HEAD_H + HEAD_SEAT                               # 5.30
 S_BOSS_NUT  = max(0.0, S_PKT_DEPTH + NUT_WALL - PRONG_OUT_T)   # 2.40
 S_BOSS_HD   = max(0.0, S_HD_DEPTH + NUT_WALL - PRONG_OUT_T)    # 3.40
+# The simple variant RAISES the pivot, to thicken the pocket floors: the floor
+# is pivot - half, the crown is TAB_R - half, and only the floor moves.  It is
+# bought with part height and with flank angle -- under "trim" the knuckle
+# leaves the bed at asin(pivot/TAB_R), 45.0 deg at 5.303 and 53.1 at 6.00 --
+# so this file has to check BOTH sides of that trade, not just the floors.
+S_PIVOT_Z   = 6.00
+S_TAB_TOP   = S_PIVOT_Z + TAB_R                                # 13.500
+# 45 deg countersink where the pivot bore breaks into the head counterbore, so
+# an ISO 4762 under-head fillet (out to da = 5.70, wider than the 5.30 bore)
+# clears and the head seats on its flat annulus instead of on the bore's edge.
+S_HEAD_CS   = 0.50
+HEAD_DA     = 5.70
 SB_H        = TAB_TOP          # body height == knuckle height, so no chord ramp
 SB_T        = 2*W2_HALF        # 8.90 -- body width == the 2-prong stack
 SB_RT       = 2.50             # top edge rounding
@@ -88,6 +106,10 @@ XPROBE      = 5.0        # X to probe the 3-prong grid along Y
 BODY_FILLET = 0.0        # bottom-edge fillet radius; 0 = no body underside
                          # overhang to excuse (the strut has a flat Kamm base)
 BORE_ROUND  = False      # plain round pivot bore instead of a 45 deg teardrop
+HEAD_CS     = 0.0        # countersink at the bore mouth, head side; 0 = none
+PKT_FLOOR_MIN = 1.20     # the LOADED pocket's floor: what the streamlined arm
+                         # has shipped with.  The simple variant raises it,
+                         # because it paid part height for exactly that.
 
 
 def boss_of(side):
@@ -106,16 +128,24 @@ def pkt_radius(kind, size):
 def configure(simple):
     """Point the spec at one variant or the other.
 
-    Only the body section and the screw pockets move; every GoPro interface
-    number stays exactly where it is, which is what makes the two variants
-    interchangeable in a chain.
+    The body section, the screw pockets and the PIVOT HEIGHT move.  Every
+    number the mating joint can actually feel -- the 3 mm grid, the clearances,
+    the R7.5 envelope -- stays exactly where it is, which is what makes the two
+    variants interchangeable in a chain.
     """
     global PKT_SPEC, PKT_PEAK, PKT_PRESS, SECTION, XPROBE, BODY_FILLET
-    global BORE_ROUND
+    global BORE_ROUND, HEAD_CS, PKT_FLOOR_MIN, PIVOT_Z, TAB_TOP, SB_H
     if not simple:
         return
+    # The pivot moves, so everything measured off it moves with it: the probe
+    # heights, the pocket floors, the bore, the body height, the flank angle.
+    PIVOT_Z = S_PIVOT_Z
+    TAB_TOP = S_TAB_TOP
+    SB_H = S_TAB_TOP
+    PKT_FLOOR_MIN = 1.90
     BODY_FILLET = SB_RB
     BORE_ROUND = True
+    HEAD_CS = S_HEAD_CS
     PKT_SPEC = ((S_NUT_SIDE,  'hex',   S_PKT_AF, S_PKT_DEPTH, S_BOSS_NUT),
                 (-S_NUT_SIDE, 'round', S_HD_D,   S_HD_DEPTH,  S_BOSS_HD))
     PKT_PEAK = False         # flat roof, printed with support
@@ -375,12 +405,33 @@ def main():
     # ---------------------------------------------------------------- 4
     print(f"\n[4] printability -- overhangs steeper than {OH_ANG} deg from vertical")
     lim = math.sin(math.radians(OH_ANG + FACET_TOL))
+    # The knuckle FLANK.  The circle is cut by the bed, so it leaves the bed at
+    # asin(PIVOT_Z/TAB_R) from vertical: exactly OH_ANG at the streamlined
+    # arm's 5.303 pivot, and 53.13 deg at the simple variant's raised 6.00.
+    # Nothing can buy that back -- padding the flank out to 45 deg needs
+    # material at R8.49 from the pivot, outside the R7.5 envelope a mating
+    # GoPro sweeps -- so on the supported variant it is excused.  Excused, and
+    # then pinned: to the angle the pivot height dictates, to the strip below
+    # the 45 deg tangent, and to the area that strip actually owes.
+    flank_oh = math.degrees(math.asin(min(1.0, PIVOT_Z/TAB_R)))
+    flank_top = PIVOT_Z - TAB_R*math.cos(math.radians(OH_ANG))
+    # The countersink's own Y band, so it can be told apart from the bore it
+    # opens into.  A 45 deg cone sits exactly ON the overhang budget, so it
+    # owes no area -- but it has to be NAMED, or it lands in the unclassified
+    # bucket and the headline "steepest facet" quietly becomes a report on a
+    # cone that is supposed to be there.
+    cs_floor = -S_NUT_SIDE*(W3_HALF + S_BOSS_HD - S_HD_DEPTH)
+    cs_lo, cs_hi = sorted((cs_floor, cs_floor + S_NUT_SIDE*HEAD_CS))
     worst_oh = 0.0
     bed = 0.0
     slot_area = 0.0
     pkt_area = 0.0
     fil_area = 0.0
     bore_area = 0.0
+    flank_area = 0.0
+    flank_worst = 0.0
+    cs_area = 0.0
+    cs_worst = 0.0
     bad = defaultdict(float)
     bad_pts = []
     bed_area = 0.0
@@ -416,6 +467,14 @@ def main():
                 if (r0 <= pkt_radius(kind, size) + 0.15
                         and lo_y - 0.05 <= cen[1] <= hi_y + 0.05):
                     in_pkt = True
+        # The knuckle flank, on the strip between the 45 deg tangent and the
+        # bed.  Tested on the RADIUS from the pivot, so it cannot excuse
+        # anything but the cut circle itself -- and it has to come before the
+        # body fillet below, which would otherwise swallow the knuckles too
+        # (it excuses everything under z = BODY_FILLET along the whole arm).
+        in_flank = (flank_oh > OH_ANG + 1e-9
+                    and cen[2] < flank_top + 0.05
+                    and abs(min(r0, r1) - TAB_R) <= 0.15)
         # The body's bottom-edge FILLET.  A fillet is tangent to the bed face,
         # so it leaves through 90 deg of overhang -- deliberate here, and the
         # reason this edge was a 45 deg chamfer until the pockets forced
@@ -427,8 +486,16 @@ def main():
         # from the bore AXIS in XZ, which is a genuine 2D test -- the bore runs
         # in Y, so there is no infinite-cylinder loophole to fall into here.
         in_bore = BORE_ROUND and min(r0, r1) <= BORE_D/2 + 0.15
-        if not in_slot and not in_pkt and not in_fillet and not in_bore:
+        in_cs = (HEAD_CS > 0
+                 and min(r0, r1) <= BORE_D/2 + HEAD_CS + 0.15
+                 and cs_lo - 0.05 <= cen[1] <= cs_hi + 0.05)
+        if (not in_slot and not in_pkt and not in_fillet and not in_bore
+                and not in_flank and not in_cs):
             worst_oh = max(worst_oh, ang_oh)
+        if in_flank:
+            flank_worst = max(flank_worst, ang_oh)
+        if in_cs and not in_bore:
+            cs_worst = max(cs_worst, ang_oh)
         if -n[2] <= lim:                  # within the 45 deg budget + faceting
             continue
         # classify: is it the roof of a slot pocket (a short bridge)?
@@ -436,6 +503,10 @@ def main():
             slot_area += a
         elif in_pkt:
             pkt_area += a
+        elif in_flank:
+            flank_area += a
+        elif in_cs:
+            cs_area += a
         elif in_fillet:
             fil_area += a
         elif in_bore:
@@ -464,11 +535,29 @@ def main():
         # length of MATERIAL the bore actually passes through -- both pocket
         # floors and the middle prong at end A, both fingers at end B.
         bore_arc = 2*(BORE_D/2)*math.acos(lim)
-        bore_len = (2*NUT_WALL + FING_W) + 2*FING_W
+        # ... less the countersink, which replaces its first HEAD_CS mm of
+        # cylindrical roof with a 45 deg cone that is inside the budget.
+        bore_len = (2*NUT_WALL + FING_W - HEAD_CS) + 2*FING_W
         bore_exp = bore_arc*bore_len
         print(f"     pivot-BORE roof area       {bore_area:8.2f} mm^2  "
               f"(vs {bore_exp:.2f} predicted -- round, not a teardrop, so it "
               f"needs support inside a {BORE_D} hole)")
+    if flank_oh > OH_ANG:
+        # The strip steeper than the budget runs from the acos(lim) ray to the
+        # bed cut, and it is exposed only where the slab body does not bury it:
+        # at end A the free half less both slots, plus the two bosses standing
+        # proud of the body on the other half; at end B the free half less the
+        # central gap, the body side being exactly as wide as the knuckle.
+        flank_arc = TAB_R*(math.acos(lim) - math.acos(min(1.0, PIVOT_Z/TAB_R)))
+        flank_wid = ((2*W3_HALF + boss_of(-1) + boss_of(+1) - 2*SLOT_W)
+                     + (boss_of(-1) + boss_of(+1))
+                     + (2*W2_HALF - SLOT_W))
+        flank_exp = flank_arc*flank_wid
+        print(f"     knuckle-FLANK area         {flank_area:8.2f} mm^2  "
+              f"(vs {flank_exp:.2f} predicted -- the cut circle leaves the bed "
+              f"at {flank_oh:.2f} deg, not {OH_ANG}, because the pivot is at "
+              f"{PIVOT_Z:.2f}; {flank_arc:.2f} mm of arc along {flank_wid:.1f} "
+              f"mm of knuckle)")
     print(f"     unclassified overhang area {sum(bad.values()):8.2f} mm^2")
     check(bed_area > 150, f"bed contact {bed_area:.1f} mm^2 is enough to hold the part down")
     check(sum(bad.values()) < 0.5,
@@ -482,6 +571,37 @@ def main():
               f"body fillet overhang {fil_area:.1f} mm^2 is the {fil_exp:.1f} an "
               f"r{BODY_FILLET} fillet owes (+/-25%) -- present, and no bigger "
               f"than the edge it is supposed to be")
+    if HEAD_CS > 0:
+        print(f"     bore-mouth COUNTERSINK      {cs_area:8.2f} mm^2  "
+              f"(steepest facet {cs_worst:.2f} deg -- a 45 deg cone sits ON "
+              f"the budget, so it owes no area and needs no support)")
+        check(cs_area < 0.5,
+              f"the countersink is a {OH_ANG} deg cone, not steeper: it adds "
+              f"{cs_area:.2f} mm^2 of overhang past the budget (cap 0.5)")
+    if flank_oh > OH_ANG:
+        # The strip is the narrowest of the three excused bands (under a
+        # millimetre of arc), so the facets that straddle the faceting cut are
+        # a bigger share of it than they are of the fillet or the bore -- hence
+        # a wider band than those get.
+        check(0.70*flank_exp <= flank_area <= 1.30*flank_exp,
+              f"knuckle-flank overhang {flank_area:.1f} mm^2 is the "
+              f"{flank_exp:.1f} the cut circle owes (+/-30%) -- the raised "
+              f"pivot's bill, and nothing else hiding at R{TAB_R}")
+        # The angle itself, both ways.  Too steep means the knuckle is not the
+        # shape it claims; too shallow means the pivot never actually moved and
+        # the whole trade was not made.
+        check(abs(flank_worst - flank_oh) <= FACET_TOL,
+              f"the flank leaves the bed at {flank_worst:.2f} deg, which is "
+              f"the {flank_oh:.2f} a pivot at {PIVOT_Z:.2f} dictates "
+              f"(+/-{FACET_TOL} of faceting)")
+        # And the part it is paid out of: the chord each knuckle stands on.
+        chord = 2*math.sqrt(max(0.0, TAB_R**2 - PIVOT_Z**2))
+        print(f"     each knuckle now stands on a {chord:.2f} mm bed chord "
+              f"(it was {2*TAB_R/math.sqrt(2):.2f} at a {TAB_R/math.sqrt(2):.3f} "
+              f"pivot); brim it")
+        check(chord >= 8.0,
+              f"the knuckle still stands on a {chord:.2f} mm chord, not a "
+              f"knife edge (a pivot at {TAB_R} would read 0.00)")
     if BORE_ROUND:
         check(0.70*bore_exp <= bore_area <= 1.30*bore_exp,
               f"bore roof overhang {bore_area:.1f} mm^2 is the {bore_exp:.1f} a "
@@ -705,10 +825,10 @@ def main():
                       f"{PIVOT_Z+size/2:.3f} (support carries it)")
             # A pocket centred on the pivot is ALWAYS thinner underneath: the
             # trimmed knuckle puts the pivot PIVOT_Z above the bed but TAB_R
-            # below the crown.  The only lever is pivot_z, which lives in
-            # arm.scad and is shared with the streamlined arm and the clamp --
-            # both supportless and in service.  So this is a floor to hold,
-            # not a number to chase.
+            # below the crown, and only the floor moves with the pivot.  The
+            # simple variant raises it and pays for the floor in part height
+            # and flank angle; the streamlined arm and the clamp cannot,
+            # because they are printed without support.
             above = TAB_TOP - hi_z
             print(f"     wall to the bed {lo_z:.3f}, to the crown {above:.3f}"
                   + (f"  ({above/lo_z:.1f}x thicker on top)" if lo_z > 0.01 else ""))
@@ -719,10 +839,15 @@ def main():
                 # stress and the nut's anti-rotation torque.  Benchmark it
                 # against a part that has actually been printed and used
                 # rather than against a number someone picked.
-                check(lo_z >= 1.20,
-                      f"the LOADED pocket's floor is {lo_z:.3f}, at least the "
-                      f"1.203 the streamlined arm has shipped with -- this is "
-                      f"the one taking press-fit hoop stress and nut torque")
+                # On the simple variant this is 1.90, not the streamlined
+                # arm's 1.203: the pivot was RAISED to buy that floor, at 1 mm
+                # of part height per 1 mm of pivot, and a part that passed at
+                # 1.203 again would have paid the height and given the floor
+                # back.
+                check(lo_z >= PKT_FLOOR_MIN,
+                      f"the LOADED pocket's floor is {lo_z:.3f} >= "
+                      f"{PKT_FLOOR_MIN} -- this is the one taking press-fit "
+                      f"hoop stress and nut torque")
             check(crown >= 0.45,
                   f"pocket {tag} roof stays {crown:.3f} mm inside the knuckle "
                   f"crown (a wider pocket would burst out of the top)")
@@ -811,6 +936,56 @@ def main():
                       f"pocket {tag} is {got:.3f} deep, so a {HEAD_H} mm barrel "
                       f"head sits {got-HEAD_H:.2f} mm BELOW the face, not proud "
                       f"of it")
+
+    # ---------------------------------------------------------------- 7
+    if HEAD_CS > 0:
+        print("\n[7] countersink at the bore mouth, head side")
+        print("     a socket cap screw is not a cylinder standing on a disc:")
+        print(f"     ISO 4762 allows the under-head fillet out to da = "
+              f"{HEAD_DA}, wider than this {BORE_D} bore, so with no relief the")
+        print("     head bears on the bore's EDGE instead of its own annulus")
+
+        def hole_d(y):
+            """Bore width across X at height PIVOT_Z, on the plane y."""
+            tN = near_axis(near_axis(tris, 1, y), 2, PIVOT_Z)
+            ivx = [(a-50, b-50)
+                   for a, b in ray_intervals(tN, (-50.0, y, PIVOT_Z), 0)]
+            gx = [(ivx[i][1], ivx[i+1][0]) for i in range(len(ivx)-1)]
+            near = [g for g in gx if abs((g[0]+g[1])/2) < 3]
+            return (near[0][1]-near[0][0]) if near else float('nan')
+
+        hd_side = -S_NUT_SIDE
+        y_out = face_meas.get(hd_side, hd_side*(W3_HALF + S_BOSS_HD))
+        floor_y = y_out - hd_side*S_HD_DEPTH
+        print(f"     head-pocket floor at y={floor_y:+.3f}, "
+              f"{NUT_WALL} mm of wall behind it")
+        # Sweep INTO the wall.  A 45 deg cone sheds 2 mm of diameter per mm of
+        # depth, so the profile pins the angle and the depth at once -- and the
+        # samples past HEAD_CS pin where it stops, which is what keeps it from
+        # eating through the wall the head bears on.
+        for t in (0.05, 0.25, 0.45, 0.75, 1.20):
+            y = floor_y - hd_side*t
+            got = hole_d(y)
+            exp = BORE_D + 2*max(0.0, HEAD_CS - t)
+            tail = "countersunk" if t < HEAD_CS else "plain bore"
+            check(abs(got - exp) < 0.08,
+                  f"{t:.2f} mm into the wall the hole is {got:.3f} == "
+                  f"{exp:.2f} ({tail})")
+        # What it is FOR, at the plane where the fillet is widest.
+        mouth = hole_d(floor_y - hd_side*0.05)
+        check(mouth >= HEAD_DA + 0.15,
+              f"at the floor the bore is opened to {mouth:.3f}, clearing a "
+              f"{HEAD_DA} under-head fillet by {mouth-HEAD_DA:+.3f} -- the head "
+              f"seats on the floor, not on the bore's edge")
+        # And it is on ONE side.  A nut's bearing face is flat to its thread,
+        # so the same cut on the nut side would only thin the wall behind the
+        # pocket that carries the press fit.
+        nut_y = face_meas.get(S_NUT_SIDE, S_NUT_SIDE*(W3_HALF + S_BOSS_NUT))
+        nut_floor = nut_y - S_NUT_SIDE*S_PKT_DEPTH
+        nut_mouth = hole_d(nut_floor - S_NUT_SIDE*0.05)
+        check(abs(nut_mouth - BORE_D) < 0.08,
+              f"the NUT side is left at {nut_mouth:.3f} == {BORE_D}, "
+              f"uncountersunk -- a nut has no fillet to clear")
 
     print()
     if FAIL:

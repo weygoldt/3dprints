@@ -149,8 +149,12 @@ tab_style = "trim";   // [pad, trim]
 pivot_z = (tab_style == "pad") ? tab_r : tab_r/sqrt(2);   // pivot above the bed
 tab_top = pivot_z + tab_r;                                // knuckle Z extent
 
-// pad half-length that makes the flanks leave the bed at exactly `oh_ang`
-tab_base_h = tab_r * (1/cos(oh_ang) - tan(oh_ang));   // 3.107 at 45 deg
+// pad half-length that makes the flanks leave the bed at exactly `oh_ang`.
+// General in the pivot height, because the SIMPLE variant raises it: the
+// external tangent from the pad corner (b, 0) to the knuckle circle stands at
+// `oh_ang` from vertical when b*cos + pz*sin == tab_r.
+function tab_base_h_at(pz) = tab_r/cos(oh_ang) - pz*tan(oh_ang);
+tab_base_h = tab_base_h_at(tab_r);   // 3.107 at 45 deg, pad style (pz == tab_r)
 
 // ---------------------------------------------------------------- helpers
 function cl(x, a, b)       = x < a ? a : (x > b ? b : x);
@@ -209,23 +213,34 @@ function station_xs(L) =
 // Knuckle silhouette in the XZ plane: the pivot circle hulled onto a flat
 // base bar, which turns the un-printable underside of the circle into two
 // 45 deg tangent flanks standing on the bed.
-module tab_profile2d() {
+//
+// `pz` is the pivot height and defaults to this file's own.  It is a parameter
+// only because arm_simple.scad raises the pivot to thicken its screw-pocket
+// floors; the default keeps THIS arm and the pipe clamp exactly as they were,
+// and their own checks prove it.  Note what a raised pivot costs here: under
+// "trim" the flank leaves the bed at asin(pz/tab_r) from vertical, which is
+// 45 deg only at pz = tab_r/sqrt(2).  Nothing can be added to fix that without
+// leaving the R7.5 joint envelope -- the cut circle IS every point inside R7.5
+// that reaches the bed.
+module tab_profile2d(pz = pivot_z) {
+    top = pz + tab_r;
     if (tab_style == "pad")
         hull() {
-            translate([0, pivot_z]) circle(r = tab_r);
-            translate([0, 0.005]) square([2*tab_base_h, 0.01], center = true);
+            translate([0, pz]) circle(r = tab_r);
+            translate([0, 0.005])
+                square([2*tab_base_h_at(pz), 0.01], center = true);
         }
     else
         intersection() {                      // circle cut off by the bed
-            translate([0, pivot_z]) circle(r = tab_r);
-            translate([0, tab_top/2]) square([4*tab_r, tab_top], center = true);
+            translate([0, pz]) circle(r = tab_r);
+            translate([0, top/2]) square([4*tab_r, top], center = true);
         }
 }
 
 // Knuckle solid spanning y0..y1.
-module tab_solid(y0, y1) {
+module tab_solid(y0, y1, pz = pivot_z) {
     translate([0, y1, 0]) rotate([90, 0, 0])
-        linear_extrude(height = y1 - y0) tab_profile2d();
+        linear_extrude(height = y1 - y0) tab_profile2d(pz);
 }
 
 // One station slab, 0.01 mm thick, at x.  rotate([90,0,90]) maps the 2D
@@ -245,14 +260,14 @@ module beam_loft(L) {
 // through its full circle.  Radius carries the fillet OUTSIDE the mating
 // knuckle's envelope -- full slot width is held out to tab_r + joint_clr,
 // and only beyond that does the fillet close in.
-module pocket(px, yc) {
-    translate([px, yc, pivot_z])
+module pocket(px, yc, pz = pivot_z) {
+    translate([px, yc, pz])
         cyl(r = pocket_r, h = slot_w, rounding = root_fillet, orient = BACK);
 }
 
 // 45 deg teardrop bore: BOSL2 teardrop() lies along Y with its point up +Z.
-module bore(px, span) {
-    translate([px, 0, pivot_z])
+module bore(px, span, pz = pivot_z) {
+    translate([px, 0, pz])
         teardrop(h = span, d = bore_d, ang = oh_ang);
 }
 

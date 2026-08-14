@@ -64,8 +64,19 @@ module ref_3prong() {
 }
 
 // Swing a mating part about the shared pivot.  ang=0 -> collinear.
-module at_pivot(px, a) {
-    translate([px, 0, pivot_z]) rotate([0, a, 0]) translate([0, 0, -pivot_z]) children();
+// The child is assumed to be BUILT with its own pivot at height `pz`; this
+// only rotates it, it does not move it onto the axis.
+module at_pivot(px, a, pz = pivot_z) {
+    translate([px, 0, pz]) rotate([0, a, 0]) translate([0, 0, -pz]) children();
+}
+
+// Same, for a reference part built about arm.scad's pivot that has to mate
+// with the SIMPLE arm, whose pivot sits s_pivot_z - pivot_z higher.  Two
+// parts on a hinge share ONE axis, so the reference is lifted onto it first.
+// Its own base ends up off the bed, which is meaningless -- it is a mating
+// solid, not something anyone prints.
+module at_ref_pivot(px, a, pz) {
+    at_pivot(px, a, pz) translate([0, 0, pz - pivot_z]) children();
 }
 
 if (test == "male_in_ours")
@@ -82,15 +93,22 @@ else if (test == "arm_in_arm")
     }
 // ---- the same four, against the simple variant ----------------------
 else if (test == "male_in_simple")
-    intersection() { arm_simple(armL); at_pivot(0, ang) ref_2prong(); }
+    intersection() { arm_simple(armL); at_ref_pivot(0, ang, s_pivot_z) ref_2prong(); }
 else if (test == "simple_in_female")
-    intersection() { arm_simple(armL); at_pivot(armL, ang) mirror([1,0,0]) ref_3prong(); }
+    intersection() {
+        arm_simple(armL);
+        at_ref_pivot(armL, ang, s_pivot_z) mirror([1,0,0]) ref_3prong();
+    }
 else if (test == "ctrl_simple")
-    intersection() { arm_simple(armL); translate([0, 1.0, 0]) at_pivot(0, ang) ref_2prong(); }
+    intersection() {
+        arm_simple(armL);
+        translate([0, 1.0, 0]) at_ref_pivot(0, ang, s_pivot_z) ref_2prong();
+    }
 else if (test == "simple_in_simple")
     intersection() {
         arm_simple(armL);
-        at_pivot(0, ang) translate([-armL, 0, 0]) arm_simple(armL);
+        // Both arms are built about s_pivot_z, so no lift -- just the swing.
+        at_pivot(0, ang, s_pivot_z) translate([-armL, 0, 0]) arm_simple(armL);
     }
 // Baseline: the SAME reference male swung against an unmodified inspiration
 // arm, so the articulation range can be compared like for like.  Its pivot A
