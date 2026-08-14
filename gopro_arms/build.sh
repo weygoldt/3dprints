@@ -4,6 +4,13 @@ set -euo pipefail
 cd "$(dirname "$0")"
 mkdir -p stl
 
+# FIRST, because every measurement below reaches the mesh through load(), and a
+# loader that returns an empty mesh does not error -- it measures 0.0 mm^3 and
+# an inverted bbox, which fitcheck.py reads as a perfect fit.  A gate whose
+# instrument is untested is not a gate.
+echo "--- loader self-test"
+python3 verify.py --selftest | tail -2
+
 for L in 50 75 100 140; do
     echo "--- arm${L}"
     openscad -o "stl/gopro_arm_${L}mm.stl" --export-format binstl --render -D 'x=0' -D "part=\"arm${L}\"" main.scad 2>&1 \

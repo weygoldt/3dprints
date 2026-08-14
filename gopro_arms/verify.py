@@ -21,6 +21,7 @@ the knuckle flank leaves the bed at -- so those expectations move with it.
 """
 import argparse
 import math
+import os
 import struct
 import sys
 from collections import defaultdict
@@ -189,13 +190,110 @@ def warn(ok, msg):
 
 
 # ---- mesh ------------------------------------------------------------
+# Sniff the LAYOUT, not the leading bytes.  A binary STL's 80-byte header is
+# free-form, and plenty of exporters open it with the part name -- both
+# `inspiration/Quck Release v3 *.STL` begin with the literal ASCII "solid ".
+# Deciding on that prefix sent a 141034-facet binary mesh down the ASCII
+# branch, where it found no `vertex` lines and returned an EMPTY list.  That is
+# not a cosmetic misparse: volume() of nothing is 0.0, and fitcheck.py reads
+# 0.0 mm^3 as ZERO INTERFERENCE, i.e. a perfect fit at every hinge angle.  A
+# loader that cannot read a file has to say so, not certify it.
+#
+# `84 + 50*n == filesize` is the discriminator.  It is not a heuristic: it is
+# the binary format's own definition, and for an ASCII file to pass it the four
+# bytes at offset 80 would have to spell out that file's own length.
 def load(path):
+    """Triangles from an STL, binary or ASCII.  Never silently empty."""
+    size = os.path.getsize(path)
+    with open(path, 'rb') as f:
+        head = f.read(84)
+        n = struct.unpack('<I', head[80:84])[0] if len(head) == 84 else -1
+        if 84 + 50*n == size:
+            data = f.read()
+            tris = []
+            for i in range(n):
+                v = struct.unpack('<12f', data[i*50:i*50+48])
+                tris.append((v[3:6], v[6:9], v[9:12]))
+        else:
+            f.seek(0)
+            tris = []
+            vs = []
+            for line in f:
+                s = line.split()
+                if s and s[0] == b'vertex':
+                    vs.append(tuple(float(x) for x in s[1:4]))
+                    if len(vs) == 3:
+                        tris.append(tuple(vs))
+                        vs = []
+    if not tris:
+        # The arithmetic goes in the message on purpose.  The one shape this
+        # loader is deliberately stricter about than the old one is a binary
+        # file with TRAILING bytes: 84 + 50n misses the size, so it is tried as
+        # ASCII and finds nothing.  No file here is written that way, and a
+        # speculative fallback would be a code path nothing ever exercises --
+        # so it fails instead, and says enough to diagnose it in one look.
+        raise ValueError(
+            f"{path}: parsed 0 facets. {size} bytes; the header claims {n} "
+            f"facets, which wants {84 + 50*n} ({84 + 50*n - size:+d}). "
+            f"Refusing to return an empty mesh -- downstream that measures as "
+            f"volume 0.0, which reads as a perfect fit.")
+    return tris
+
+
+# ---- loader self-test ------------------------------------------------
+# Every other check in this file stands on load(), and its failure mode is
+# SILENT: a mesh it cannot read measures 0.0 mm^3 and an inverted bbox, and
+# fitcheck.py certifies 0.0 mm^3 as zero interference.  So the loader is tested
+# directly, and the test carries a MUTATION CONTROL -- [L4] runs the OLD prefix
+# sniff on the same adversarial file and demands that it fail.  Without that,
+# [L3] would pass just as happily against the bug it exists to catch, which is
+# the same trap fitcheck.py's ctrl_* run guards against.
+def _cube_tris(s=2.0):
+    """12 facets of an s-cube at the origin.  Volume s^3, bbox 0..s."""
+    v = [(x*s, y*s, z*s) for x in (0, 1) for y in (0, 1) for z in (0, 1)]
+    quads = [(0, 1, 3, 2), (4, 6, 7, 5), (0, 4, 5, 1),
+             (2, 3, 7, 6), (0, 2, 6, 4), (1, 5, 7, 3)]
+    tris = []
+    for a, b, c, d in quads:
+        tris.append((v[a], v[b], v[c]))
+        tris.append((v[a], v[c], v[d]))
+    return tris
+
+
+def _write_binary_stl(path, tris, header):
+    """Binary STL with a chosen 80-byte header -- the point of the test."""
+    with open(path, 'wb') as f:
+        f.write(header.encode()[:80].ljust(80, b'\0'))
+        f.write(struct.pack('<I', len(tris)))
+        for t in tris:
+            f.write(struct.pack('<3f', 0.0, 0.0, 0.0))
+            for p in t:
+                f.write(struct.pack('<3f', *p))
+            f.write(b'\0\0')
+
+
+def _write_ascii_stl(path, tris):
+    with open(path, 'w') as f:
+        f.write('solid test\n')
+        for t in tris:
+            f.write(' facet normal 0 0 0\n  outer loop\n')
+            for p in t:
+                f.write('   vertex %.6f %.6f %.6f\n' % p)
+            f.write('  endloop\n endfacet\n')
+        f.write('endsolid test\n')
+
+
+def _load_prefix_sniff(path):
+    """load() as it was, deciding on the leading bytes.
+
+    Kept ONLY as [L4]'s control.  If this reads the adversarial file correctly
+    then the file does not reproduce the bug and [L3] proves nothing.
+    """
     with open(path, 'rb') as f:
         head = f.read(84)
         if head[:5] == b'solid':
             f.seek(0)
-            tris = []
-            vs = []
+            tris, vs = [], []
             for line in f:
                 s = line.split()
                 if s and s[0] == b'vertex':
@@ -211,6 +309,71 @@ def load(path):
         v = struct.unpack('<12f', data[i*50:i*50+48])
         tris.append((v[3:6], v[6:9], v[9:12]))
     return tris
+
+
+def selftest():
+    """Prove load() reads what it claims to, and fails loudly when it cannot."""
+    import tempfile
+    cube = _cube_tris(2.0)                      # 12 facets, volume 8.000
+    d = tempfile.mkdtemp(prefix='verify_selftest_')
+    plain = os.path.join(d, 'plain.stl')
+    adver = os.path.join(d, 'adversarial.stl')
+    asc = os.path.join(d, 'ascii.stl')
+    junk = os.path.join(d, 'junk.stl')
+    _write_binary_stl(plain, cube, 'OpenSCAD Model\n')
+    # The exact shape of the bug: a BINARY mesh whose free-form 80-byte header
+    # opens with the part name, which happens to start "solid".  Both
+    # inspiration/Quck Release v3 *.STL are written this way.
+    _write_binary_stl(adver, cube, 'solid Quck Release v3 clip')
+    _write_ascii_stl(asc, cube)
+    with open(junk, 'wb') as f:
+        f.write(b'solid nothing at all\nendsolid nothing at all\n' * 8)
+
+    print("\n=== load() self-test")
+    print("\n[L1] binary STL, ordinary header")
+    t = load(plain)
+    check(len(t) == 12, f"12 facets (got {len(t)})")
+    check(abs(volume(t) - 8.0) < 1e-6, f"volume 8.000 (got {volume(t):.6f})")
+
+    print("\n[L2] ASCII STL, same cube -- both encodings must agree")
+    t = load(asc)
+    check(len(t) == 12, f"12 facets (got {len(t)})")
+    check(abs(volume(t) - 8.0) < 1e-6, f"volume 8.000 (got {volume(t):.6f})")
+
+    print("\n[L3] REGRESSION: binary STL whose header begins 'solid'")
+    t = load(adver)
+    check(len(t) == 12,
+          f"read as binary -- 12 facets, not 0 (got {len(t)})")
+    check(abs(volume(t) - 8.0) < 1e-6,
+          f"volume 8.000, not the 0.000 an empty mesh measures "
+          f"(got {volume(t):.6f})")
+    lo, hi = bbox(t)
+    check(hi[0] > lo[0],
+          f"bbox is the right way round ({lo[0]:.3f}..{hi[0]:.3f}) -- an empty "
+          f"mesh returns it inverted, which reads as a part with no extent")
+
+    print("\n[L4] CONTROL -- the old prefix sniff on the same file; must FAIL")
+    old = _load_prefix_sniff(adver)
+    check(len(old) == 0,
+          f"prefix sniff returns {len(old)} facets, so the fixture really does "
+          f"reproduce the bug and [L3] has teeth")
+
+    print("\n[L5] an unreadable file RAISES rather than measuring as empty")
+    try:
+        load(junk)
+        check(False, "load() returned instead of raising on a 0-facet parse")
+    except ValueError:
+        check(True, "ValueError, so 'cannot read it' can never reach a caller "
+                    "disguised as 'nothing is there'")
+
+    print()
+    if FAIL:
+        print(f"*** {len(FAIL)} FAILURE(S)")
+        for m in FAIL:
+            print("   -", m)
+        return 1
+    print("LOADER SELF-TEST PASSED")
+    return 0
 
 
 def near_axis(tris, axis, val, pad=0.0):
@@ -297,12 +460,18 @@ def ray_intervals(tris, origin, axis):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('stl')
-    ap.add_argument('--length', type=float, required=True)
+    ap.add_argument('stl', nargs='?')
+    ap.add_argument('--length', type=float)
     ap.add_argument('--gauge', action='store_true')
     ap.add_argument('--simple', action='store_true',
                     help='expect arm_simple.scad: slab body, pocket both sides')
+    ap.add_argument('--selftest', action='store_true',
+                    help='test load() itself; needs no STL')
     args = ap.parse_args()
+    if args.selftest:
+        return selftest()
+    if args.stl is None or args.length is None:
+        ap.error('need <stl> and --length (or --selftest)')
     configure(args.simple)
     L = args.length
 

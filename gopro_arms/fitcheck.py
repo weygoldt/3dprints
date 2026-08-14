@@ -47,10 +47,13 @@ def run(test, ang, armL=100):
                 f"no output and no empty-object message ({test}, ang={ang}) -- "
                 f"refusing to read that as zero interference")
         return 0.0, r.stderr
-    try:
-        v = volume(load(out))
-    except Exception:
-        v = 0.0
+    # NOT wrapped in try/except.  It was, returning 0.0 on any exception, which
+    # is the same false-pass as the empty-file case above wearing a different
+    # hat: every way of failing to READ the mesh became "no interference".  By
+    # here the render succeeded and the file is >= 100 bytes, so there is no
+    # benign parse failure left to absorb -- anything load() raises is a real
+    # fault and has to stop the gate.  The file is deliberately left on disk.
+    v = volume(load(out))
     os.remove(out)
     return v, r.stderr
 
