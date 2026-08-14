@@ -703,7 +703,26 @@ def main():
                 check(abs(hi_z - (PIVOT_Z + size/2)) < 0.06,
                       f"pocket {tag} {roof} at {hi_z:.3f} == "
                       f"{PIVOT_Z+size/2:.3f} (support carries it)")
-            check(lo_z > 0.8, f"pocket {tag} leaves {lo_z:.3f} mm of material to the bed")
+            # A pocket centred on the pivot is ALWAYS thinner underneath: the
+            # trimmed knuckle puts the pivot PIVOT_Z above the bed but TAB_R
+            # below the crown.  Not tunable -- giving the head counterbore
+            # 2.0 mm would need the pivot at 6.40, tipping the knuckle flanks
+            # to 58.6 deg from vertical and putting support INSIDE the GoPro
+            # slots.  So this is a floor to hold, not a number to improve.
+            above = TAB_TOP - hi_z
+            print(f"     wall to the bed {lo_z:.3f}, to the crown {above:.3f}"
+                  + (f"  ({above/lo_z:.1f}x thicker on top)" if lo_z > 0.01 else ""))
+            check(lo_z >= 0.80,
+                  f"pocket {tag} leaves {lo_z:.3f} mm to the bed (floor 0.80)")
+            if kind == 'hex':
+                # The one that matters: this pocket takes the press fit's hoop
+                # stress and the nut's anti-rotation torque.  Benchmark it
+                # against a part that has actually been printed and used
+                # rather than against a number someone picked.
+                check(lo_z >= 1.20,
+                      f"the LOADED pocket's floor is {lo_z:.3f}, at least the "
+                      f"1.203 the streamlined arm has shipped with -- this is "
+                      f"the one taking press-fit hoop stress and nut torque")
             check(crown >= 0.45,
                   f"pocket {tag} roof stays {crown:.3f} mm inside the knuckle "
                   f"crown (a wider pocket would burst out of the top)")

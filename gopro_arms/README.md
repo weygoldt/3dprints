@@ -119,6 +119,11 @@ Slicer notes:
   100 mm — so it is no less exposed than it looks.
 - Bump perimeters to **4–5**. Neither body is over 10 mm thick, so perimeters do
   most of the structural work and the part comes out nearly solid.
+- **7 bottom solid layers on the simple arm.** The pocket floors are 1.303 and
+  0.903 mm thick — 6.5 and 4.5 layers at 0.2 mm — so 7 (1.4 mm) makes both of
+  them solid skin instead of a few layers of skin over sparse infill. See *The
+  thin floor under the pockets*. Infill 40 % gyroid is otherwise plenty; the
+  walls and shells carry this part, not the fill.
 - Flat face on the bed — that is the only orientation either is designed for.
 
 ## Prong flex
@@ -346,6 +351,41 @@ instead of passing quietly.
 
 `sb_rb = 0`, `pkt_peak = true` and `bore_round = false` give the supportless
 part back — square bottom edges, a nut seating on a 45° peak, a pointed bore.
+
+### The thin floor under the pockets
+
+Both pockets have noticeably less material below them than above, and it looks
+alarming enough to be worth writing down:
+
+| | wall to the bed | wall to the crown | |
+|---|---|---|---|
+| nut pocket, hex 8.00 | **1.303** | 3.500 | 2.7× |
+| head counterbore, Ø8.80 | **0.903** | 3.100 | 3.4× |
+| *streamlined arm, printed & in service* | *1.203* | *1.033* | — |
+
+**The asymmetry is the trimmed knuckle, not a mistake.** The pivot sits
+`R/√2` = **5.303 mm above the bed but 7.500 below the crown**, so anything
+centred on it is thinner underneath by 2.2 mm, always. The hex's flats-up
+orientation — chosen so the roof can bridge — happens to also give the
+*thickest possible* floor; rotating it 30° would drop the nut pocket to 0.684.
+
+**It is not tunable, and the obvious fix is worse.** Giving the head counterbore
+2.0 mm would need the pivot at 6.40, which tips the knuckle flanks to **58.6°
+from vertical** — putting support *inside the GoPro slots*, the one place this
+design has always refused to let support go.
+
+Two things make it less worrying than it looks:
+
+- **The thin one is the unloaded one.** The Ø8.80 counterbore is a *clearance*
+  fit holding a screw head that bears axially on the pocket floor, in Y. It sees
+  no hoop stress and no torque. The pocket that does take load — press-fit hoop
+  stress and the nut's anti-rotation torque — is the hex, at **1.303 mm**, which
+  is *thicker* than the 1.203 the streamlined arm has been flying with. That is
+  now a check, benchmarked against the shipped part rather than a made-up number.
+- **Print it solid.** At 0.2 mm layers, 1.303 mm is 6.5 layers and 0.903 is 4.5.
+  With **7 bottom solid layers** (1.4 mm) both floors are entirely solid skin
+  rather than a few layers of skin over sparse infill — which is the difference
+  that actually matters here, and it costs nothing.
 
 ### The round bore
 
