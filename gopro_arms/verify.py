@@ -87,6 +87,7 @@ SECTION     = 'strut'
 XPROBE      = 5.0        # X to probe the 3-prong grid along Y
 BODY_FILLET = 0.0        # bottom-edge fillet radius; 0 = no body underside
                          # overhang to excuse (the strut has a flat Kamm base)
+BORE_ROUND  = False      # plain round pivot bore instead of a 45 deg teardrop
 
 
 def boss_of(side):
@@ -110,9 +111,11 @@ def configure(simple):
     interchangeable in a chain.
     """
     global PKT_SPEC, PKT_PEAK, PKT_PRESS, SECTION, XPROBE, BODY_FILLET
+    global BORE_ROUND
     if not simple:
         return
     BODY_FILLET = SB_RB
+    BORE_ROUND = True
     PKT_SPEC = ((S_NUT_SIDE,  'hex',   S_PKT_AF, S_PKT_DEPTH, S_BOSS_NUT),
                 (-S_NUT_SIDE, 'round', S_HD_D,   S_HD_DEPTH,  S_BOSS_HD))
     PKT_PEAK = False         # flat roof, printed with support
@@ -342,13 +345,23 @@ def main():
             # the round part of the teardrop sits below the pivot axis
             check(abs(g[0] - (PIVOT_Z - BORE_D/2)) < TOL,
                   f"bore {name} floor at z={g[0]:.3f} == {PIVOT_Z-BORE_D/2:.3f} (M5 seats on the round)")
-            # A PLAIN ROUND hole tops out at PIVOT_Z + BORE_D/2.  Requiring
-            # merely ">= that" passes a round hole and verifies no teardrop at
-            # all; the 45 deg apex must stand clearly above it.
             apex = PIVOT_Z + BORE_D/2*math.sqrt(2)
-            check(g[1] >= PIVOT_Z + BORE_D/2 + 0.8,
-                  f"bore {name} roof z={g[1]:.3f} is a TEARDROP apex "
-                  f"(a round hole would stop at {PIVOT_Z+BORE_D/2:.3f}, 45 deg apex {apex:.3f})")
+            if BORE_ROUND:
+                # The inverse of the teardrop check, and just as necessary: a
+                # teardrop satisfies "roof >= round", so only an equality test
+                # proves the point was actually removed.
+                check(abs(g[1] - (PIVOT_Z + BORE_D/2)) < 0.06,
+                      f"bore {name} roof z={g[1]:.3f} is ROUND, stopping at "
+                      f"{PIVOT_Z+BORE_D/2:.3f} (a teardrop would reach {apex:.3f}) "
+                      f"-- {TAB_TOP-g[1]:.2f} mm of crown over it")
+            else:
+                # A PLAIN ROUND hole tops out at PIVOT_Z + BORE_D/2.  Requiring
+                # merely ">= that" passes a round hole and verifies no teardrop
+                # at all; the 45 deg apex must stand clearly above it.
+                check(g[1] >= PIVOT_Z + BORE_D/2 + 0.8,
+                      f"bore {name} roof z={g[1]:.3f} is a TEARDROP apex "
+                      f"(a round hole would stop at {PIVOT_Z+BORE_D/2:.3f}, "
+                      f"45 deg apex {apex:.3f})")
             check(g[0] > 2.0, f"bore {name} floor leaves {g[0]:.3f} mm of material under the bore")
         # width across the bore in Y-free direction: probe X through the pivot
         ivx = ray_intervals(near_axis(tY, 2, PIVOT_Z), (-50.0, yprobe, PIVOT_Z), 0)
@@ -367,6 +380,7 @@ def main():
     slot_area = 0.0
     pkt_area = 0.0
     fil_area = 0.0
+    bore_area = 0.0
     bad = defaultdict(float)
     bad_pts = []
     bed_area = 0.0
@@ -409,7 +423,11 @@ def main():
         in_fillet = (BODY_FILLET > 0
                      and cen[2] < BODY_FILLET + 0.05
                      and 0.0 <= cen[0] <= L)
-        if not in_slot and not in_pkt and not in_fillet:
+        # The pivot bore's roof, once the teardrop is gone.  Keyed on distance
+        # from the bore AXIS in XZ, which is a genuine 2D test -- the bore runs
+        # in Y, so there is no infinite-cylinder loophole to fall into here.
+        in_bore = BORE_ROUND and min(r0, r1) <= BORE_D/2 + 0.15
+        if not in_slot and not in_pkt and not in_fillet and not in_bore:
             worst_oh = max(worst_oh, ang_oh)
         if -n[2] <= lim:                  # within the 45 deg budget + faceting
             continue
@@ -420,6 +438,8 @@ def main():
             pkt_area += a
         elif in_fillet:
             fil_area += a
+        elif in_bore:
+            bore_area += a
         else:
             bad[round(cen[0], 0)] += a
             bad_pts.append((cen, math.degrees(math.asin(min(1, -n[2]))), a))
@@ -439,6 +459,16 @@ def main():
         print(f"     body bottom-FILLET area    {fil_area:8.2f} mm^2  "
               f"(vs {fil_exp:.2f} predicted -- r{BODY_FILLET} along {eff:.1f} mm, "
               f"BOTH edges, needs support)")
+    if BORE_ROUND:
+        # Predicted the same way: the >45 deg arc of a round hole, times the
+        # length of MATERIAL the bore actually passes through -- both pocket
+        # floors and the middle prong at end A, both fingers at end B.
+        bore_arc = 2*(BORE_D/2)*math.acos(lim)
+        bore_len = (2*NUT_WALL + FING_W) + 2*FING_W
+        bore_exp = bore_arc*bore_len
+        print(f"     pivot-BORE roof area       {bore_area:8.2f} mm^2  "
+              f"(vs {bore_exp:.2f} predicted -- round, not a teardrop, so it "
+              f"needs support inside a {BORE_D} hole)")
     print(f"     unclassified overhang area {sum(bad.values()):8.2f} mm^2")
     check(bed_area > 150, f"bed contact {bed_area:.1f} mm^2 is enough to hold the part down")
     check(sum(bad.values()) < 0.5,
@@ -452,6 +482,11 @@ def main():
               f"body fillet overhang {fil_area:.1f} mm^2 is the {fil_exp:.1f} an "
               f"r{BODY_FILLET} fillet owes (+/-25%) -- present, and no bigger "
               f"than the edge it is supposed to be")
+    if BORE_ROUND:
+        check(0.70*bore_exp <= bore_area <= 1.30*bore_exp,
+              f"bore roof overhang {bore_area:.1f} mm^2 is the {bore_exp:.1f} a "
+              f"round {BORE_D} bore owes (+/-30%) -- the teardrop really is gone, "
+              f"and nothing else hides in the bore's radius")
     check(SLOT_W <= 3.5, f"slot-roof bridge span is {SLOT_W} mm (PETG bridges this)")
     check(slot_area < 40.0,
           f"excused slot-roof area {slot_area:.2f} mm^2 stays small (cap 40)")

@@ -3,8 +3,9 @@
 Parametric replacement for the third-party arms in `inspiration/`. Two things
 changed: the prong stack now sits on the **real GoPro 3 mm grid** so a camera
 actually clamps, and the square beam was rebuilt — twice. There are two arms
-here. They share every millimetre of the GoPro joint and differ only in the body
-and the screw pockets, so they chain freely with each other:
+here. They share every millimetre of the GoPro *interface*, so they chain freely
+with each other and with real hardware; what differs is the body, the screw
+pockets and the bore:
 
 | | `arm.scad` — **streamlined** | `arm_simple.scad` — **simple** |
 |---|---|---|
@@ -14,12 +15,15 @@ and the screw pockets, so they chain freely with each other:
 | stack width | 18.3 mm | 21.7 mm |
 | nut | drop-in, one side | **press fit** (−Y) |
 | screw head | stands proud | **flush in a Ø8.8 counterbore** (+Y) |
+| pivot bore | 45° teardrop, self-bridging | plain **round**, 1.1 mm more crown |
 | articulation | −100…+90° into a GoPro mount | identical |
-| support | none | none, **except inside the two nut pockets** |
+| support | **none** | pockets, bottom edges, bores |
 
-PETG · Prusa MK3S · 0.4 nozzle · 0.2 mm layers. Everything here is supportless
-by construction with exactly one exception, called out below: the simple arm's
-nut pockets have a flat roof and are meant to be printed supported.
+PETG · Prusa MK3S · 0.4 nozzle · 0.2 mm layers. The streamlined arm and the
+clamp are supportless by construction and should have support turned off
+explicitly. **The simple arm is the one part that wants it** — it trades three
+pieces of self-bridging geometry for a rounder, tighter, stronger part, and the
+three supported regions are itemised and area-checked below.
 
 ---
 
@@ -100,12 +104,14 @@ Slicer notes:
   sits right on that line, and auto-support will then pack PETG into the GoPro
   slots — exactly the surfaces that must stay clean for the joint to close. So
   turn it off explicitly there.
-  The **simple arm is the exception**: it wants support in the screw pockets
-  *and* under the body's rounded bottom edges. A **55° threshold** picks up
-  exactly those — the steepest facet anywhere else is 45.01°, so nothing else
-  gets touched and the GoPro slots stay clean (they measure 0.00 mm² of
-  overhang). Do not use "support on build plate only"; the pockets don't touch
-  the plate. Then **dig the support out of both pockets** before assembly.
+  The **simple arm is the exception**: it wants support in the screw pockets,
+  under the body's rounded bottom edges, and inside the pivot bores. A **55°
+  threshold** picks up exactly those — the steepest facet anywhere else is
+  44.24°, so nothing else gets touched and the GoPro slots stay clean (they
+  measure 0.00 mm² of overhang). Do not use "support on build plate only"; the
+  pockets don't touch the plate. Then **dig the support out of both pockets**
+  before assembly, and run a 5 mm drill through the bores if they come out
+  ragged.
 - **Use a brim**, on both. The strut stands 20 mm tall on a 5 mm wide foot over
   155 mm of length; that is a narrow footprint for PETG, whose shrinkage will
   lift the ends given the chance. Bed contact is ~750 mm². The simple arm is
@@ -236,10 +242,12 @@ deeper knuckle, but the pad sticks ~0.6 mm proud and jams the hinge mid-travel:
 
 The streamlined arm pays for its section. Under the boat that is the right
 trade; on a tripod, a handlebar or a bench it is just cost. This variant spends
-the budget differently. **The joint is byte-for-byte the same** — same 3 mm grid,
-same 0.10 clearances, same trimmed knuckle, same teardrop bore, same 3.3 mm of
+the budget differently. **The mating interface is identical** — same 3 mm grid,
+same 0.10 clearances, same trimmed knuckle, same R7.5 envelope, same 3.3 mm of
 prong free length — so the two chain with each other and with real GoPro
-hardware without a thought.
+hardware without a thought. What differs is the body, the screw pockets and the
+bore, and all three follow from one decision: this variant is printed with
+support, so it stops paying for self-bridging geometry it no longer needs.
 
 ### The body
 
@@ -308,26 +316,48 @@ past 30 mm to recess 5 mm of screw head.
 | **M5×16 socket cap + M5 nut** | what it is built around. Head 0.30 below its face, nut 0.30 below its own, tip stopping 0.40 inside the nut pocket with 3.9 of the nut's 4.0 mm engaged — **nothing protrudes anywhere.** Driven with a 4 mm key, which is far more torque than a thumbscrew and is half the point. |
 | GoPro thumbscrew + M5 nut | as `arm.scad`; the head just sits proud |
 
-### Support, in two places
+### Support, in three places
 
 | | area (100 mm arm) | |
 |---|---|---|
-| screw pockets | 56.49 mm² | hex flat roof + the round bore's 90° cap |
+| screw pockets | 56.49 mm² | hex flat roof + the counterbore's 90° cap |
 | body bottom edges | 262.89 mm² | the r2.5 fillets, full length of the underside |
+| pivot bores | 50.97 mm² | round instead of teardropped — **inside a Ø5.3 hole** |
 | **unclassified** | **0.00 mm²** | everything else is supportless by construction |
 
-**Dig the pocket support out before the nut and the screw go in.**
+**Dig the pocket support out before the nut and the screw go in.** The bore
+support is the fiddliest of the three; a 5 mm drill clears it if it comes out
+ragged, and the screw seats on the *bottom* of the bore so the top is clearance
+either way.
 
-Neither exemption is a round-number cap — the verifier *predicts* both areas
-from the geometry and checks the measurement against them. The pockets owe
-56.49 mm² (hex top flat + the bore's >45° arc) and measure 56.49. The fillets
-owe 2 × r·acos(lim) × the blended body length, 257.75 mm², and measure 262.89 —
-within 2 %, and it tracks at every arm length (67.95 vs 66.74 at 50 mm, 409.60
-vs 419.81 at 140 mm). A pocket of the wrong size, a missing fillet or an extra
-overhang anywhere shows up as a mismatch instead of passing quietly.
+None of these is a round-number cap — the verifier *predicts* each area from the
+geometry and checks the measurement against it:
 
-Set `pkt_peak = true` and `sb_rb = 0` to get the supportless part back — square
-bottom edges, and a nut seating against a 45° peak instead of a flat roof.
+| | predicted | measured |
+|---|---|---|
+| pockets | 56.49 | 56.49 |
+| fillets | 257.75 | 262.89 |
+| bores | 47.08 | 50.97 |
+
+and the fillet prediction tracks at every length (67.95 vs 66.74 at 50 mm,
+409.60 vs 419.81 at 140 mm). A pocket of the wrong size, a missing fillet, a
+teardrop that crept back or an extra overhang anywhere shows up as a mismatch
+instead of passing quietly.
+
+`sb_rb = 0`, `pkt_peak = true` and `bore_round = false` give the supportless
+part back — square bottom edges, a nut seating on a 45° peak, a pointed bore.
+
+### The round bore
+
+`arm.scad`'s bore is a 45° teardrop so it can bridge its own roof. **Its bore
+stays that way, and so does the clamp's** — both are still printed without
+support. Only the simple arm goes round, and it gains something for it: the
+teardrop's apex cuts up to z = 9.05, a round bore stops at 7.95, so there is
+**4.86 mm of material over the bore instead of 3.75**.
+
+The check inverts rather than disappearing. A teardrop satisfies "roof ≥ round",
+so only an equality test proves the point was actually removed — the same trap
+the original `>=` bore check fell into, in the other direction.
 
 ### What it actually saves
 
@@ -526,7 +556,7 @@ hole reads 60.0°, i.e. free), and whether the inscribed circle really admits a
 Ø8.5 cap head. The outline is convex, so testing the nut's six corners is a sound
 test of containment rather than an approximation.
 
-Eleven mutants, each aimed at one claim, all caught:
+Twelve mutants, each aimed at one claim, all caught:
 
 | mutant | caught by |
 |---|---|
@@ -540,6 +570,7 @@ Eleven mutants, each aimed at one claim, all caught:
 | bottom edges left square | fillet area 0.0 ≠ 257.8, footing 8.900 mm |
 | bottom edge chamfered instead of filleted | fillet area 0.0, and the arc test reads 5.350 not 7.436 |
 | bottom fillet at r4.40 instead of r2.5 | fillet area 463.0 ≠ 257.8, footing down to 0.100 mm |
+| teardrop bore put back on the simple arm | roof 9.051 ≠ 7.953, bore ceiling 0.0 ≠ 47.1 |
 | clamp teeth cut 0.60 deep (> half-width) | 60.81° overhang, 72 mm² unsupported |
 
 That last one is the useful kind: it proves the *depth ≤ half-width* rule that

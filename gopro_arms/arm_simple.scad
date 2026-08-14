@@ -7,8 +7,10 @@
 //  travel.  This one buys all three back for a general-purpose arm.
 //
 //  It shares every millimetre of the GoPro interface with arm.scad -- same
-//  3 mm grid, same 0.10 mm clearances, same trimmed knuckle, same teardrop
-//  bore, same prong free length.  Only the BODY and the SCREW POCKETS differ.
+//  3 mm grid, same 0.10 mm clearances, same trimmed knuckle, same prong free
+//  length.  The BODY, the SCREW POCKETS and the BORE differ, and all three
+//  differences follow from one decision: this variant is printed with support,
+//  so it stops paying for self-bridging geometry it no longer needs.
 //
 //  ------------------------------------------------------------------
 //  WHAT CHANGES, AND WHY
@@ -87,15 +89,19 @@
 //      THE SCREW GO IN.
 //    * the BODY'S BOTTOM EDGES.  A fillet is tangent to the bed face, so it
 //      leaves through 90 deg of overhang -- which is exactly why this edge
-//      was a 45 deg chamfer until the pockets forced support anyway.  ~260
+//      was a 45 deg chamfer until the pockets forced support anyway.  ~263
 //      mm^2 on a 100 mm arm, running the whole length of the underside, and
 //      the footing narrows from 5.90 to 3.90 mm.  Brim it.
+//    * the PIVOT BORES.  Round instead of teardropped, so their top ~87 deg
+//      of arc is a ceiling: ~51 mm^2, and it is support INSIDE a 5.30 hole,
+//      the fiddliest on the part.  A 5 mm drill clears it if it comes out
+//      ragged; the screw seats on the bottom of the bore, so the top is
+//      clearance either way.
 //  Everything else is still supportless by construction: the top rounding is
-//  upward-facing, the bore keeps its 45 deg teardrop, and the knuckle flanks
-//  leave the bed at exactly 45.
+//  upward-facing and the knuckle flanks leave the bed at exactly 45.
 //
-//  Set sb_rb = 0 and pkt_peak = true to get the supportless part back; the
-//  bottom goes square and the nut seats against a peak instead of a flat.
+//  sb_rb = 0, pkt_peak = true and bore_round = false give the supportless
+//  part back -- square bottom, a nut seating on a peak, a pointed bore.
 //
 //  The bosses stay sharp on purpose: the knuckle silhouette already leans
 //  45 deg where it meets the bed, so a chamfer around the boss rim would tip
@@ -144,6 +150,21 @@ pkt_af    = 8.00;    // nut pocket, across flats
 // could bridge itself; printed with support it is just wasted depth, and the
 // flat roof is what a nut actually wants to seat against.
 pkt_peak  = false;
+
+// A plain ROUND pivot bore instead of arm.scad's 45 deg teardrop, for the same
+// reason: the teardrop exists so the bore can bridge its own roof, and this
+// variant is supported anyway.  Two things fall out of it, one good and one
+// worth knowing:
+//   * the crown over the bore gains 1.10 mm -- the teardrop's apex cuts up to
+//     z=9.05, a round bore stops at 7.95, so there is 4.85 mm of material
+//     above it instead of 3.75;
+//   * the bore's top ~87 deg of arc becomes a ceiling and the slicer will put
+//     support INSIDE a 5.30 hole, which is the fiddliest support on the part.
+//     Run a 5 mm drill through afterwards if it comes out ragged; the screw
+//     seats on the BOTTOM of the bore, so the top is clearance either way.
+// bore_round = false gives arm.scad's teardrop back, and with pkt_peak = true
+// and sb_rb = 0 the whole part is supportless again.
+bore_round = true;
 
 head_d     = 8.50;   // DIN 912 socket cap ("barrel head"), M5: across
 head_h     = 5.00;   // ... and tall
@@ -282,6 +303,16 @@ module spkt_nut(side) {
                 linear_extrude(height = pkt_depth + 0.5) spkt_profile2d();
 }
 
+// The pivot bore.  Round here, teardrop in arm.scad -- that file's bore() is
+// shared with the pipe clamp, which is still printed WITHOUT support, so the
+// teardrop has to stay there.
+module sbore(px, span) {
+    if (bore_round)
+        translate([px, 0, pivot_z]) cyl(d = bore_d, h = span, orient = BACK);
+    else
+        bore(px, span);
+}
+
 // The barrel-head counterbore, opening on the `side` face.  A plain round
 // bore: a screw head needs a seat, not anti-rotation, and its roof is a
 // ceiling either way -- which is fine, the pockets are printed supported.
@@ -303,8 +334,8 @@ module arm_simple(L) {
             translate([L, 0, 0]) tab_solid(-w2_half, w2_half);  // 2-prong knuckle
             sb_loft(L);
         }
-        bore(0, 6*sw3_max);
-        bore(L, 6*sw3_max);
+        sbore(0, 6*sw3_max);
+        sbore(L, 6*sw3_max);
         pocket(0,  u);        // 3-prong: slots centred on +/- 3.00
         pocket(0, -u);
         pocket(L,  0);        // 2-prong: central gap, same width as a slot
@@ -334,8 +365,8 @@ module gauge_simple() {
             }
             translate([Lg - tab_r, -w2_half, 0]) cube([tab_r, 2*w2_half, sb_h]);
         }
-        bore(0,  6*sw3_max);
-        bore(Lg, 6*sw3_max);
+        sbore(0,  6*sw3_max);
+        sbore(Lg, 6*sw3_max);
         pocket(0,  u);
         pocket(0, -u);
         pocket(Lg, 0);
