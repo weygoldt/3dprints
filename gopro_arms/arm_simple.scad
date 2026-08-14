@@ -41,11 +41,10 @@
 //     that block is identical in both, because the slots have to run out to
 //     pocket_r either way.  The 20 mm chord never was the binding
 //     constraint; it only starts ramping up once it is already past it.
-//     The raised pivot did not cost a band either, though it did shave the
-//     far end of one: the body sits 0.7 mm deeper UNDER the pivot, which is
-//     the direction that costs swing, and arm-to-arm on the bed side now
-//     touches at about -112 instead of -120.  The crown side never noticed,
-//     because pivot-to-top-face is tab_r at any pivot height.
+//     What DOES move the fold is the slot floor -- see 4 below.  Centring the
+//     pivot cost arm-to-arm 30 deg (a full tab_r of body now hangs under the
+//     hinge), and flattening the slot floor gave 25 of it back: -80..+80 with
+//     a round floor, about -105..+105 with a flat one.
 //
 //  2. SCREW POCKETS.  One in each outer prong, and they are NOT the same
 //     pocket, because one shape cannot do both jobs.  The nut side is a
@@ -64,6 +63,22 @@
 //     threaded rather than changed, so the streamlined arm and the clamp stay
 //     exactly as they were.  The whole argument is in the block above
 //     s_pivot_z.
+//
+//  4. THE SLOT FLOOR is FLAT, not a cylinder about the pivot.  The cylinder
+//     is the obvious shape -- it is the negative of the mating knuckle -- but
+//     the mating knuckle is R7.5 against a pocket_r of 11.05, so those two
+//     surfaces have 3.55 mm of slack and never touch.  What the slot floor
+//     actually meets is the mating arm's FACE, and a cylinder is at its
+//     shallowest exactly where that face runs into it: sqrt(11.05^2 - 7.5^2)
+//     = 8.11 from the pivot at the height of the top and bottom faces, against
+//     11.05 at the pivot.  Holding the full depth at every height costs
+//     nothing at the pivot -- prong free length is measured there and does not
+//     move -- and opens the fold from 94.5 to 111.5 deg, i.e. two arms close
+//     to 68 deg between them instead of 86.
+//
+//     The bill is 28 mm^2 of bed contact, the same at every length, because it
+//     is the corner of each slot at the bed face.  See pocket() in arm.scad
+//     for the geometry and the formula.
 //
 //  ------------------------------------------------------------------
 //  WHY TWO DIFFERENT POCKETS
@@ -493,9 +508,9 @@ module arm_simple(L) {
         }
         sbore(0, 6*sw3_max);
         sbore(L, 6*sw3_max);
-        pocket(0,  u, s_pivot_z);   // 3-prong: slots centred on +/- 3.00
-        pocket(0, -u, s_pivot_z);
-        pocket(L,  0, s_pivot_z);   // 2-prong: central gap, same width as a slot
+        pocket(0,  u, s_pivot_z, true);   // 3-prong: slots centred on +/- 3.00
+        pocket(0, -u, s_pivot_z, true);
+        pocket(L,  0, s_pivot_z, true);   // 2-prong: central gap, same width as a slot
         spkt_nut( nut_side);
         spkt_head(-nut_side);
     }
@@ -524,9 +539,9 @@ module gauge_simple() {
         }
         sbore(0,  6*sw3_max);
         sbore(Lg, 6*sw3_max);
-        pocket(0,  u, s_pivot_z);
-        pocket(0, -u, s_pivot_z);
-        pocket(Lg, 0, s_pivot_z);
+        pocket(0,  u, s_pivot_z, true);
+        pocket(0, -u, s_pivot_z, true);
+        pocket(Lg, 0, s_pivot_z, true);
         spkt_nut( nut_side);
         spkt_head(-nut_side);
     }

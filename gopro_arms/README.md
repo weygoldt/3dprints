@@ -18,7 +18,8 @@ pockets and the bore:
 | nut | drop-in, one side | **press fit** (−Y) |
 | screw head | stands proud | **flush in a Ø8.8 counterbore** (+Y), countersunk |
 | pivot bore | 45° teardrop, self-bridging | plain **round**, dead centre in the prong |
-| articulation | −100…+90° into a GoPro mount | −90…+90°, symmetric |
+| slot floor | cylinder about the pivot | **flat** — folds to 68° between arms |
+| articulation | −100…+90° into a GoPro mount | −90…+90°; **arm-to-arm ±105** |
 | support | **none** | pockets, bottom edges, bores, knuckle undersides |
 
 PETG · Prusa MK3S · 0.4 nozzle · 0.2 mm layers. The streamlined arm and the
@@ -127,12 +128,11 @@ Slicer notes:
 - **Use a brim**, on both. The strut stands 20 mm tall on a 5 mm wide foot over
   155 mm of length; that is a narrow footprint for PETG, whose shrinkage will
   lift the ends given the chance. Bed contact is ~750 mm². The simple arm is
-  shorter but its rounded bottom leaves only a 3.9 mm footing, ~603 mm² on the
-  100 mm — and its centred pivot makes each knuckle **tangent** to the bed, so
-  at the first layer each end grabs a strip only 3.44 mm wide and the outer
-  5.78 mm of it is over thin air. The two ends are the part that lifts; brim
-  them. `sb_rb = 0` widens the footing from 3.90 to 8.90 mm if that is not
-  enough.
+  shorter but its rounded bottom leaves only a 3.9 mm footing, **575 mm²** on
+  the 100 mm — and its centred pivot makes each knuckle **tangent** to the bed,
+  so at the first layer each end grabs a strip only 3.44 mm wide with the outer
+  5.78 mm over thin air. The two ends are the part that lifts; brim them.
+  `sb_rb = 0` widens the footing from 3.90 to 8.90 mm if that is not enough.
 - Bump perimeters to **4–5**. Neither body is over 10 mm thick, so perimeters do
   most of the structural work and the part comes out nearly solid.
 - **7 bottom solid layers on the simple arm.** With the pivot centred the walls
@@ -460,6 +460,47 @@ Two notes on living with it:
 - **Print it solid.** At 0.2 mm layers the thinnest wall is 15 layers, so the
   usual **7 bottom solid layers** covers it with room to spare.
 
+### The slot floor
+
+**The slot between the prongs has a flat floor, not a cylinder about the pivot.**
+The cylinder is the obvious shape — it is the negative of the mating knuckle —
+but it was costing the whole of the fold range, and for nothing.
+
+The mating knuckle is R7.5 and `pocket_r` is 11.05, so those two surfaces have
+**3.55 mm of slack and never touch.** The slot's depth is set by `prong_free`,
+which exists to give the prongs length to spring on, not by anything on the
+mating part. What the slot floor actually meets is the mating arm's **face** —
+and a cylinder is at its shallowest exactly where that face arrives:
+
+| | at the pivot | at the top/bottom face |
+|---|---|---|
+| cylindrical floor | 11.05 | **8.11** = √(11.05² − 7.5²) |
+| flat floor | 11.05 | **11.05** |
+
+That 8.11 was the binding number. The fold obeys
+
+**fold = 2·arctan(reach_at_face / h)**,  h = pivot to face
+
+which gives 94.5° round and **111.5° flat** — 86° between two arms versus **68°**.
+Measured, the boolean fit check puts the boundary at ~110°, within a degree of
+the geometry.
+
+It costs nothing where prong flex is measured: at the pivot the slot is 11.05
+deep either way, so `prong_free` is untouched at 3.30 mm. The bill is **28 mm²
+of bed contact**, the same at every length because it is the corner of each slot
+at the bed face — 603 → 575 mm² on the 100 mm arm, and 160 → 132 on the gauge.
+That last one pushed the gauge under the old flat 150 mm² bed-contact gate, which
+was a number sized for a 155 mm arm; peel scales with the length the part
+contracts over, so the gate is now **3 mm² per mm of length**, floored at 100.
+
+Going further — a genuinely *convex* floor, bulging past `pocket_r` at the
+faces — buys more still (13.05 would give 120°), but it eats the beam's outer
+fibre right at the joint, which is where the bending moment is highest. Flat is
+the point where the slot stops being the constraint at all.
+
+`pocket()` takes `flat=false` by default, so the streamlined arm and the clamp
+keep the cylinder and stay byte-identical.
+
 ### The round bore
 
 `arm.scad`'s bore is a 45° teardrop so it can bridge its own roof. **Its bore
@@ -528,24 +569,22 @@ arms because the slots have to run out to `pocket_r` either way. But *height*
 below the pivot is exactly what that block is made of, and centring the pivot
 puts a full `tab_r` under it:
 
-| | streamlined | simple @ 5.303 | simple @ 6.000 | **simple @ 7.500** |
-|---|---|---|---|---|
-| into a GoPro mount | −100…+90 | −100…+90 | −100…+90 | **−90…+90** |
-| our end into a socket | −90…+100 | −90…+100 | −90…+100 | **−90…+90** |
-| arm to arm | −110…+80 | −110…+80 | −110…+80 | **−80…+80** |
+| | streamlined | simple @ 5.303 | simple @ 6.000 | simple @ 7.500 | **+ flat slot** |
+|---|---|---|---|---|---|
+| into a GoPro mount | −100…+90 | −100…+90 | −100…+90 | −90…+90 | −90…+90 |
+| our end into a socket | −90…+100 | −90…+100 | −90…+100 | −90…+90 | −90…+90 |
+| arm to arm | −110…+80 | −110…+80 | −110…+80 | −80…+80 | **−105…+105** |
 
-The mount cases lose 10° each and arm-to-arm loses 30° on the grid, all of it on
-the side the body swings *down* into. The arm-to-arm figure is harsher than the
-part deserves, though: at ±90 the two arms interfere by **0.0004 mm³** — a
-hairline graze at the exact right angle, against a part of 15065 mm³ — and they
-are cleanly clear at ±85. The first honest collision is past ±95. The mount
-cases fail properly by comparison, 8.99 mm³ at −92°, so those boundaries are
-real ones.
+Centring the pivot cost arm-to-arm 30° — a full `tab_r` of body now hangs under
+the hinge, and that is the direction that costs swing. **The flat slot floor
+gives 25° of it back**, and then some: two arms now close to **68° between
+them**, where the old cylindrical floor could not beat 86°. See *The slot floor*
+below; that is where the fold was actually being lost.
 
-The compensation is that every range came out **symmetric**, which is what a
-mirror-symmetric body must do — and 0° (collinear) still has 80°+ of clearance
-either side, which is where the arm is actually used. If it ever binds, the
-pivot is the lever to walk back down.
+The mount cases stay at ±90 because the flat floor does not help there — what
+stops them is the synthetic reference's own body, a solid 15 mm block whose near
+face is tangent to R7.5, not anything on our part. Every range is now
+**symmetric**, which is what a mirror-symmetric body must do.
 
 ## Pipe clamp (`part="clamp"`)
 
@@ -716,7 +755,7 @@ hole reads 60.0°, i.e. free), and whether the inscribed circle really admits a
 Ø8.5 cap head. The outline is convex, so testing the nut's six corners is a sound
 test of containment rather than an approximation.
 
-Twenty-two mutants, each aimed at one claim, all caught:
+Twenty-four mutants, each aimed at one claim, all caught:
 
 | mutant | caught by |
 |---|---|
@@ -741,6 +780,8 @@ Twenty-two mutants, each aimed at one claim, all caught:
 | knuckle cut flat again while the spec says tangent | 9 checks; the first layer reaches 0.000 where a tangent circle owes 1.720 |
 | head counterbore 0.4 deeper | 7 checks; depth 5.700 ≠ 5.30 and the boss grows with it |
 | nut pocket widened to 8.80 | walls 3.100 ≠ 3.500, and +0.800 on the nut is not a press fit |
+| slot floor reverted to a cylinder | floor deviates 2.687 mm; fold drops to 96.2° |
+| slot floor kept flat but pulled in 1.5 mm | prong free length 1.76 < 2.5, floor deviates 1.537 |
 | hex pocket rotated 30°, vertex down | both walls drop to 2.881, and the roof bursts 0.6 mm higher |
 
 That last one is the useful kind: it proves the *depth ≤ half-width* rule that

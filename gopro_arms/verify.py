@@ -117,6 +117,9 @@ PKT_FLOOR_MIN = 1.20     # the LOADED pocket's floor: what the streamlined arm
 SYMMETRIC   = False      # pivot centred in the part: every wall around it is
                          # the same on both sides, and the knuckle is a full
                          # circle rather than one cut off by the bed
+SLOT_FLAT   = False      # slot floor is a plane at POCKET_R rather than a
+                         # cylinder about the pivot, so the slot is that deep
+                         # at every height instead of only at the pivot
 
 
 def boss_of(side):
@@ -142,10 +145,11 @@ def configure(simple):
     """
     global PKT_SPEC, PKT_PEAK, PKT_PRESS, SECTION, XPROBE, BODY_FILLET
     global BORE_ROUND, HEAD_CS, PKT_FLOOR_MIN, PIVOT_Z, TAB_TOP, SB_H
-    global SYMMETRIC
+    global SYMMETRIC, SLOT_FLAT
     if not simple:
         return
     SYMMETRIC = abs(S_PIVOT_Z - TAB_R) < 1e-9
+    SLOT_FLAT = True
     # The pivot moves, so everything measured off it moves with it: the probe
     # heights, the pocket floors, the bore, the body height, the flank angle.
     PIVOT_Z = S_PIVOT_Z
@@ -588,7 +592,19 @@ def main():
               f"{PIVOT_Z:.2f}; {flank_arc:.2f} mm of arc along {flank_wid:.1f} "
               f"mm of knuckle)")
     print(f"     unclassified overhang area {sum(bad.values()):8.2f} mm^2")
-    check(bed_area > 150, f"bed contact {bed_area:.1f} mm^2 is enough to hold the part down")
+    # What this is really guarding is PEEL, and peel scales with the length the
+    # part contracts over -- a 155 mm arm lifting its ends is the failure, a
+    # 36 mm coupon is not the same animal.  A flat 150 applied to both was a
+    # number that happened to fit the arms; per-mm-of-length says what is
+    # actually meant, with a floor so a tiny part still has to stand on
+    # something.  The simple arm's ends are the exposed part either way: its
+    # knuckles are tangent to the bed, so read this next to the first-layer
+    # reach reported below, not on its own.
+    bed_min = max(100.0, 3.0*(hi[0] - lo[0]))
+    check(bed_area > bed_min,
+          f"bed contact {bed_area:.1f} mm^2 > {bed_min:.0f} "
+          f"({bed_area/(hi[0]-lo[0]):.1f} mm^2 per mm of length) is enough to "
+          f"hold the part down")
     check(sum(bad.values()) < 0.5,
           f"no unsupported overhang outside the slot roofs ({sum(bad.values()):.3f} mm^2)")
     if bad_pts:
@@ -715,6 +731,74 @@ def main():
         check(free >= PRONG_FREE - 0.35,
               f"knuckle {name} prongs have >= {PRONG_FREE} mm of free length "
               f"to flex on (got {free:.2f})")
+
+    # ---------------------------------------------------------------- 4d
+    # [4c] measures the slot at the PIVOT, which is where it is deepest on a
+    # cylindrical floor and therefore flatters it.  What actually decides how
+    # far the joint folds is the slot's reach at the height of the part's TOP
+    # and BOTTOM faces, because the surface a mating arm runs into is its own
+    # face, not its knuckle:
+    #
+    #     fold = 2*atan(reach_at_face / h),   h = pivot to face
+    #
+    # A cylindrical floor pulls back to sqrt(POCKET_R^2 - h^2) there -- 8.11 of
+    # the nominal 11.05 at h = 7.5 -- and that shortfall, not the pivot height,
+    # is what held the fold to 94.5 deg.  A flat floor holds the full POCKET_R
+    # at every height and the fold opens to 111.7.
+    print("\n[4d] slot floor profile -- the surface that decides the fold")
+    h_face = min(PIVOT_Z - lo[2], hi[2] - PIVOT_Z)
+
+    def slot_reach(z, px=0.0, yslot=U):
+        """How far the slot at `yslot` runs from the pivot, at height z."""
+        out, shut = 0.0, 0
+        for i in range(1, 400):
+            xx = px + i*0.05 + 0.013
+            iv = [(a-50, b-50) for a, b in
+                  ray_intervals(near_axis(tris, 0, xx), (xx, -50.0, z), 1)]
+            if not any(a < yslot < b for a, b in iv):
+                out, shut = xx - px, 0
+            else:
+                shut += 1
+                if shut >= 3:
+                    break
+        return out
+
+    # Sample the band the fold geometry actually lives in: +/- h_face about the
+    # pivot.  Going higher than that is meaningless on the STRUT, whose section
+    # tapers to a 0.4 mm nose -- a ray at the slot's y would sail straight past
+    # the part and read the slot as open forever.
+    zs = [PIVOT_Z - h_face + 0.30, PIVOT_Z - h_face/2, PIVOT_Z,
+          PIVOT_Z + h_face/2, PIVOT_Z + h_face - 0.30]
+    worst_dev = 0.0
+    for z in zs:
+        got = slot_reach(z)
+        exp = (POCKET_R if SLOT_FLAT
+               else math.sqrt(max(0.0, POCKET_R**2 - (z - PIVOT_Z)**2)))
+        worst_dev = max(worst_dev, abs(got - exp))
+        print(f"     z={z:6.2f}  slot runs to x={got:6.3f}  "
+              f"({'flat' if SLOT_FLAT else 'round'} floor owes {exp:.3f})")
+    check(worst_dev < 0.20,
+          f"the slot floor is {'FLAT' if SLOT_FLAT else 'a cylinder'} "
+          f"-- worst deviation {worst_dev:.3f} mm over the part's full height")
+    # The fold formula assumes a body of CONSTANT height, so it belongs to the
+    # slab only.  On the strut the chord ramps 12.803 -> 20.0 over the 12 mm
+    # after the slots end, so `h` is not one number and the ramp, not the slot,
+    # is what binds -- which is why that variant measures -110..+80 instead of
+    # anything this would predict.
+    if SECTION == 'slab':
+        face_reach = slot_reach(PIVOT_Z - h_face + 0.30)
+        fold = 2*math.degrees(math.atan2(face_reach, h_face))
+        rnd = 2*math.degrees(math.atan2(
+            math.sqrt(max(0.0, POCKET_R**2 - h_face**2)), h_face))
+        print(f"     at the bottom face the slot reaches {face_reach:.2f}, so "
+              f"two arms fold to {fold:.1f} deg -- {180-fold:.1f} deg between "
+              f"them (a cylindrical floor would give {rnd:.1f}, "
+              f"{180-rnd:.1f} between)")
+        if SLOT_FLAT:
+            check(fold > 100.0,
+                  f"the joint folds {fold:.1f} deg, so two arms close to "
+                  f"{180-fold:.1f} deg -- under the 90 the round floor could "
+                  f"not beat")
 
     # ---------------------------------------------------------------- 5
     if not args.gauge and SECTION == 'slab':

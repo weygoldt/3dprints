@@ -256,13 +256,37 @@ module beam_loft(L) {
         hull() { station_slab(xs[i], L); station_slab(xs[i+1], L); }
 }
 
-// Slot pocket: a cylinder about the pivot, so the mating knuckle can swing
-// through its full circle.  Radius carries the fillet OUTSIDE the mating
-// knuckle's envelope -- full slot width is held out to tab_r + joint_clr,
-// and only beyond that does the fillet close in.
-module pocket(px, yc, pz = pivot_z) {
+// Slot pocket.  Two floor shapes, and which one you want depends entirely on
+// whether the part is allowed to fold past 90 deg.
+//
+//   ROUND (default)  a cylinder about the pivot, so the mating knuckle can
+//                    swing through its full circle with identical clearance at
+//                    every angle.  The floor is `pocket_r` from the pivot in
+//                    every direction, which means it is only
+//                    sqrt(pocket_r^2 - h^2) from the pivot IN X at the height
+//                    of the part's top and bottom faces -- 8.11 at h = 7.5.
+//                    That corner is what a mating arm's face runs into.
+//   FLAT             the floor is a plane at pocket_r, so the slot is that
+//                    deep at EVERY height, not just at the pivot.  Same
+//                    clearance to the mating knuckle, same prong free length
+//                    measured at the pivot, but the corner moves out to the
+//                    full pocket_r and the fold opens up accordingly.
+//
+// The fold limit either way is  2*acos(h / reach)  where h is the body's
+// half-height and `reach` is how far the slot runs at |z - pivot| = h.  Round
+// puts reach at 8.11 and flat at 11.05, which is 94.5 deg against 111.7.
+//
+// Round is the DEFAULT because the streamlined arm and the clamp are in
+// service and must not move; only the simple arm asks for flat.
+module pocket(px, yc, pz = pivot_z, flat = false) {
     translate([px, yc, pz])
-        cyl(r = pocket_r, h = slot_w, rounding = root_fillet, orient = BACK);
+        if (flat)
+            // Tall enough to run clear through the part at any pivot height,
+            // so the slot never closes back over near the top or bottom face.
+            cuboid([2*pocket_r, slot_w, 8*tab_r],
+                   rounding = root_fillet, edges = "Z");
+        else
+            cyl(r = pocket_r, h = slot_w, rounding = root_fillet, orient = BACK);
 }
 
 // 45 deg teardrop bore: BOSL2 teardrop() lies along Y with its point up +Z.
