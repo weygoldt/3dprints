@@ -71,8 +71,9 @@ S_BOSS_NUT  = max(0.0, S_PKT_DEPTH + NUT_WALL - PRONG_OUT_T)   # 2.40
 S_BOSS_HD   = max(0.0, S_HD_DEPTH + NUT_WALL - PRONG_OUT_T)    # 3.40
 SB_H        = TAB_TOP          # body height == knuckle height, so no chord ramp
 SB_T        = 2*W2_HALF        # 8.90 -- body width == the 2-prong stack
-SB_CHAM     = 1.50             # 45 deg bottom chamfer
 SB_RT       = 2.50             # top edge rounding
+SB_RB       = 2.50             # bottom edge rounding -- a fillet, so it OVERHANGS
+SB_BLEND    = 10.0             # sharp knuckle section -> rounded section
 
 # ---- mode-dependent spec, filled in by configure() --------------------
 # One entry per pocket: (side, kind, size, depth, boss)
@@ -84,6 +85,8 @@ PKT_PEAK    = True       # 45 deg self-bridging roof over the top flat
 PKT_PRESS   = False      # press fit on the nut rather than a clearance fit
 SECTION     = 'strut'
 XPROBE      = 5.0        # X to probe the 3-prong grid along Y
+BODY_FILLET = 0.0        # bottom-edge fillet radius; 0 = no body underside
+                         # overhang to excuse (the strut has a flat Kamm base)
 
 
 def boss_of(side):
@@ -106,9 +109,10 @@ def configure(simple):
     number stays exactly where it is, which is what makes the two variants
     interchangeable in a chain.
     """
-    global PKT_SPEC, PKT_PEAK, PKT_PRESS, SECTION, XPROBE
+    global PKT_SPEC, PKT_PEAK, PKT_PRESS, SECTION, XPROBE, BODY_FILLET
     if not simple:
         return
+    BODY_FILLET = SB_RB
     PKT_SPEC = ((S_NUT_SIDE,  'hex',   S_PKT_AF, S_PKT_DEPTH, S_BOSS_NUT),
                 (-S_NUT_SIDE, 'round', S_HD_D,   S_HD_DEPTH,  S_BOSS_HD))
     PKT_PEAK = False         # flat roof, printed with support
@@ -362,6 +366,7 @@ def main():
     bed = 0.0
     slot_area = 0.0
     pkt_area = 0.0
+    fil_area = 0.0
     bad = defaultdict(float)
     bad_pts = []
     bed_area = 0.0
@@ -397,7 +402,14 @@ def main():
                 if (r0 <= pkt_radius(kind, size) + 0.15
                         and lo_y - 0.05 <= cen[1] <= hi_y + 0.05):
                     in_pkt = True
-        if not in_slot and not in_pkt:
+        # The body's bottom-edge FILLET.  A fillet is tangent to the bed face,
+        # so it leaves through 90 deg of overhang -- deliberate here, and the
+        # reason this edge was a 45 deg chamfer until the pockets forced
+        # support anyway.  It lives low down, along the body, and nowhere else.
+        in_fillet = (BODY_FILLET > 0
+                     and cen[2] < BODY_FILLET + 0.05
+                     and 0.0 <= cen[0] <= L)
+        if not in_slot and not in_pkt and not in_fillet:
             worst_oh = max(worst_oh, ang_oh)
         if -n[2] <= lim:                  # within the 45 deg budget + faceting
             continue
@@ -406,6 +418,8 @@ def main():
             slot_area += a
         elif in_pkt:
             pkt_area += a
+        elif in_fillet:
+            fil_area += a
         else:
             bad[round(cen[0], 0)] += a
             bad_pts.append((cen, math.degrees(math.asin(min(1, -n[2]))), a))
@@ -415,6 +429,16 @@ def main():
     if not PKT_PEAK:
         print(f"     screw-pocket ROOF area     {pkt_area:8.2f} mm^2  "
               f"(THIS is what needs support)")
+    if BODY_FILLET > 0:
+        # Predict it: the arc steeper than the budget is r*acos(lim), and the
+        # fillet runs the body's length scaled by the same blend the section
+        # uses, whose integral is (span - one blend length).
+        arc = BODY_FILLET*math.acos(lim)
+        eff = max(0.0, (L - 2*POCKET_R) - SB_BLEND)
+        fil_exp = 2*arc*eff
+        print(f"     body bottom-FILLET area    {fil_area:8.2f} mm^2  "
+              f"(vs {fil_exp:.2f} predicted -- r{BODY_FILLET} along {eff:.1f} mm, "
+              f"BOTH edges, needs support)")
     print(f"     unclassified overhang area {sum(bad.values()):8.2f} mm^2")
     check(bed_area > 150, f"bed contact {bed_area:.1f} mm^2 is enough to hold the part down")
     check(sum(bad.values()) < 0.5,
@@ -423,6 +447,11 @@ def main():
         for cen, ang, a in sorted(bad_pts, key=lambda z: -z[2])[:8]:
             print(f"       at ({cen[0]:.2f},{cen[1]:.2f},{cen[2]:.2f})  {ang:.1f} deg  {a:.3f} mm^2")
     # the slot roof is only acceptable because it bridges a narrow slot
+    if BODY_FILLET > 0:
+        check(0.75*fil_exp <= fil_area <= 1.25*fil_exp,
+              f"body fillet overhang {fil_area:.1f} mm^2 is the {fil_exp:.1f} an "
+              f"r{BODY_FILLET} fillet owes (+/-25%) -- present, and no bigger "
+              f"than the edge it is supposed to be")
     check(SLOT_W <= 3.5, f"slot-roof bridge span is {SLOT_W} mm (PETG bridges this)")
     check(slot_area < 40.0,
           f"excused slot-roof area {slot_area:.2f} mm^2 stays small (cap 40)")
@@ -500,27 +529,34 @@ def main():
                 prof.append((z, iv2[0][1]-iv2[0][0]))
         wmax = max(w for _, w in prof)
         height = hi[2] - lo[2]
-        base = prof[0][1] - 2*prof[0][0]        # unwind the 45 deg chamfer to z=0
+        # Bottom flat, measured off the bed face itself.  Unwinding a 45 deg
+        # chamfer from the first sample is what this used to do, and a fillet
+        # is not a straight line, so that would now read the wrong number.
+        ysb = [p[1] for t in tM for p in t if abs(p[2]) < 1e-3]
+        base = (max(ysb) - min(ysb)) if ysb else 0.0
+        rb = (SB_T - base)/2
         print(f"     height (Z extent)       {height:.3f} mm")
         print(f"     max width               {wmax:.3f} mm")
-        print(f"     base width at z=0       {base:.3f} mm")
+        print(f"     bed footing at z=0      {base:.3f} mm -> bottom radius {rb:.3f}")
         check(abs(height-SB_H) < 0.05,
               f"body height {height:.3f} == knuckle height {SB_H:.3f} (no chord ramp)")
         check(abs(wmax-SB_T) < 0.15, f"max width {wmax:.3f} == {SB_T}")
-        check(abs(base-(SB_T-2*SB_CHAM)) < 0.15,
-              f"bottom chamfer leaves a {base:.3f} mm bed footing == {SB_T-2*SB_CHAM}")
-        # bottom chamfer angle: the flank must not lean past the overhang budget
-        rise = [(z, w) for z, w in prof if w < SB_T - 0.02 and z < SB_H/2]
-        worst = 0.0
-        for i in range(1, len(rise)):
-            dz = rise[i][0]-rise[i-1][0]
-            dw = (rise[i][1]-rise[i-1][1])/2
-            if dz > 0:
-                worst = max(worst, math.degrees(math.atan2(dw, dz)))
-        print(f"     bottom chamfer angle    {worst:.1f} deg from vertical")
-        check(worst <= OH_ANG + 0.5,
-              f"bottom edge is a {worst:.1f} deg CHAMFER, not a fillet "
-              f"(a fillet turns down through vertical and overhangs)")
+        check(abs(rb-SB_RB) < 0.15,
+              f"bottom edges are rounded r{rb:.2f} == r{SB_RB}, leaving a "
+              f"{base:.3f} mm bed footing")
+        # ... and rounded on an ARC, not just cut back.  A chamfer of the same
+        # setback would sit 0.73 mm inboard of the fillet at 45 deg round it.
+        if SB_RB > 0:
+            z45 = SB_RB*(1 - math.sqrt(0.5))
+            # the sample AT z45 -- not the min above it, which finds the top
+            # rounding instead and reads the section's other end entirely
+            w45 = min(prof, key=lambda zw: abs(zw[0]-z45))[1]
+            exp45 = SB_T - 2*SB_RB*(1 - math.sqrt(0.5))
+            print(f"     width at 45 deg round   {w45:.3f} mm (arc predicts {exp45:.3f}, "
+                  f"a chamfer would give {SB_T-2*SB_RB+2*z45:.3f})")
+            check(abs(w45-exp45) < 0.20,
+                  f"the bottom edge follows an ARC ({w45:.3f} vs {exp45:.3f} at "
+                  f"45 deg round it), not a straight cut-back")
         # Top edge rounding, measured off the top FACE itself.  A ray one
         # sample below the apex is still on the fillet and reads ~0.6 mm wide;
         # the flat is only flat exactly at z = SB_H.

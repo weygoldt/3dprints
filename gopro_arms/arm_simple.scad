@@ -19,13 +19,14 @@
 //       * no chord ramp at all -- the top face is one flat plane from
 //         knuckle to knuckle, so the loft only has to flare the WIDTH;
 //       * 20 % less material on a 100 mm arm, even after paying for a
-//         second boss (measured off the mesh: 16016 -> 12754 mm^3);
+//         second boss (measured off the mesh: 16016 -> 12813 mm^3);
 //       * 12.8 mm tall instead of 20.0, so ~36 % fewer layers and a shorter
 //         perimeter loop in each one -- which is where print time on a
 //         nearly-solid part actually goes.
-//     Deliberately NOT an ellipse: the edges are a 45 deg bottom chamfer
-//     and a rounded top, i.e. smoothed rather than faired.  Streamlining is
-//     what arm.scad is for.
+//     All four edges are ROUNDED, r2.5, leaving a 3.9 mm flat top and bottom.
+//     Deliberately still NOT an ellipse -- 66 % of the section height is a
+//     dead-straight vertical flank, and the verifier fails under 40 %.
+//     Smoothed, not faired; streamlining is what arm.scad is for.
 //
 //     Articulation is NOT one of the things that improves, which is worth
 //     writing down because it looks like it should be.  Measured, both
@@ -78,20 +79,28 @@
 //    GoPro thumbscrew  + M5 nut     as arm.scad; the head just sits proud
 //
 //  ------------------------------------------------------------------
-//  SUPPORT.  This is the one part of the project that wants it, and only in
-//  one place: with pkt_peak = false the pocket roof is a flat ceiling
-//  pkt_r wide, and the slicer will fill both pockets.  DIG THAT OUT BEFORE
-//  THE NUT GOES IN.  Everything else is still supportless by construction --
-//  the body's bottom edge is CHAMFERED at 45 deg rather than rounded (a
-//  rounded bottom edge turns down through vertical and overhangs), the top
-//  rounding is upward-facing, and the bore keeps its 45 deg teardrop.
-//  Setting pkt_peak = true puts the self-bridging peak back and the whole
-//  part returns to needing no support at all.
+//  SUPPORT.  This is the one part of the project that needs it, in two
+//  places, and both are deliberate:
+//    * the SCREW POCKETS.  pkt_peak = false leaves the hex a flat ceiling
+//      pkt_r wide, and the head counterbore is a round bore whose roof is a
+//      ceiling however you cut it.  ~56 mm^2.  DIG IT OUT BEFORE THE NUT AND
+//      THE SCREW GO IN.
+//    * the BODY'S BOTTOM EDGES.  A fillet is tangent to the bed face, so it
+//      leaves through 90 deg of overhang -- which is exactly why this edge
+//      was a 45 deg chamfer until the pockets forced support anyway.  ~260
+//      mm^2 on a 100 mm arm, running the whole length of the underside, and
+//      the footing narrows from 5.90 to 3.90 mm.  Brim it.
+//  Everything else is still supportless by construction: the top rounding is
+//  upward-facing, the bore keeps its 45 deg teardrop, and the knuckle flanks
+//  leave the bed at exactly 45.
 //
-//  The bosses are the one place that stays sharp on purpose: the knuckle
-//  silhouette already leans 45 deg where it meets the bed, so a chamfer
-//  around the boss rim would tip that underside past the budget.  Rim
-//  chamfer is only free on geometry that meets the bed vertically.
+//  Set sb_rb = 0 and pkt_peak = true to get the supportless part back; the
+//  bottom goes square and the nut seats against a peak instead of a flat.
+//
+//  The bosses stay sharp on purpose: the knuckle silhouette already leans
+//  45 deg where it meets the bed, so a chamfer around the boss rim would tip
+//  that underside past the budget.  A rim chamfer is only free on geometry
+//  that meets the bed vertically.
 // =====================================================================
 
 lib = true;          // suppress arm.scad's standalone preview
@@ -177,8 +186,16 @@ assert(hd_d >= head_d + 0.10,
 sb_h     = tab_top;          // 12.803  body height == knuckle height
 sb_t     = 2*w2_half;        //  8.900  body width == the 2-prong stack, so
                              //         the beam runs straight into that end
-sb_cham  = 1.50;             // 45 deg bottom chamfer (printable; a fillet is not)
 sb_rt    = 2.50;             // top edge rounding radius
+// Bottom edges are ROUNDED too, not chamfered.  That is a deliberate spend:
+// a fillet is tangent to the bed face, so it starts at 90 deg of overhang and
+// needs support for the whole length of the arm -- which is exactly why this
+// was a 45 deg chamfer until the pockets made support necessary anyway.
+// The cost, measured: the bed footing narrows from 5.90 to 3.90 mm, and the
+// supported area goes from the 56 mm^2 of pocket ceiling to roughly 300.
+// Set sb_rb = 0 and the bottom goes square; there is no chamfer option left,
+// because a chamfer and a fillet cannot both be the bottom edge.
+sb_rb    = 2.50;             // bottom edge rounding radius
 sb_flare = 14;               // 3-prong stack 15.9 -> sb_t
 sb_neck  = 10;               // sb_t -> 2-prong stack 8.9 (nil when sb_t == 8.9)
 sb_blend = 10;               // sharp knuckle section -> chamfered/rounded section
@@ -216,8 +233,7 @@ module sb_slab(x, L) {
     translate([x, 0, 0]) rotate([90, 0, 90])
         linear_extrude(height = 0.01)
             rect([2*hw, sb_h],
-                 rounding = [sb_rt*s, sb_rt*s, 0, 0],
-                 chamfer  = [0, 0, sb_cham*s, sb_cham*s],
+                 rounding = [sb_rt*s, sb_rt*s, sb_rb*s, sb_rb*s],
                  anchor   = FRONT);
 }
 

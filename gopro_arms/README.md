@@ -8,7 +8,7 @@ and the screw pockets, so they chain freely with each other:
 
 | | `arm.scad` — **streamlined** | `arm_simple.scad` — **simple** |
 |---|---|---|
-| body | Kamm-tail strut, 20.0 mm chord | slab, 12.8 mm, chamfered + rounded |
+| body | Kamm-tail strut, 20.0 mm chord | slab, 12.8 mm, rounded all round (r2.5) |
 | for | under the boat, water flowing past it | everything else |
 | 100 mm arm | 16.0 cm³, 100 layers | **12.8 cm³, 64 layers** |
 | stack width | 18.3 mm | 21.7 mm |
@@ -100,15 +100,17 @@ Slicer notes:
   sits right on that line, and auto-support will then pack PETG into the GoPro
   slots — exactly the surfaces that must stay clean for the joint to close. So
   turn it off explicitly there.
-  The **simple arm is the exception**: its nut pockets have a flat roof and want
-  support. Print it supported, then **dig the support out of both pockets** before
-  pressing the nut in.
-- **Use a brim.** The strut stands 20 mm tall on a 5 mm wide foot over 155 mm of
-  length; that is a narrow footprint for PETG, whose shrinkage will lift the ends
-  given the chance. Bed contact is ~750 mm², about a third less than the arms
-  these replace, because the section is a strut instead of a slab. The simple
-  arm is less exposed — shorter and a wider footing, 878 mm² on the 100 mm — but
-  still brim it.
+  The **simple arm is the exception**: it wants support in the screw pockets
+  *and* under the body's rounded bottom edges. A **55° threshold** picks up
+  exactly those — the steepest facet anywhere else is 45.01°, so nothing else
+  gets touched and the GoPro slots stay clean (they measure 0.00 mm² of
+  overhang). Do not use "support on build plate only"; the pockets don't touch
+  the plate. Then **dig the support out of both pockets** before assembly.
+- **Use a brim**, on both. The strut stands 20 mm tall on a 5 mm wide foot over
+  155 mm of length; that is a narrow footprint for PETG, whose shrinkage will
+  lift the ends given the chance. Bed contact is ~750 mm². The simple arm is
+  shorter but its rounded bottom leaves only a 3.9 mm footing, ~732 mm² on the
+  100 mm — so it is no less exposed than it looks.
 - Bump perimeters to **4–5**. Neither body is over 10 mm thick, so perimeters do
   most of the structural work and the part comes out nearly solid.
 - Flat face on the bed — that is the only orientation either is designed for.
@@ -245,20 +247,21 @@ A constant slab **exactly as tall as the knuckle** (12.803 mm). That one choice
 removes the chord ramp entirely: the top face is a single flat plane from knuckle
 to knuckle and the loft only has to flare the *width*, 15.9 → 8.9 mm.
 
-Edges are smoothed but the section is **not an ellipse** — that is what the
-streamlined arm is for, and an ellipse is unprintable here anyway:
+**All four edges are rounded, r2.5**, leaving a 3.9 mm flat on top and the same
+on the bed. The section is still **not an ellipse** — that is what the
+streamlined arm is for — and the verifier holds the line on it: **66 % of the
+section height is a dead-straight vertical flank**, and the check fails under
+40 %. It also tests that the bottom edge follows an *arc* rather than a straight
+cut-back, by measuring the width 45° round the fillet: 7.419 mm against 7.436
+predicted for an arc, where a chamfer of the same setback would read 5.364.
 
-- bottom edges: **45° chamfer**, 1.5 mm. Not a fillet — a fillet turns down
-  through vertical as it approaches the bed and overhangs. The chamfer sits
-  exactly on the 45° budget the rest of the part already spends.
-- top edges: **r2.5 rounding**, leaving a 3.9 mm flat on top. Upward-facing, so
-  it costs nothing.
-- **72 % of the section height is a dead-straight vertical flank.** `verify.py`
-  measures that fraction and fails under 40 %, which is the check that encodes
-  "smoothed, not faired".
-
-Bed contact goes *up*, 772 → 878 mm² on a 100 mm arm, because a 5.9 mm chamfered
-footing is wider than the strut's 5.0 mm Kamm base.
+> **The bottom fillet is the expensive edge, and it is a deliberate spend.** A
+> fillet is tangent to the bed face, so it leaves through **90° of overhang** —
+> which is precisely why this was a 45° chamfer until the pockets made support
+> necessary anyway. It costs ~260 mm² of supported area on a 100 mm arm, running
+> the **whole length of the underside**, and narrows the bed footing from 5.90 to
+> 3.90 mm. Bed contact drops 878 → 732 mm². Set `sb_rb = 0` for a square bottom
+> and the underside support disappears.
 
 ### Two different pockets — a nut trap and a head seat
 
@@ -305,22 +308,26 @@ past 30 mm to recess 5 mm of screw head.
 | **M5×16 socket cap + M5 nut** | what it is built around. Head 0.30 below its face, nut 0.30 below its own, tip stopping 0.40 inside the nut pocket with 3.9 of the nut's 4.0 mm engaged — **nothing protrudes anywhere.** Driven with a 4 mm key, which is far more torque than a thumbscrew and is half the point. |
 | GoPro thumbscrew + M5 nut | as `arm.scad`; the head just sits proud |
 
-### Support, in one place only
+### Support, in two places
 
-Both pockets have a ceiling: the hex's is a flat roof 4.62 mm wide (`pkt_peak =
-false`), and the round bore's is the 90° cap over its top. The slicer will pack
-both. **Dig that out before the nut and the screw go in.**
+| | area (100 mm arm) | |
+|---|---|---|
+| screw pockets | 56.49 mm² | hex flat roof + the round bore's 90° cap |
+| body bottom edges | 262.89 mm² | the r2.5 fillets, full length of the underside |
+| **unclassified** | **0.00 mm²** | everything else is supportless by construction |
 
-The verifier doesn't wave this through under a round-number cap — it *predicts*
-the ceiling area from the two pocket shapes (hex top flat + the bore's >45° arc)
-and checks the measured area against that: **56.49 mm² predicted, 56.49 mm²
-measured**, with 0.00 mm² of *unclassified* overhang. So the rest of the part is
-still supportless by construction, and a pocket of the wrong size or a missing
-one shows up as an area mismatch rather than passing quietly.
+**Dig the pocket support out before the nut and the screw go in.**
 
-Set `pkt_peak = true` to put the self-bridging 45° peak back on the hex, at the
-cost of a roof the nut cannot seat flat against. The round bore always needs
-support.
+Neither exemption is a round-number cap — the verifier *predicts* both areas
+from the geometry and checks the measurement against them. The pockets owe
+56.49 mm² (hex top flat + the bore's >45° arc) and measure 56.49. The fillets
+owe 2 × r·acos(lim) × the blended body length, 257.75 mm², and measure 262.89 —
+within 2 %, and it tracks at every arm length (67.95 vs 66.74 at 50 mm, 409.60
+vs 419.81 at 140 mm). A pocket of the wrong size, a missing fillet or an extra
+overhang anywhere shows up as a mismatch instead of passing quietly.
+
+Set `pkt_peak = true` and `sb_rb = 0` to get the supportless part back — square
+bottom edges, and a nut seating against a 45° peak instead of a flat roof.
 
 ### What it actually saves
 
@@ -519,7 +526,7 @@ hole reads 60.0°, i.e. free), and whether the inscribed circle really admits a
 Ø8.5 cap head. The outline is convex, so testing the nut's six corners is a sound
 test of containment rather than an approximation.
 
-Nine mutants, each aimed at one claim, all caught:
+Eleven mutants, each aimed at one claim, all caught:
 
 | mutant | caught by |
 |---|---|
@@ -529,8 +536,10 @@ Nine mutants, each aimed at one claim, all caught:
 | head pocket too shallow | depth 2.300 ≠ 5.30; head would sit 2.70 *proud* |
 | head counterbore undersize | `assert` at render time — it would not seat |
 | hex peak put back while the spec says flat | roof at 11.613 ≠ 9.303, ceiling area 36.62 ≠ 56.49 |
-| section replaced with a true ellipse | straight flank falls to 10 % (<40 %) |
-| bottom edge filleted instead of chamfered | 82.5° overhang, 157 mm² unsupported |
+| section replaced with a true ellipse | bottom radius reads r4.45, footing 0.000 mm |
+| bottom edges left square | fillet area 0.0 ≠ 257.8, footing 8.900 mm |
+| bottom edge chamfered instead of filleted | fillet area 0.0, and the arc test reads 5.350 not 7.436 |
+| bottom fillet at r4.40 instead of r2.5 | fillet area 463.0 ≠ 257.8, footing down to 0.100 mm |
 | clamp teeth cut 0.60 deep (> half-width) | 60.81° overhang, 72 mm² unsupported |
 
 That last one is the useful kind: it proves the *depth ≤ half-width* rule that
