@@ -20,10 +20,12 @@
 //     Three things fall out of that one decision:
 //       * no chord ramp at all -- the top face is one flat plane from
 //         knuckle to knuckle, so the loft only has to flare the WIDTH;
-//       * 15 % less material on a 100 mm arm, even after paying for a
-//         second boss AND for the raised pivot (measured off the mesh:
-//         16016 -> 13537 mm^3; it was 12813 before the pivot went up);
-//       * 13.5 mm tall instead of 20.0, so ~32 % fewer layers and a shorter
+//       * 6 % less material on a 100 mm arm, after paying for a second boss
+//         AND for the centred pivot (measured off the mesh: 16016 -> 15065
+//         mm^3; it was 12813 at the original 5.303 pivot).  The mass saving
+//         this variant used to lead with is mostly spent -- what it is for
+//         now is the screw arrangement and the print time;
+//       * 15.0 mm tall instead of 20.0, so 25 % fewer layers and a shorter
 //         perimeter loop in each one -- which is where print time on a
 //         nearly-solid part actually goes.
 //     All four edges are ROUNDED, r2.5, leaving a 3.9 mm flat top and bottom.
@@ -54,11 +56,14 @@
 //     fillet has somewhere to go and the head seats on its annulus rather than
 //     on the bore's edge.
 //
-//  3. THE PIVOT, raised 5.303 -> 6.000 for this variant alone, which is what
-//     thickens both pocket floors (1.303/0.903 -> 2.000/1.600).  It is bought
-//     with part height and with flank angle, and arm.scad is threaded rather
-//     than changed, so the streamlined arm and the clamp stay exactly as they
-//     were.  The whole argument is in the block above s_pivot_z.
+//  3. THE PIVOT, CENTRED at tab_r for this variant alone, so the knuckle is
+//     the full R7.5 circle and the part is a mirror about the pivot plane.
+//     Floor and crown collapse into one number (3.500 round the nut, 3.100
+//     round the head, 4.850 round the bore) and the bore sits dead centre in
+//     the prong.  It is bought with bed contact and support, and arm.scad is
+//     threaded rather than changed, so the streamlined arm and the clamp stay
+//     exactly as they were.  The whole argument is in the block above
+//     s_pivot_z.
 //
 //  ------------------------------------------------------------------
 //  WHY TWO DIFFERENT POCKETS
@@ -112,18 +117,21 @@
 //      the fiddliest on the part.  A 5 mm drill clears it if it comes out
 //      ragged; the screw seats on the bottom of the bore, so the top is
 //      clearance either way.
-//    * the KNUCKLE FLANKS, since the pivot went up: the cut circle leaves the
-//      bed at 53.13 deg instead of 45, ~26 mm^2, and unlike the other three
-//      it does not grow with length -- it is the same on a 50 as on a 140.
-//      See the raised-pivot block below for why it cannot be bought back.
+//    * the KNUCKLE UNDERSIDES, which is what a centred pivot costs: the full
+//      circle is TANGENT to the bed, so it leaves at 90 deg and the whole
+//      lower quarter of each knuckle is overhang.  ~157 mm^2, the largest of
+//      the four after the fillets, and unlike them it does not grow with
+//      length -- it is the same on a 50 as on a 140.  BRIM IT: at the first
+//      layer each knuckle is only 3.44 mm wide.
 //  Everything else is still supportless by construction: the top rounding is
 //  upward-facing, and the countersink is a 45 deg cone, which sits ON the
 //  budget rather than over it.
 //
 //  sb_rb = 0, pkt_peak = true, bore_round = false and s_pivot_z = tab_r/sqrt(2)
 //  give the supportless part back -- square bottom, a nut seating on a peak, a
-//  pointed bore, 45 deg flanks.  The floor asserts have to come down with the
-//  pivot, and that is the point of them: they will not let it go quietly.
+//  pointed bore, 45 deg flanks.  sb_rb = 0 on its own is the first thing to
+//  try if a print lifts: it widens the footing from 3.90 to 8.90 mm without
+//  touching the joint.
 //
 //  The bosses stay sharp on purpose: the knuckle silhouette already leans past
 //  45 deg where it meets the bed, so a chamfer around the boss rim would tip
@@ -134,43 +142,63 @@
 lib = true;          // suppress arm.scad's standalone preview
 include <arm.scad>
 
-// --------------------------------------------------------- the raised pivot
-// This variant sits its pivot HIGHER than arm.scad's, and everything below
-// follows from that one number, so it goes first.
+// ------------------------------------------------------- the centred pivot
+// This variant puts the pivot at tab_r, so the knuckle is the FULL R7.5
+// circle, tangent to the bed, and the whole part is a mirror about the pivot
+// plane.  Everything below follows from that one line, so it goes first.
 //
-// A pocket centred on the pivot is always thinner underneath than over it:
-// the floor is pivot_z - pocket_half, the crown is tab_r - pocket_half.  Only
-// the floor moves with the pivot.  At arm.scad's trimmed pivot of 5.303 the
-// floors were 1.303 (nut) and 0.903 (head) against 3.500 and 3.100 of crown;
-// at 6.00 they are 2.000 and 1.600, and the crowns do not move at all.  It is
-// a pure floor gain, bought at 1 mm of part height per 1 mm of pivot -- the
-// arm is 13.50 tall now instead of 12.803.
+// WHY.  A pocket centred on the pivot has floor = pivot - half and crown =
+// tab_r - half, so only the floor moves with the pivot -- and a pocket is
+// governed by its THINNEST wall.  Centring the pivot is simply the choice that
+// maximises the minimum, for any given part height:
 //
-// WHAT IT COSTS, because it is not free and the number is not small:
-// under "trim" the knuckle flank leaves the bed at asin(pivot_z/tab_r) from
-// vertical.  That is 45.0 deg at 5.303 and 53.1 deg at 6.00, and each
-// knuckle's bed chord narrows from 10.61 to 9.00 mm.  Nothing can buy that
-// back.  Padding the flank out to 45 deg needs material at (+/-6.00, 0),
-// which is R8.49 from the pivot -- half a millimetre outside the R7.5 joint
-// envelope that a real GoPro's R7.75 slot pocket sweeps.  The cut circle
-// already IS every point inside R7.5 that reaches the bed, so the trim is
-// optimal and 53.1 deg is forced.  This part is printed with support, so the
-// flank is supported like everything else; the streamlined arm and the clamp
-// are NOT, which is exactly why they keep the low pivot.
+//     pivot   nut floor / crown   head floor / crown   under bore
+//     5.303      1.303 / 3.500       0.903 / 3.100       2.653
+//     6.000      2.000 / 3.500       1.600 / 3.100       3.350
+//     7.500      3.500 / 3.500       3.100 / 3.100       4.850
 //
-// 7.50 is the wall, not a target: there the circle is tangent to the bed,
-// the chord is 0.00 and the flank is 90 deg -- the knife edge this whole
-// project was built to replace.
-s_pivot_z = 6.00;
-s_tab_top = s_pivot_z + tab_r;          // 13.500  knuckle Z extent
+// The two numbers become one number, every wall around the pivot is the same
+// on both sides, and the bore sits dead centre in the prong.  It is also the
+// STANDARD knuckle: a real GoPro's is a full circle.  arm.scad's trim is our
+// printability hack, not the shape the joint is supposed to be.
+//
+// WHAT IT COSTS.  The circle touches the bed on a LINE.  The chord is 0.00
+// where the old trim gave 10.61, the underside leaves the bed at 90 deg
+// instead of 45, and at the first 0.2 mm layer each knuckle is only 3.44 mm
+// wide -- the outer 5.78 mm of each end is over thin air until support catches
+// it.  BRIM IT.
+//
+// Measured, the adhesion loss is much smaller than that sounds: 603 mm^2 of
+// bed contact against 714 at a 6.00 pivot.  The reason is that the slab body
+// is a full-width, flat-bottomed block for the first 11 mm at each end, and it
+// was always doing most of the holding -- the knuckle chord it replaces was
+// sitting on top of the body's own footprint anyway.  If a test print does
+// lift at the ends, sb_rb = 0 is the lever: a square bottom edge takes the
+// footing from 3.90 to 8.90 mm and buys back far more than the chord did.
+//
+// The other side of the bill is material: 15.0 mm tall instead of 12.803, so
+// the 100 mm arm is 15065 mm^3 against the streamlined arm's 16016.  Most of
+// the weight saving this variant used to advertise is gone; what it is for now
+// is the screw arrangement and the print time, not the mass.
+//
+// NONE OF THIS IS AVAILABLE TO arm.scad OR clamp.scad.  They are printed
+// WITHOUT support, so a 90 deg knuckle underside is not a trade they can make
+// -- they keep the trimmed pivot at tab_r/sqrt(2), where the cut face leaves
+// the bed at exactly 45.  That is the whole reason the pivot is a parameter.
+s_pivot_z = tab_r;
+s_tab_top = s_pivot_z + tab_r;          // 15.000  knuckle Z extent
+// At s_pivot_z == tab_r the bed cut in tab_profile2d degenerates on purpose:
+// the slab it intersects with spans exactly z = 0 .. 2*tab_r, which already
+// contains the whole circle.  So the same expression that TRIMS the other two
+// parts returns the full circle here, and there is no second code path.
 assert(tab_style == "trim",
-       str("the simple arm's raised pivot assumes the TRIMMED knuckle; the ",
-           "pad style puts its own pivot at tab_r and its pad outside R7.5"));
+       str("the simple arm's pivot assumes the TRIMMED knuckle; the pad style ",
+           "puts its own pivot at tab_r and its pad outside R7.5"));
 assert(s_pivot_z >= pivot_z,
        "raising the pivot is the only reason this parameter exists");
-assert(s_pivot_z <= tab_r - 1.00,
-       str("pivot ", s_pivot_z, " is too close to tab_r: the knuckle stands ",
-           "on a knife edge instead of a chord"));
+assert(s_pivot_z <= tab_r,
+       str("pivot ", s_pivot_z, " is above tab_r: the knuckle would float off ",
+           "the bed entirely"));
 
 // ------------------------------------------------------- screw / pockets
 // TWO DIFFERENT POCKETS, because one shape cannot do both jobs.
@@ -270,31 +298,32 @@ pkt_top   = s_pivot_z + pkt_af/2 + (pkt_peak ? pkt_r/2 : 0);
 assert(max(pkt_top, s_pivot_z + hd_d/2) <= s_tab_top - 0.45,
        str("a pocket roof breaks out of the knuckle crown (nut ", pkt_top,
            ", head ", s_pivot_z + hd_d/2, " vs s_tab_top ", s_tab_top, ")"));
-// A pocket centred on the pivot is ALWAYS thinner underneath than over it:
-// the floor is s_pivot_z - half, the crown is tab_r - half, and only the floor
-// moves with the pivot.  At 6.00 the floors are 2.000 (nut) and 1.600 (head)
-// against 3.500 and 3.100 of crown -- still lopsided, but no longer by 4x.
-// Two things about that are worth not re-deriving:
+// With the pivot centred these stop being two numbers: floor == crown ==
+// tab_r - half, which is 3.500 round the nut pocket and 3.100 round the head
+// counterbore.  Two things about that are worth not re-deriving:
 //
-//   * the hex's FLATS-UP orientation, picked so the roof could bridge, is also
-//     the one that maximises this floor.  Do NOT rotate it 30 deg to put a
-//     vertex down -- that would drop the nut pocket's floor to 1.381.
-//   * the pivot is the ONLY lever.  Sinking the pockets deeper is a cut in Y
-//     and does nothing for a floor measured in Z, and the pockets cannot be
-//     lifted off the pivot they are counterbores for -- the screw runs through
-//     the middle of both.
+//   * the hex's FLATS-UP orientation, picked so the roof could bridge, is
+//     still the best case.  Rotating it 30 deg to put a vertex down would take
+//     both walls to 2.881, because the corner reaches pkt_r not pkt_af/2.
+//   * the pivot is the ONLY lever on these walls.  Sinking the pockets deeper
+//     is a cut in Y and does nothing for a wall measured in Z, and the pockets
+//     cannot be lifted off the pivot they are counterbores for -- the screw
+//     runs through the middle of both.
 //
 // The load lands on the HEX pocket (press-fit hoop stress, nut torque); the
-// thin one only holds a screw head bearing axially on its floor.  Print with 7
-// bottom solid layers so both floors come out as solid skin.
+// other only holds a screw head bearing axially on its floor.  Print with 7
+// bottom solid layers so the floors come out as solid skin.
+//
+// These two asserts are structural minima, not the design intent -- they are
+// deliberately left well below what a centred pivot gives, so that BACKING OFF
+// the pivot (if a test print lifts at the ends) does not have to fight them.
+// The design intent lives in verify.py, which measures floor == crown off the
+// mesh whenever the pivot is centred, and stops asking the moment it is not.
 assert(min(s_pivot_z - pkt_af/2, s_pivot_z - hd_d/2) >= 1.50,
        "a pocket floor leaves less than 1.50 mm of material to the bed");
-// The loaded one is worth its own floor, held against what the pivot was
-// RAISED to buy.  0.80 was what the low pivot could manage; passing at 0.80
-// again would mean the height was paid for and then given back.
 assert(s_pivot_z - pkt_af/2 >= 1.90,
-       str("the press-fit pocket's floor is under 1.90 -- the raised pivot ",
-           "has been spent on something else"));
+       str("the press-fit pocket's wall is under 1.90 -- less than the raised ",
+           "pivot was worth"));
 // The nut pocket must still stop the nut turning: its corners have to stand
 // outside the pocket's flats.
 assert(pkt_af/2 < nut_af/sqrt(3) - 0.05,

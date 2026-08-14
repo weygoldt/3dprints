@@ -75,13 +75,17 @@ S_HD_D      = HEAD_D + HEAD_CLR                                # 8.80
 S_HD_DEPTH  = HEAD_H + HEAD_SEAT                               # 5.30
 S_BOSS_NUT  = max(0.0, S_PKT_DEPTH + NUT_WALL - PRONG_OUT_T)   # 2.40
 S_BOSS_HD   = max(0.0, S_HD_DEPTH + NUT_WALL - PRONG_OUT_T)    # 3.40
-# The simple variant RAISES the pivot, to thicken the pocket floors: the floor
-# is pivot - half, the crown is TAB_R - half, and only the floor moves.  It is
-# bought with part height and with flank angle -- under "trim" the knuckle
-# leaves the bed at asin(pivot/TAB_R), 45.0 deg at 5.303 and 53.1 at 6.00 --
-# so this file has to check BOTH sides of that trade, not just the floors.
-S_PIVOT_Z   = 6.00
-S_TAB_TOP   = S_PIVOT_Z + TAB_R                                # 13.500
+# The simple variant CENTRES the pivot: it sits at TAB_R, so the knuckle is the
+# full R7.5 circle, tangent to the bed, and the part is symmetric about the
+# pivot plane.  Floor and crown stop being two numbers -- every wall around the
+# pivot is TAB_R - half, on both sides.  It is bought with bed contact (the
+# knuckle touches on a LINE) and with support (the underside leaves at 90 deg),
+# which is affordable only because this is the one variant printed supported.
+# So this file checks both sides of that trade: the symmetry it buys, and the
+# adhesion it spends.
+S_PIVOT_Z   = TAB_R                                            # 7.500
+S_TAB_TOP   = S_PIVOT_Z + TAB_R                                # 15.000
+LAYER_H     = 0.20     # what the first layer of a tangent knuckle can grab
 # 45 deg countersink where the pivot bore breaks into the head counterbore, so
 # an ISO 4762 under-head fillet (out to da = 5.70, wider than the 5.30 bore)
 # clears and the head seats on its flat annulus instead of on the bore's edge.
@@ -110,6 +114,9 @@ HEAD_CS     = 0.0        # countersink at the bore mouth, head side; 0 = none
 PKT_FLOOR_MIN = 1.20     # the LOADED pocket's floor: what the streamlined arm
                          # has shipped with.  The simple variant raises it,
                          # because it paid part height for exactly that.
+SYMMETRIC   = False      # pivot centred in the part: every wall around it is
+                         # the same on both sides, and the knuckle is a full
+                         # circle rather than one cut off by the bed
 
 
 def boss_of(side):
@@ -135,14 +142,17 @@ def configure(simple):
     """
     global PKT_SPEC, PKT_PEAK, PKT_PRESS, SECTION, XPROBE, BODY_FILLET
     global BORE_ROUND, HEAD_CS, PKT_FLOOR_MIN, PIVOT_Z, TAB_TOP, SB_H
+    global SYMMETRIC
     if not simple:
         return
+    SYMMETRIC = abs(S_PIVOT_Z - TAB_R) < 1e-9
     # The pivot moves, so everything measured off it moves with it: the probe
     # heights, the pocket floors, the bore, the body height, the flank angle.
     PIVOT_Z = S_PIVOT_Z
     TAB_TOP = S_TAB_TOP
     SB_H = S_TAB_TOP
-    PKT_FLOOR_MIN = 1.90
+    # A centred pivot puts the loaded pocket's floor at TAB_R - NUT_AF/2.
+    PKT_FLOOR_MIN = 1.90 if not SYMMETRIC else TAB_R - NUT_AF/2 - 0.10
     BODY_FILLET = SB_RB
     BORE_ROUND = True
     HEAD_CS = S_HEAD_CS
@@ -299,6 +309,12 @@ def main():
     print(f"      Y {lo[1]:8.3f} .. {hi[1]:8.3f}   ({hi[1]-lo[1]:.3f})")
     print(f"      Z {lo[2]:8.3f} .. {hi[2]:8.3f}   ({hi[2]-lo[2]:.3f})")
     print(f"volume {volume(tris):.1f} mm^3")
+    if SYMMETRIC:
+        print(f"\n[0] symmetry -- the pivot is centred, so the part is a "
+              f"mirror about z={PIVOT_Z:.3f}")
+        check(abs((hi[2]-lo[2]) - 2*PIVOT_Z) < 0.05,
+              f"part is {hi[2]-lo[2]:.3f} tall == 2 x the {PIVOT_Z:.3f} pivot "
+              f"-- as much knuckle under the bore as over it")
 
     # ---------------------------------------------------------------- 1
     # The probe X sits inside the R7.5 knuckle but outboard of both the 2.65
@@ -364,7 +380,15 @@ def main():
         # end A: +/-3.0 is a slot -- probe the middle prong.  end B: it is a finger.
         yprobe = 0.0 if name == "A" else -U
         tY = near_axis(tris, 1, yprobe)
-        ivz = ray_intervals(tY, (px, yprobe, -50.0), 2)
+        # 0.013 off the pivot's own X, for the same reason [4c] samples off
+        # x=7.500: a ray on an exact geometric plane grazes coincident facets
+        # and comes back with an odd crossing count.  x=px is now TWO such
+        # planes at once -- the body loft's first station, and (with the pivot
+        # centred) the line where the knuckle circle touches the bed.  Straight
+        # up the pivot the ray reads the tangent facet as a 0.003 mm slab of
+        # its own and loses the bore entirely.  The offset costs 0.00003 mm of
+        # bore half-height, which is four orders below the tolerance.
+        ivz = ray_intervals(tY, (px + 0.013, yprobe, -50.0), 2)
         ivz = [(a-50, b-50) for a, b in ivz]
         gaps = [(ivz[i][1], ivz[i+1][0]) for i in range(len(ivz)-1)]
         print(f"     bore {name}: solid Z spans {['%.3f..%.3f' % g for g in ivz]}")
@@ -393,6 +417,10 @@ def main():
                       f"(a round hole would stop at {PIVOT_Z+BORE_D/2:.3f}, "
                       f"45 deg apex {apex:.3f})")
             check(g[0] > 2.0, f"bore {name} floor leaves {g[0]:.3f} mm of material under the bore")
+            if SYMMETRIC:
+                check(abs(g[0] - (TAB_TOP - g[1])) < 0.06,
+                      f"bore {name} sits DEAD CENTRE: {g[0]:.3f} under it, "
+                      f"{TAB_TOP-g[1]:.3f} over it")
         # width across the bore in Y-free direction: probe X through the pivot
         ivx = ray_intervals(near_axis(tY, 2, PIVOT_Z), (-50.0, yprobe, PIVOT_Z), 0)
         ivx = [(a-50, b-50) for a, b in ivx]
@@ -553,9 +581,10 @@ def main():
                      + (boss_of(-1) + boss_of(+1))
                      + (2*W2_HALF - SLOT_W))
         flank_exp = flank_arc*flank_wid
+        shape = "full circle, tangent to the bed" if SYMMETRIC else "cut circle"
         print(f"     knuckle-FLANK area         {flank_area:8.2f} mm^2  "
-              f"(vs {flank_exp:.2f} predicted -- the cut circle leaves the bed "
-              f"at {flank_oh:.2f} deg, not {OH_ANG}, because the pivot is at "
+              f"(vs {flank_exp:.2f} predicted -- the {shape} leaves the bed at "
+              f"{flank_oh:.2f} deg, not {OH_ANG}, because the pivot is at "
               f"{PIVOT_Z:.2f}; {flank_arc:.2f} mm of arc along {flank_wid:.1f} "
               f"mm of knuckle)")
     print(f"     unclassified overhang area {sum(bad.values()):8.2f} mm^2")
@@ -585,8 +614,8 @@ def main():
         # a wider band than those get.
         check(0.70*flank_exp <= flank_area <= 1.30*flank_exp,
               f"knuckle-flank overhang {flank_area:.1f} mm^2 is the "
-              f"{flank_exp:.1f} the cut circle owes (+/-30%) -- the raised "
-              f"pivot's bill, and nothing else hiding at R{TAB_R}")
+              f"{flank_exp:.1f} the {shape} owes (+/-30%) -- what the pivot "
+              f"height costs, and nothing else hiding at R{TAB_R}")
         # The angle itself, both ways.  Too steep means the knuckle is not the
         # shape it claims; too shallow means the pivot never actually moved and
         # the whole trade was not made.
@@ -594,14 +623,30 @@ def main():
               f"the flank leaves the bed at {flank_worst:.2f} deg, which is "
               f"the {flank_oh:.2f} a pivot at {PIVOT_Z:.2f} dictates "
               f"(+/-{FACET_TOL} of faceting)")
-        # And the part it is paid out of: the chord each knuckle stands on.
+        # And the part it is paid out of.  With the pivot centred the circle is
+        # TANGENT to the bed, so the chord is zero and the knuckle touches on a
+        # LINE -- there is no chord left to hold to a minimum.  What is worth
+        # measuring instead is how much of the knuckle the FIRST LAYER grabs,
+        # because that, plus the brim, is the whole of the end's grip.  The
+        # gate is the bed-contact check above, which the slab body carries.
         chord = 2*math.sqrt(max(0.0, TAB_R**2 - PIVOT_Z**2))
-        print(f"     each knuckle now stands on a {chord:.2f} mm bed chord "
-              f"(it was {2*TAB_R/math.sqrt(2):.2f} at a {TAB_R/math.sqrt(2):.3f} "
-              f"pivot); brim it")
-        check(chord >= 8.0,
-              f"the knuckle still stands on a {chord:.2f} mm chord, not a "
-              f"knife edge (a pivot at {TAB_R} would read 0.00)")
+        reach = math.sqrt(max(0.0, TAB_R**2 - (PIVOT_Z - LAYER_H)**2))
+        print(f"     knuckle bed chord {chord:.2f} mm "
+              f"({2*TAB_R/math.sqrt(2):.2f} at the streamlined arm's pivot); "
+              f"at the first {LAYER_H} mm layer the knuckle is {2*reach:.2f} mm "
+              f"wide, so the outer {TAB_R-reach:.2f} mm of each end is over "
+              f"thin air -- BRIM IT")
+        # Measured, not just predicted: walk in from -X at one layer height and
+        # find where knuckle A actually starts.
+        tz = near_axis(near_axis(tris, 2, LAYER_H), 1, 0.0)
+        ivl = [(a-50, b-50)
+               for a, b in ray_intervals(tz, (-50.0, 0.0, LAYER_H), 0)]
+        if ivl:
+            got = -ivl[0][0]
+            check(abs(got - reach) < 0.15,
+                  f"knuckle A reaches x={ivl[0][0]:+.3f} at the first layer, "
+                  f"the {-reach:+.3f} a circle {PIVOT_Z:.2f} up owes -- the "
+                  f"knuckle really is tangent, not floating and not cut flat")
     if BORE_ROUND:
         check(0.70*bore_exp <= bore_area <= 1.30*bore_exp,
               f"bore roof overhang {bore_area:.1f} mm^2 is the {bore_exp:.1f} a "
@@ -832,6 +877,16 @@ def main():
             above = TAB_TOP - hi_z
             print(f"     wall to the bed {lo_z:.3f}, to the crown {above:.3f}"
                   + (f"  ({above/lo_z:.1f}x thicker on top)" if lo_z > 0.01 else ""))
+            if SYMMETRIC:
+                # The whole point of centring the pivot: a pocket is governed
+                # by its THINNEST wall, and floor == crown is what maximises
+                # that for a given part height.  Measured off the mesh at both
+                # ends, so a pocket that drifted off the pivot shows up here
+                # rather than in a comment.
+                check(abs(lo_z - above) < 0.05,
+                      f"pocket {tag} is SYMMETRIC about the pivot: {lo_z:.3f} "
+                      f"below == {above:.3f} above (delta "
+                      f"{abs(lo_z-above):.4f})")
             check(lo_z >= 0.80,
                   f"pocket {tag} leaves {lo_z:.3f} mm to the bed (floor 0.80)")
             if kind == 'hex':

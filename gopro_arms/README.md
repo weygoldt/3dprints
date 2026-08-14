@@ -9,22 +9,23 @@ pockets and the bore:
 
 | | `arm.scad` — **streamlined** | `arm_simple.scad` — **simple** |
 |---|---|---|
-| body | Kamm-tail strut, 20.0 mm chord | slab, 13.5 mm, rounded all round (r2.5) |
+| body | Kamm-tail strut, 20.0 mm chord | slab, 15.0 mm, rounded all round (r2.5) |
 | for | under the boat, water flowing past it | everything else |
-| 100 mm arm | 16.0 cm³, 100 layers | **13.5 cm³, 68 layers** |
+| 100 mm arm | 16.0 cm³, 100 layers | **15.1 cm³, 75 layers** |
 | stack width | 18.3 mm | 21.7 mm |
-| pivot height | 5.303, flanks at 45° | **6.000**, flanks at 53° — bought floors |
+| knuckle | circle **cut** by the bed, pivot at 5.303 | **full R7.5 circle**, pivot centred at 7.500 |
+| walls round the pivot | 1.203 below / 1.033 above | **equal**: 3.500 nut, 3.100 head, 4.850 bore |
 | nut | drop-in, one side | **press fit** (−Y) |
 | screw head | stands proud | **flush in a Ø8.8 counterbore** (+Y), countersunk |
-| pivot bore | 45° teardrop, self-bridging | plain **round**, 1.1 mm more crown |
-| articulation | −100…+90° into a GoPro mount | identical |
-| support | **none** | pockets, bottom edges, bores, knuckle flanks |
+| pivot bore | 45° teardrop, self-bridging | plain **round**, dead centre in the prong |
+| articulation | −100…+90° into a GoPro mount | −90…+90°, symmetric |
+| support | **none** | pockets, bottom edges, bores, knuckle undersides |
 
 PETG · Prusa MK3S · 0.4 nozzle · 0.2 mm layers. The streamlined arm and the
 clamp are supportless by construction and should have support turned off
 explicitly. **The simple arm is the one part that wants it** — it trades its
-self-bridging geometry, and then its 45° knuckle flank, for a rounder, tighter,
-stronger part, and the four supported regions are itemised and area-checked
+self-bridging geometry, and then its cut-off knuckle, for a rounder, tighter,
+symmetric part, and the four supported regions are itemised and area-checked
 below.
 
 ---
@@ -108,9 +109,9 @@ Slicer notes:
   turn it off explicitly there.
   The **simple arm is the exception**: it wants support in the screw pockets,
   under the body's rounded bottom edges, inside the pivot bores, and — since
-  the pivot was raised — under the knuckle flanks, which now leave the bed at
-  53° instead of 45°. Use a **55° threshold** and do not use "support on build
-  plate only" — the pockets don't touch the plate.
+  the pivot is centred — under the **knuckle undersides**, which are now
+  tangent to the bed and leave it at 90°. Use a **55° threshold** and do not
+  use "support on build plate only" — the pockets don't touch the plate.
   > **Expect support in the GoPro slots too, and that is fine here.** The
   > *facet* measurement says the slots hold 0.00 mm² of overhang steeper than
   > 45°, but a slicer decides on its own criteria — contour against the previous
@@ -126,19 +127,21 @@ Slicer notes:
 - **Use a brim**, on both. The strut stands 20 mm tall on a 5 mm wide foot over
   155 mm of length; that is a narrow footprint for PETG, whose shrinkage will
   lift the ends given the chance. Bed contact is ~750 mm². The simple arm is
-  shorter but its rounded bottom leaves only a 3.9 mm footing, ~714 mm² on the
-  100 mm — and its raised pivot narrows each knuckle's chord from 10.61 to
-  9.00 mm, so the two ends grip the bed with less than they used to. It is no
-  less exposed than it looks.
+  shorter but its rounded bottom leaves only a 3.9 mm footing, ~603 mm² on the
+  100 mm — and its centred pivot makes each knuckle **tangent** to the bed, so
+  at the first layer each end grabs a strip only 3.44 mm wide and the outer
+  5.78 mm of it is over thin air. The two ends are the part that lifts; brim
+  them. `sb_rb = 0` widens the footing from 3.90 to 8.90 mm if that is not
+  enough.
 - Bump perimeters to **4–5**. Neither body is over 10 mm thick, so perimeters do
   most of the structural work and the part comes out nearly solid.
-- **7 bottom solid layers on the simple arm.** The pocket floors are 2.000 and
-  1.600 mm thick — 10 and 8 layers at 0.2 mm — so 7 (1.4 mm) of solid bottom
-  leaves only the last few layers of each to the solid skin the slicer lays
-  under the pocket void anyway. These floors used to be 1.303 and 0.903; see
-  *The floor under the pockets, and the pivot that bought it*. Infill 40 %
-  gyroid is otherwise plenty; the walls and shells carry this part, not the
-  fill.
+- **7 bottom solid layers on the simple arm.** With the pivot centred the walls
+  round the pockets are 3.500 and 3.100 mm — 17 and 15 layers at 0.2 mm — so 7
+  (1.4 mm) of solid bottom plus the solid skin the slicer lays under each
+  pocket void closes them with room to spare. They were 1.303 and 0.903 at the
+  original pivot, which is where this setting came from; see *The centred
+  pivot*. Infill 40 % gyroid is otherwise plenty; the walls and shells carry
+  this part, not the fill.
 - Flat face on the bed — that is the only orientation either is designed for.
 
 ## Prong flex
@@ -244,17 +247,18 @@ fairing gives that up. Collinear (0°) has wide clearance either side, which is
 where an arm hanging under a boat actually sits, so this is a deliberate cost of
 the streamlining rather than a defect.
 
-**The simple arm measures the same range**, angle for angle, despite being a
-13.5 mm slab on a higher pivot. That is not a rounding artefact — see *What it
-does not buy* above for why the nose fairing was never what limited it.
+**The simple arm no longer measures the same range** — it is a 15 mm slab on a
+centred pivot, so it carries a full `tab_r` of body *below* the hinge, and it
+comes out at ±90 into a mount instead of −100…+90. See *What it does not buy*
+below for the full table and for why the nose fairing was never the constraint.
 
 The knuckle style matters here. `tab_style = "trim"` (default) *cuts* the pivot
 circle with the bed, so nothing pokes outside the R7.5 joint envelope at any
-pivot height — the streamlined arm and the clamp sit at R/√2, where the cut face
-also happens to leave the bed at exactly 45°, and the simple arm sits higher and
-pays for it in flank angle. The alternative `"pad"` hulls a flat pad under a
-full-height circle — deeper knuckle, but the pad sticks ~0.6 mm proud and jams
-the hinge mid-travel:
+pivot height. The streamlined arm and the clamp sit at R/√2, where the cut face
+leaves the bed at exactly 45° and the part prints unsupported; the simple arm
+sits at `tab_r`, where the cut degenerates and the knuckle is the full circle.
+The alternative `"pad"` hulls a flat pad under a full-height circle — deeper
+knuckle, but the pad sticks ~0.6 mm proud and jams the hinge mid-travel:
 
 | | pad | trim |
 |---|---|---|
@@ -274,7 +278,7 @@ support, so it stops paying for self-bridging geometry it no longer needs.
 
 ### The body
 
-A constant slab **exactly as tall as the knuckle** (13.500 mm). That one choice
+A constant slab **exactly as tall as the knuckle** (15.000 mm). That one choice
 removes the chord ramp entirely: the top face is a single flat plane from knuckle
 to knuckle and the loft only has to flare the *width*, 15.9 → 8.9 mm.
 
@@ -291,7 +295,7 @@ predicted for an arc, where a chamfer of the same setback would read 5.364.
 > which is precisely why this was a 45° chamfer until the pockets made support
 > necessary anyway. It costs ~263 mm² of supported area on a 100 mm arm, running
 > the **whole length of the underside**, and narrows the bed footing from 8.90 to
-> 3.90 mm. Bed contact drops 1053 → 714 mm², both measured off the mesh. Set
+> 3.90 mm. Bed contact drops 942 → 603 mm², both measured off the mesh. Set
 > `sb_rb = 0` for a square bottom and the underside support disappears.
 
 ### Two different pockets — a nut trap and a head seat
@@ -345,12 +349,13 @@ past 30 mm to recess 5 mm of screw head.
 |---|---|---|
 | screw pockets | 56.49 mm² | hex flat roof + the counterbore's 90° cap |
 | body bottom edges | 262.89 mm² | the r2.5 fillets, full length of the underside |
+| knuckle undersides | 156.85 mm² | the centred pivot's bill: **tangent to the bed, 90°** |
 | pivot bores | 48.80 mm² | round instead of teardropped — **inside a Ø5.3 hole** |
-| knuckle flanks | 26.23 mm² | the raised pivot's bill: 53.13° off the bed, not 45° |
 | **unclassified** | **0.00 mm²** | everything else is supportless by construction |
 
-The flank is the only one of the four that does **not** grow with length — it is
-an end feature, 26.23 mm² on the 50, the 100 and the 140 alike.
+The knuckle undersides are the only one of the four that does **not** grow with
+length — an end feature, 156.85 mm² on the 50, the 100 and the 140 alike. On a
+50 mm arm they are the *largest* supported region, bigger than the fillets.
 
 **Dig the pocket support out before the nut and the screw go in.** The bore
 support is the fiddliest of the three; a 5 mm drill clears it if it comes out
@@ -365,7 +370,7 @@ geometry and checks the measurement against it:
 | pockets | 56.49 | 56.49 |
 | fillets | 257.75 | 262.89 |
 | bores | 45.07 | 48.80 |
-| flanks | 23.52 | 26.23 |
+| knuckle undersides | 154.31 | 156.85 |
 | countersink | 0.00 | 0.00 |
 
 and the fillet prediction tracks at every length (67.95 vs 66.74 at 50 mm,
@@ -379,79 +384,81 @@ head-side bore roof with a 45° cone — and a 45° cone sits *on* the budget, w
 is why the **countersink** row predicts and measures 0.00 and still gets a check:
 cut that cone any steeper and area appears where the harness says there should
 be none. The measurements run a few per cent over their predictions throughout,
-because a facet that straddles the 46.5° faceting cut is counted whole; the
-flank runs highest at +12 %, being the narrowest strip of the four at 0.87 mm of
-arc, which is why it is banded ±30 % rather than ±25 %.
+because a facet that straddles the 46.5° faceting cut is counted whole — the
+knuckle undersides land within 1.6 % because at a tangent circle the strip is a
+full quarter of arc, wide enough that the straddling facets barely register.
 
-`sb_rb = 0`, `pkt_peak = true` and `bore_round = false` give the supportless
-part back — square bottom edges, a nut seating on a 45° peak, a pointed bore.
+`sb_rb = 0`, `pkt_peak = true`, `bore_round = false` and
+`s_pivot_z = tab_r/sqrt(2)` give the supportless part back — square bottom
+edges, a nut seating on a 45° peak, a pointed bore, a knuckle cut off at 45°.
 
-### The floor under the pockets, and the pivot that bought it
+### The centred pivot
 
-Both pockets have less material below them than above, because a pocket centred
-on the pivot always does: the floor is `pivot − half`, the crown is `R − half`,
-and **only the floor moves with the pivot.** This variant raises it.
+**The pivot sits at `tab_r`, so the knuckle is the full R7.5 circle, tangent to
+the bed, and the whole part is a mirror about the pivot plane.**
 
-| | wall to the bed | wall to the crown | |
-|---|---|---|---|
-| nut pocket, hex 8.00 | **2.000** | 3.500 | 1.8× |
-| head counterbore, Ø8.80 | **1.600** | 3.100 | 1.9× |
-| *the same two at the old 5.303 pivot* | *1.303 / 0.903* | *unchanged* | 2.7× / 3.4× |
-| *streamlined arm, printed & in service* | *1.203* | *1.033* | — |
+A pocket centred on the pivot has `floor = pivot − half` and `crown = R − half`,
+so **only the floor moves with the pivot** — and a pocket is governed by its
+*thinnest* wall. Centring the pivot is simply the choice that maximises the
+minimum, at any given height:
 
-Note what the crown column does: **nothing.** Raising the pivot is a pure floor
-gain, and the price is paid somewhere else entirely — see below.
+| pivot | nut wall, below / above | head wall | under the bore | part height |
+|---|---|---|---|---|
+| 5.303 (trim, as `arm.scad`) | 1.303 / 3.500 | 0.903 / 3.100 | 2.653 | 12.803 |
+| 6.000 (the interim raise) | 2.000 / 3.500 | 1.600 / 3.100 | 3.350 | 13.500 |
+| **7.500 (centred)** | **3.500 / 3.500** | **3.100 / 3.100** | **4.850** | 15.000 |
 
-The hex's **flats-up orientation is still the best case** — it was picked so the
-roof could bridge, and it happens to also maximise this floor. Do not rotate it
-30° to put a vertex down: that drops the nut pocket's floor to **1.381**, giving
-back two thirds of what the raise just bought.
+Two numbers become one number, and the bore ends up **dead centre in the prong**.
+It is also the *standard* knuckle — a real GoPro's is a full circle. `arm.scad`'s
+trim is our printability hack, not the shape the joint is supposed to be, and
+this variant no longer needs the hack because it is printed with support.
 
-**`pivot_z` was the only lever, and it has now been pulled — to 6.000, for this
-variant alone.** `arm.scad`'s `tab_profile2d`, `tab_solid`, `pocket` and `bore`
-take an optional pivot height that defaults to their own, so the **streamlined
-arm and the clamp are untouched**: both stay supportless at 5.303, and the proof
-is that their exported meshes are *byte-identical* across the change.
+`arm.scad`'s `tab_profile2d`, `tab_solid`, `pocket` and `bore` take an optional
+pivot height defaulting to their own, so the **streamlined arm and the clamp are
+untouched** — both stay supportless at 5.303, and the proof is that their
+exported meshes are *byte-identical* across the change. There is no second code
+path for the full circle either: at `pivot = tab_r` the bed cut degenerates by
+itself, because the slab it intersects with spans exactly `0 … 2·tab_r` and
+already contains the whole circle.
 
-#### What it cost
+#### What it costs
 
-Not free, and the number is not small:
-
-| | at 5.303 | at 6.000 |
+| | at 6.000 | at 7.500 |
 |---|---|---|
-| nut / head floor | 1.303 / 0.903 | **2.000 / 1.600** |
-| part height | 12.803 | 13.500 |
-| knuckle flank off the bed | 45.0° | **53.13°** |
-| bed chord per knuckle | 10.606 | **9.000** |
-| arm-to-arm, bed side | touches at −120° | touches at ≈−112° |
+| knuckle underside off the bed | 53.13° | **90°** (tangent) |
+| bed chord per knuckle | 9.000 | **0.000** |
+| bed contact, 100 mm arm | 714 mm² | **603 mm²** |
+| support under the knuckles | 26 mm² | **157 mm²** |
+| 100 mm arm | 13537 mm³ | **15065 mm³** |
+| into a GoPro mount | −100…+90° | **−90…+90°** |
+| arm to arm | −110…+80° | **−80…+80°** |
 
-**The flank cannot be bought back, and it is worth knowing why.** Under `trim`
-the knuckle is the pivot circle *cut by the bed*, so it leaves the bed at
-`asin(pivot/R)` — exactly 45° only at `R/√2`. Padding it back out to 45° needs
-material at (±6.00, 0), which is **R8.49 from the pivot**, half a millimetre
-outside the R7.5 envelope that a real GoPro's R7.75 slot pocket sweeps. The cut
-circle already *is* every point inside R7.5 that reaches the bed, so the trim is
-optimal and 53.13° is forced. This part is printed with support, so the flank
-gets supported like everything else; **the streamlined arm and the clamp are
-not, which is exactly why they keep the low pivot.**
+**The adhesion loss is far smaller than "the chord is zero" suggests** — 603 mm²
+against 714. The slab body is a full-width, flat-bottomed block for the first
+11 mm at each end, and it was always doing most of the holding; the knuckle
+chord it gives up was sitting on top of the body's own footprint anyway. What
+*is* gone is the outer half of each end: at the first 0.2 mm layer the knuckle
+is only **3.44 mm wide**, so the outer 5.78 mm of each end is over thin air
+until support catches it. **Brim it.** If a print lifts at the ends, `sb_rb = 0`
+is the first lever — a square bottom edge takes the footing from 3.90 to 8.90 mm
+and buys back far more than the chord ever did.
 
-**7.500 is the wall, not a target.** There the circle is tangent to the bed, the
-chord is 0.00 and the flank is 90° — the knife edge this whole project was built
-to replace. The harness holds the chord above 8 mm.
+**Articulation is where the real bill lands**, and it is worth being plain about:
+arm-to-arm loses 30° on the bed side. The body now sits a full `tab_r` *below*
+the pivot instead of 6.00, and that is the direction that costs swing. The
+consolation is that the range became **symmetric** — ±80 arm-to-arm, ±90 into a
+mount — which is what a mirror-symmetric body must do, and 0° (collinear) still
+has wide clearance either side, which is where the arm is actually used.
 
-Two notes on living with the floors:
+Two notes on living with it:
 
-- **The thin one is the unloaded one.** The Ø8.80 counterbore is a *clearance*
-  fit holding a screw head that bears axially on the pocket floor, in Y. It sees
-  no hoop stress and no torque. The pocket that does take load — press-fit hoop
-  stress and the nut's anti-rotation torque — is the hex, now at **2.000 mm**
-  against the 1.203 the streamlined arm has been flying with. The check moved up
-  with it: it demands **1.90**, not the old 1.20, because a part that passed at
-  1.203 again would have paid 0.7 mm of height and handed the floor straight
-  back.
-- **Print it solid.** At 0.2 mm layers the floors are 10 and 8 layers. **7 bottom
-  solid layers** (1.4 mm) plus the solid skin the slicer lays under the pocket
-  void closes both of them outright.
+- **Both walls are now the loaded wall's wall.** The hex pocket takes the
+  press-fit hoop stress and the nut's torque, and it sits in 3.500 mm all round
+  against the 1.203 the streamlined arm has been flying with. The check follows
+  the geometry: whenever the pivot is centred the harness stops checking a
+  minimum and starts checking **floor == crown**, measured off the mesh.
+- **Print it solid.** At 0.2 mm layers the thinnest wall is 15 layers, so the
+  usual **7 bottom solid layers** covers it with room to spare.
 
 ### The round bore
 
@@ -498,38 +505,47 @@ numbers, not hidden:
 
 | arm | streamlined | simple | saved |
 |---|---|---|---|
-| 50 mm | 7973 mm³ | 7801 mm³ | 2 % |
-| 75 mm | 11994 mm³ | 10669 mm³ | 11 % |
-| 100 mm | 16016 mm³ | 13537 mm³ | **15 %** |
-| 140 mm | 22450 mm³ | 18125 mm³ | **19 %** |
+| 50 mm | 7973 mm³ | 8663 mm³ | **−9 %** (heavier) |
+| 75 mm | 11994 mm³ | 11864 mm³ | 1 % |
+| 100 mm | 16016 mm³ | 15065 mm³ | 6 % |
+| 140 mm | 22450 mm³ | 20188 mm³ | **10 %** |
 
-The saving grows with length because the two bosses are a fixed cost paid at one
-end: on the 50 mm arm they eat nearly all of it. **If you want a short arm, the
-streamlined one is barely heavier** — pick the simple one there for the screw
-arrangement, not for the mass. These are ~5 % fatter than they were before the
-pivot went up, which is the same 0.7 mm of height showing up as material: the
-100 mm went 12812 → 13537 mm³, and the 50 mm's margin shrank from 8 % to 2 %.
-Print time still falls further than volume does: 13.5 mm tall instead of 20.0 is
-**68 layers instead of 100**, each with a shorter perimeter loop, and on a
+**Be honest about this table: the mass advantage is mostly gone, and at 50 mm it
+has inverted.** The two bosses are a fixed cost paid at one end, and the centred
+pivot added 2.2 mm of height on top of that — the 100 mm arm has gone 12812 →
+13537 → 15065 mm³ across the two pivot moves. **Do not pick this variant for
+weight.** Pick it for the screw arrangement, the symmetric walls, and the print
+time, which still falls further than volume does: 15.0 mm tall instead of 20.0
+is **75 layers instead of 100**, each with a shorter perimeter loop, and on a
 nearly-solid part that is where the time goes.
 
 ### What it does *not* buy
 
-**Articulation is unchanged** — identical to the streamlined arm at every angle
-tested (−100…+90 into a GoPro mount, −110…+80 arm to arm). This looks like it
-should have improved, so it is worth saying why it did not: what limits the swing
-is the full-height, full-width block between the pivot and the end of the slots,
-and that block is *identical* in both arms because the slots have to run out to
-`pocket_r` either way. The 20 mm chord was never the binding constraint; it only
-starts ramping up once it is already clear of it.
+**Articulation is not just unimproved — the centred pivot costs some.** The body
+was never the binding constraint: what limits the swing is the full-height,
+full-width block between the pivot and the end of the slots, identical in both
+arms because the slots have to run out to `pocket_r` either way. But *height*
+below the pivot is exactly what that block is made of, and centring the pivot
+puts a full `tab_r` under it:
 
-**The raised pivot did not cost a band either, though it did shave the far end
-of one.** Every clear band above is the same as it was at 5.303. The body now
-sits 0.7 mm deeper *under* the pivot, which is the direction that costs swing,
-and it shows only outside the working range: arm-to-arm on the bed side used to
-touch at −120° and now touches at about **−112°**, measured at 2° resolution.
-The crown side is untouched, exactly as it should be — the distance from pivot to
-top face is `tab_r` at any pivot height, so +swing never noticed.
+| | streamlined | simple @ 5.303 | simple @ 6.000 | **simple @ 7.500** |
+|---|---|---|---|---|
+| into a GoPro mount | −100…+90 | −100…+90 | −100…+90 | **−90…+90** |
+| our end into a socket | −90…+100 | −90…+100 | −90…+100 | **−90…+90** |
+| arm to arm | −110…+80 | −110…+80 | −110…+80 | **−80…+80** |
+
+The mount cases lose 10° each and arm-to-arm loses 30° on the grid, all of it on
+the side the body swings *down* into. The arm-to-arm figure is harsher than the
+part deserves, though: at ±90 the two arms interfere by **0.0004 mm³** — a
+hairline graze at the exact right angle, against a part of 15065 mm³ — and they
+are cleanly clear at ±85. The first honest collision is past ±95. The mount
+cases fail properly by comparison, 8.99 mm³ at −92°, so those boundaries are
+real ones.
+
+The compensation is that every range came out **symmetric**, which is what a
+mirror-symmetric body must do — and 0° (collinear) still has 80°+ of clearance
+either side, which is where the arm is actually used. If it ever binds, the
+pivot is the lever to walk back down.
 
 ## Pipe clamp (`part="clamp"`)
 
@@ -700,7 +716,7 @@ hole reads 60.0°, i.e. free), and whether the inscribed circle really admits a
 Ø8.5 cap head. The outline is convex, so testing the nut's six corners is a sound
 test of containment rather than an approximation.
 
-Nineteen mutants, each aimed at one claim, all caught:
+Twenty-two mutants, each aimed at one claim, all caught:
 
 | mutant | caught by |
 |---|---|
@@ -720,9 +736,12 @@ Nineteen mutants, each aimed at one claim, all caught:
 | countersink cut at 63° instead of 45° | the profile reads 5.300 at 0.25 mm deep, not 5.800 |
 | countersink cut on the nut side too | the nut side reads 6.200, not a plain 5.300 |
 | pivot dropped back to 5.303 | `assert` at render time — the floors fall under 1.50 |
-| ... and again with those asserts defeated | 28 checks, from the bore floor (2.661 ≠ 3.350) outward |
-| pivot raised to 6.40, spec left at 6.00 | 22 checks; flank area 0.0 ≠ 23.5 and 121 mm² lands unclassified |
-| hex pocket rotated 30°, vertex down | floor 1.381 ≠ 2.000, and the roof bursts 0.6 mm higher |
+| ... and again with those asserts defeated | 28 checks, from the bore floor outward |
+| pivot moved off centre by 0.25 | 27 checks; part 14.750 ≠ 15.000 tall, bore 4.607 under / 5.107 over |
+| knuckle cut flat again while the spec says tangent | 9 checks; the first layer reaches 0.000 where a tangent circle owes 1.720 |
+| head counterbore 0.4 deeper | 7 checks; depth 5.700 ≠ 5.30 and the boss grows with it |
+| nut pocket widened to 8.80 | walls 3.100 ≠ 3.500, and +0.800 on the nut is not a press fit |
+| hex pocket rotated 30°, vertex down | both walls drop to 2.881, and the roof bursts 0.6 mm higher |
 
 That last one is the useful kind: it proves the *depth ≤ half-width* rule that
 keeps the serrations printable is a real constraint the harness enforces, not a
@@ -758,7 +777,7 @@ by the standard and cannot be thickened. The `"trim"` knuckle also leaves only
 4.85 mm remains on the loaded side and around the bore radially, so this mostly
 costs the reverse-load direction.
 
-On the **simple arm that last number is 3.35 mm**, not 2.65 — the raised pivot
-lifts the bore along with everything else centred on it. That end of the trade
-is worth naming: the pivot went up to thicken the pocket floors, and the
-material under the bore came along for free.
+On the **simple arm that last number is 4.85 mm**, not 2.65 — with the pivot
+centred the bore sits dead centre in the prong and carries the full 4.85 on
+*both* sides, which is what the originals had. The reverse-load direction stops
+being a weak direction at all on that variant.
