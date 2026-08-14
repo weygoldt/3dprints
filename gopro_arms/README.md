@@ -105,13 +105,21 @@ Slicer notes:
   slots — exactly the surfaces that must stay clean for the joint to close. So
   turn it off explicitly there.
   The **simple arm is the exception**: it wants support in the screw pockets,
-  under the body's rounded bottom edges, and inside the pivot bores. A **55°
-  threshold** picks up exactly those — the steepest facet anywhere else is
-  44.24°, so nothing else gets touched and the GoPro slots stay clean (they
-  measure 0.00 mm² of overhang). Do not use "support on build plate only"; the
-  pockets don't touch the plate. Then **dig the support out of both pockets**
-  before assembly, and run a 5 mm drill through the bores if they come out
-  ragged.
+  under the body's rounded bottom edges, and inside the pivot bores. Use a
+  **55° threshold** and do not use "support on build plate only" — the pockets
+  don't touch the plate.
+  > **Expect support in the GoPro slots too, and that is fine here.** The
+  > *facet* measurement says the slots hold 0.00 mm² of overhang steeper than
+  > 45°, but a slicer decides on its own criteria — contour against the previous
+  > layer, bridge detection, its own thresholds — and in practice it puts
+  > support in them. Observed on the plate, not predicted by the harness. It
+  > comes out easily, and the round bores would have put support through that
+  > region anyway. **This is only true of the simple arm**: on the streamlined
+  > arms and the clamp, support in the slots is the failure the warning above is
+  > about, and it must stay off.
+
+  Then **dig the support out of the pockets and slots** before assembly, and run
+  a 5 mm drill through the bores if they come out ragged.
 - **Use a brim**, on both. The strut stands 20 mm tall on a 5 mm wide foot over
   155 mm of length; that is a narrow footprint for PETG, whose shrinkage will
   lift the ends given the chance. Bed contact is ~750 mm². The simple arm is
@@ -365,14 +373,20 @@ alarming enough to be worth writing down:
 
 **The asymmetry is the trimmed knuckle, not a mistake.** The pivot sits
 `R/√2` = **5.303 mm above the bed but 7.500 below the crown**, so anything
-centred on it is thinner underneath by 2.2 mm, always. The hex's flats-up
-orientation — chosen so the roof can bridge — happens to also give the
-*thickest possible* floor; rotating it 30° would drop the nut pocket to 0.684.
+centred on it is thinner underneath by 2.2 mm, always.
 
-**It is not tunable, and the obvious fix is worse.** Giving the head counterbore
-2.0 mm would need the pivot at 6.40, which tips the knuckle flanks to **58.6°
-from vertical** — putting support *inside the GoPro slots*, the one place this
-design has always refused to let support go.
+The hex's **flats-up orientation is already the best case** — it was picked so
+the roof could bridge, and it happens to also maximise this floor. Do not rotate
+it 30° to put a vertex down: that drops the nut pocket's floor to **0.684**.
+
+**The only lever is `pivot_z`, and it is not this variant's to pull.** Raising it
+to 6.40 would give the counterbore 2.0 mm — but `pivot_z` is defined in
+`arm.scad` and shared with the **streamlined arm and the clamp**, both
+supportless and both in service. Moving it means changing them too, or threading
+a per-variant pivot through the one file this variant has deliberately never
+touched, for a gain that lands mostly on the pocket carrying no load. It is
+available if the floor ever proves to be the thing that breaks; it is not worth
+spending first.
 
 Two things make it less worrying than it looks:
 

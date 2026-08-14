@@ -191,13 +191,22 @@ assert(max(pkt_top, pivot_z + hd_d/2) <= tab_top - 0.45,
 // A pocket centred on the pivot is ALWAYS thinner underneath than over: the
 // trimmed knuckle puts the pivot at R/sqrt(2) = 5.303 above the bed but 7.500
 // below the crown.  Floors here are 1.303 (nut) and 0.903 (head) against 3.500
-// and 3.100 of crown.  That is geometry, not slack -- giving the head 2.0 mm
-// would need the pivot at 6.40, which tips the knuckle flanks to 58.6 deg and
-// puts support INSIDE the GoPro slots.  The load lands on the HEX pocket (press
-// fit hoop stress, nut torque) and that one has 1.303, more than the 1.203 the
-// streamlined arm has shipped with; the thin one only holds a screw head that
-// bears axially on its floor.  Print with 7 bottom solid layers so both floors
-// are solid skin.
+// and 3.100 of crown.  Two things about that are worth not re-deriving:
+//
+//   * the hex's FLATS-UP orientation, picked so the roof could bridge, is also
+//     the one that maximises this floor.  Do NOT rotate it 30 deg to put a
+//     vertex down -- that drops the nut pocket's floor to 0.684.
+//   * the only way to thicken both floors is to raise pivot_z, and pivot_z is
+//     defined in arm.scad and shared with the STREAMLINED ARM and the CLAMP,
+//     which are supportless and already in service.  Raising it means either
+//     changing them too or threading a per-variant pivot through the one file
+//     this variant has deliberately never touched.  The gain would also land
+//     mostly on the pocket that carries no load.
+//
+// The load lands on the HEX pocket (press-fit hoop stress, nut torque) and that
+// one has 1.303, more than the 1.203 the streamlined arm has shipped with; the
+// thin one only holds a screw head bearing axially on its floor.  Print with 7
+// bottom solid layers so both floors come out as solid skin.
 assert(min(pivot_z - pkt_af/2, pivot_z - hd_d/2) >= 0.80,
        "a pocket floor leaves less than 0.80 mm of material to the bed");
 // The nut pocket must still stop the nut turning: its corners have to stand

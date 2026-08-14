@@ -705,10 +705,10 @@ def main():
                       f"{PIVOT_Z+size/2:.3f} (support carries it)")
             # A pocket centred on the pivot is ALWAYS thinner underneath: the
             # trimmed knuckle puts the pivot PIVOT_Z above the bed but TAB_R
-            # below the crown.  Not tunable -- giving the head counterbore
-            # 2.0 mm would need the pivot at 6.40, tipping the knuckle flanks
-            # to 58.6 deg from vertical and putting support INSIDE the GoPro
-            # slots.  So this is a floor to hold, not a number to improve.
+            # below the crown.  The only lever is pivot_z, which lives in
+            # arm.scad and is shared with the streamlined arm and the clamp --
+            # both supportless and in service.  So this is a floor to hold,
+            # not a number to chase.
             above = TAB_TOP - hi_z
             print(f"     wall to the bed {lo_z:.3f}, to the crown {above:.3f}"
                   + (f"  ({above/lo_z:.1f}x thicker on top)" if lo_z > 0.01 else ""))
