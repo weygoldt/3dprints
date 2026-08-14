@@ -26,19 +26,26 @@
 //    ssection       a slice of the simple slab section
 //    clamp          2-prong pipe clamp -- holds a 12 mm pipe, squeezed shut
 //                   by the arm's own thumbscrew (no clamp screw of its own)
+//    buckle         GoPro quick-release buckle, imported from the donor STL
+//                   in inspiration/ and given the SIMPLE arm's screw pockets:
+//                   an M5 cap head one side, a press-fit nut the other.  Its
+//                   own print note is in buckle.scad and differs from the one
+//                   below -- it needs SUPPORT, and it prints on its y=0 face.
 //
 //  Print: PETG, 0.2 mm layers, 0.4 nozzle, NO SUPPORT, flat face on the bed.
 //  Bump perimeters to 4-5; both bodies are under 10 mm thick, so perimeters
 //  do most of the structural work and the part ends up nearly solid.
 // =====================================================================
 
-// arm_simple.scad sets `lib` itself and includes arm.scad, so this file
-// only has to suppress arm_simple's own standalone preview.
-lib_s = true;
-include <arm_simple.scad>
+// One include, three files: buckle.scad sets `lib_s` and includes
+// arm_simple.scad, which sets `lib` and includes arm.scad.  Each of the three
+// guards its own standalone preview on its own sentinel, so this file only has
+// to suppress the outermost one.
+lib_b = true;
+include <buckle.scad>
 use <clamp.scad>
 
-part = "arm100";   // [gauge, arm50, arm75, arm100, arm140, set, section, sgauge, simple50, simple75, simple100, simple140, sset, ssection, clamp]
+part = "arm100";   // [gauge, arm50, arm75, arm100, arm140, set, section, sgauge, simple50, simple75, simple100, simple140, sset, ssection, clamp, buckle]
 
 arm_lengths = [50, 75, 100, 140];
 
@@ -57,6 +64,7 @@ else if (part == "simple140") arm_simple(140);
 else if (part == "sset")      simple_set();
 else if (part == "ssection")  section_simple_demo();
 else if (part == "clamp")     pipe_clamp();
+else if (part == "buckle")    buckle();
 
 // All four arms, side by side, flat faces all on the bed.
 module arm_set() {

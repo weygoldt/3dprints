@@ -698,15 +698,152 @@ To switch them on: set `serrate = true` in `clamp.scad` **and** `SERRATE = True`
 in `verify_clamp.py` — the verifier mirrors the model by hand here, as it does
 everywhere else, and check `[7]` only runs when it is on.
 
+## Quick-release buckle (`part="buckle"`)
+
+The one part here we did not draw. `buckle.scad` **imports**
+`inspiration/Quck Release v3 clip.STL` and changes it in one way: it stops
+taking a GoPro hand screw and starts taking the pairing the simple arm is built
+around — an M5 socket cap head one side, a press-fit M5 nut the other. The
+body, the latch, the rails and the 3-prong joint are the donor's and are not
+touched.
+
+### What the donor actually is
+
+Everything below is measured off the mesh, not read off a drawing:
+
+| | |
+|---|---|
+| hinge axis | along **X** |
+| pivot | y 15.240, z 12.700; bore **5.461** through all three prongs |
+| knuckle | **R 7.3655**, flat to ±0.0006 over its whole free arc (−80…+90°) |
+| slots | x 11.506…14.681 and 17.856…21.031, both **3.175** |
+| middle prong | x 14.681…17.856, **3.175** |
+| far outer prong | x 21.031…23.635 — only **2.604**, well under a unit |
+| prints on | the **y = 0** plane: 718 mm², nearly 4× the next largest face. **+Y is up.** |
+
+> **The grid is imperial.** Both slots and the middle prong are 3.175 = 1/8″.
+> Our arms are built on a 3.00 mm grid with a 3.10 slot, so **this buckle's
+> middle prong is 0.075 wider than our 2-prong end's central gap.** That is a
+> real interference, not mesh noise — it reads 3.175 at every radius and every
+> angle probed. It is the donor's tolerance, not ours, and nothing here loosens
+> our arm to suit it. Ease the buckle's middle prong or squeeze it: 0.075 total
+> across a PETG finger is a firm push, not a jam.
+
+Note also that the two outer prongs are **not** on the grid and not equal to
+each other, so do not predict either outer face from the 1/8″ pattern.
+
+### The donor already had the nut trap
+
+The low-x prong carries a boss standing out to x 5.0164 with a hexagon cut into
+it, floor at x 8.903. That hexagon measures **8.0010 across flats** — the same
+nominal 8.00 as `pkt_af`, arrived at independently — and it is **flats up** in
+the print orientation, the same choice `arm_simple.scad` argues for. So the nut
+pocket is not something this file invents. All that was missing was **0.413 mm
+of depth**: at 3.887 the donor's pocket is shallower than a 4.00 mm DIN 934 nut
+and leaves it standing 0.113 proud.
+
+We re-cut it anyway, at our own `pkt_af` and `pkt_depth`, for a reason that is
+not cosmetic: **a pocket the donor owns is a pocket that changes silently if the
+donor mesh is ever re-exported.** Cutting it here makes the depth ours and makes
+it something `verify_buckle.py` can hold to a number. Our hex is 0.0005 narrower
+on the radius, so in practice the donor's own walls still govern the fit and
+only the floor moves — from 8.903 to 9.316, spending 0.413 of a 2.603 mm wall
+and leaving **2.190**, still 0.690 over `nut_wall`.
+
+### Where each pocket goes — not a choice
+
+The donor decided it. Its nut trap is in the low-x prong; the hand screw's head
+bore against the plain high-x face at x 23.635. So the head counterbore goes
+where the head already went, and the nut stays where the nut already is.
+Swapping them would mean filling a good 8.00 hex and cutting a new one 18 mm
+away — three changes to save none.
+
+The far prong is only **2.604** thick, and a 5.00 mm cap head sunk `head_seat`
+below flush wants `hd_depth + nut_wall` = 6.80. Hence a **4.196 mm boss**.
+
+### The boss, and the one envelope rule
+
+Nothing may poke outside R7.5 about the pivot or the hinge jams part-way through
+its travel. The boss is a disc of the **donor's own** knuckle radius, 7.3655,
+not our `tab_r` of 7.50 — so it is provably not one micron outside a silhouette
+the part already had, and it clears the R7.5 rule by 0.135 into the bargain.
+Same trick as `side_boss()` in `arm_simple.scad`, with the donor's circle
+standing in for `tab_solid()`.
+
+**It costs nothing in bounding box.** The donor's own body already reaches
+x 32.537, well past the 27.831 the boss stops at, so the part does not get one
+micron bigger. The flex insert is clear too, by a wide margin: its nearest
+vertex to the pivot axis is at r 10.388, and there is no insert material at all
+inside r 9.0.
+
+What the boss does *not* share with `arm_simple`'s bosses is a footing. There
+the knuckle is tangent to the bed and the boss stands on it. Here the knuckle
+floats — its lowest point is y 7.8745 — and the buckle's own body runs beneath
+as a shelf falling from y 7.457 to 6.819. So the boss underside starts **0.42 mm
+above solid material where it begins and 1.06 mm above it where it ends**: two
+to five layers of air at 0.2 mm, directly over a wide flat shelf. A short
+bridge, not a cliff.
+
+### Print it
+
+**Not** like the arms. This part prints on its **y = 0 face** (`+Y` up) and it
+**needs support**, in the same four places `arm_simple` does and for the same
+reasons: the hex roof is flat, the head counterbore's roof is a ceiling however
+you cut it, the donor's pivot bore is round, and the boss underside bridges to
+the shelf. **Dig the pockets out before the nut and the screw go in.**
+
+**What fits it:** M5 socket cap + M5 nut. Head sunk 0.30 below the boss face,
+nut 0.30 below its own, nothing protruding either side, driven with a 4 mm key
+instead of a thumb. The grip length across the assembly is longer than the arm's
+because the head boss is thicker — **measure before buying; an M5×16 will not
+reach.**
+
 ## Verifying
 
 ```sh
+python3 verify.py --selftest                                      # the LOADER first
 python3 verify.py stl/gopro_arm_100mm.stl --length 100            # measures the MESH
 python3 verify.py stl/gopro_arm_simple_100mm.stl --length 100 --simple
+python3 verify_buckle.py stl/gopro_qr_buckle.stl                  # the buckle
 python3 fitcheck.py                                               # mating interference
 python3 fitcheck.py --simple
 python3 fitcheck.py --simple --chain     # also arm-to-arm, which is slower
 ```
+
+### The loader, and a fourth way to pass a bad part
+
+`build.sh` now runs `verify.py --selftest` **first**, because every check in
+every harness reaches the mesh through one function and its failure mode was
+silent.
+
+`load()` decided binary-vs-ASCII on whether the file began with the bytes
+`solid`. A binary STL's 80-byte header is free-form, and plenty of exporters
+open it with the part name — **both `inspiration/Quck Release v3 *.STL` begin
+with the literal ASCII `solid `.** So a 141 034-facet binary mesh went down the
+ASCII branch, found no `vertex` lines, and returned an **empty list**. That is
+not a cosmetic misparse: `volume()` of nothing is 0.0, an empty `bbox()` comes
+back inverted, and **`fitcheck.py` reads 0.0 mm³ as zero interference — a
+perfect fit at every hinge angle.** Same class of false pass as the three the
+adversarial review found, and it was live.
+
+Two fixes, because there were two links:
+
+- `load()` now sniffs the **layout**, not the leading bytes: `84 + 50n ==
+  filesize`. That is not a heuristic, it is the binary format's own definition,
+  and for an ASCII file to pass it the four bytes at offset 80 would have to
+  spell out that file's own length. It also **raises rather than returning
+  empty** — a loader that cannot read a file has to say so, not certify it.
+- `fitcheck.py` wrapped `volume(load(out))` in `except Exception: v = 0.0`,
+  which turned every way of failing to *read* a mesh back into "no
+  interference". By that point the render has succeeded and the file is ≥ 100
+  bytes, so there is no benign parse failure left to absorb. The wrapper is
+  gone.
+
+`--selftest` covers both encodings, and its `[L3]` is the regression: a binary
+STL whose header begins `solid` must read as 12 facets, not 0. `[L4]` is its
+**control** — it runs the *old* prefix sniff on the same fixture and demands
+that it fail. Without that, `[L3]` would pass just as happily against the bug it
+exists to catch. Restoring the bug turns the suite red in four places.
 
 `--simple` swaps in the slab-section and two-pocket expectations. Everything
 about the GoPro interface is checked identically either way, because it *is*
@@ -799,6 +936,73 @@ what mutation testing is for. The depth check was taking the *outer face* from
 the spec and only the *floor* from the mesh, so a pocket with the wrong boss
 measured 5.300 while actually being 2.300 deep — the error hid in the face. It
 now reads both ends off the mesh.
+
+### The buckle (`verify_buckle.py`)
+
+Two questions, and they need different instruments.
+
+**What we added** is measured off the finished mesh by ray-casting, the same way
+`verify.py` measures an arm. Every number is checked against a *prediction from
+the geometry*, never against a round number: the nut floor lands at 9.316 =
+face 5.0164 + `pkt_depth`; the head floor at 22.531 = boss face 27.831 −
+`hd_depth`, leaving exactly `nut_wall`; the relief measures 5.661 / 5.961 /
+6.261 at 0.10 / 0.25 / 0.40 mm out from its start, i.e. a true 45°.
+
+**What we did not touch** cannot be measured that way at all. "The rest of the
+buckle is unchanged" is a claim about two *sets*, and a pocket cut in the wrong
+place measures exactly as well as one cut in the right place. So `[2]` renders
+the two set differences through `buckle_diff.scad` and measures those:
+
+| | |
+|---|---|
+| `added` | `buckle()` − donor. Must be **459.926 mm³** against 459.969 predicted from the boss area less the Ø8.8 bore, × 4.196. |
+| `removed` | donor − `buckle()`. 56.743 mm³, both pockets. |
+| `*_stray` | each of the above minus a conservative fence round where the change is *allowed* to be. Both read **0.000000 mm³**. |
+| `ctrl` | the donor differenced against itself shifted 0.5 mm. Must be non-zero — 769.6 mm³ — or the boolean-and-measure path is blind. |
+
+The fences in `buckle_diff.scad` are written out as plain numbers rather than
+built from `buckle.scad`'s own modules, deliberately: **a bound that shared code
+with the thing it bounds would agree with its bugs.**
+
+`[2]` is measured by *volume*, never by vertex position. Differencing two meshes
+that share most of their surfaces leaves coplanar, **zero-volume shells** strewn
+over the coincident faces; they are not material, but they do move a bounding
+box. An early version of this check failed on exactly that while the geometry
+underneath was already correct.
+
+The check that matters most is `[4]`, and it is not a dimension — measuring
+"8.00 across flats" proves nothing, because a **round** 8.00 hole is 8.00 across
+flats too and the nut spins in it. `[4]` sweeps the pocket's own boundary and
+asks how far a centred M5 nut turns before its corners bind: **0.012°** as
+built, against 0.012° predicted from the measured 8.0010 across flats. Its
+control is the head counterbore — a genuine round bore on the same part, which
+must read *free*. It is swept with a 7.00 hex rather than the nut, and that is
+the point `arm_simple.scad` makes rather than a fudge: an M5 nut is 9.2376
+across corners and will not enter an 8.80 bore at any angle, so asking the sweep
+about a nut there gets the correct answer "does not fit", which tests nothing. A
+7.00 hex clears 8.80 and reads **60.0° = free** there against 21.84° in the hex
+pocket, which is the discrimination the control exists to demonstrate.
+
+Nine mutants, each aimed at one claim, all caught:
+
+| mutant | caught by |
+|---|---|
+| nut pocket made round (`$fn` 6 → 96) | not a hexagon; 9.2327 across flats; turns 60° |
+| nut hex 10 % oversize | 8.800 across flats; turns 12.29°; 8.84 mm³ outside the fences |
+| nut pocket 0.4 too shallow | floor 8.916 ≠ 9.316; nut would stand 0.100 proud |
+| boss grown to r 7.45 | added 476.4 ≠ 459.97 mm³; 9.70 mm³ outside the fence; bbox grows in Y |
+| countersink removed | relief rises 0.000/mm, not 45°; mouth 5.461 misses da 5.70 by −0.239 |
+| an extra notch cut in the middle prong | 6.000 mm³ of removed material outside both fences |
+| head pocket driven 1 mm off the pivot | 2.0000 out of round; 6.800 across; and `[4]`'s control trips |
+| nut pocket put on the head prong | floor reads the donor's own 8.903, depth 3.886 — our cut is missing |
+| boss 0.5 too thin | `assert` at render time — the floor wall falls under `nut_wall` |
+
+**The first attempt at the notch mutant was a dud, and that is worth recording.**
+It cut a 3 × 3 mm cube centred on the pivot axis — which sits entirely inside
+the donor's own Ø5.461 bore, removes nothing, and leaves the part unbroken. The
+harness passed it because it was *correct* to pass it. A mutation that does not
+actually change the part tests nothing; check that it bit before believing a
+green result.
 
 ## Reinforcement, and where it is still weakest
 
