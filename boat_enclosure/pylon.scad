@@ -77,9 +77,18 @@ module pylon_mast_loft() {
         z0 = mast_z0*s,    z1 = pylon_width*(1 - s) + mast_z1*s,
         r  = rmax*s)
     rprof(xf, xa, z0, z1, Y, r) ];
-  // TOP roll-off: a quarter-circle rounds the top rim (shrink the pad profile in as it rises the last rmax).
-  top = [ for (j = [1:Mtop]) let(a = 90*j/Mtop, sh = rmax*(1 - cos(a)), Y = pad_y1 + rmax*sin(a))
-          rprof(0 + sh, pad_aft - sh, mast_z0 + sh, mast_z1 - sh, Y, rmax*cos(a)) ];
+  // TOP: the mast BLOSSOMS up past the pad into the guard's domed boss (the ONE-PART sculpt) -- it keeps near-full
+  // section off the pad, then rounds off to a soft nub pad_blossom mm above the pad top.  This lifts the mast up into
+  // the guard so the assembled pair reads as one rising form (the flat bolt seam sits at X=pad_aft, hidden inside it).
+  // Additive ABOVE the bolt pad (Y>pad_y1) -> the mount is untouched.  pad_blossom=0 -> the old small rmax roll-off.
+  bh = max(pad_blossom, rmax);  Btop = 16;
+  // keep FULL width (Z) like the mast band (which prints supportless) and only round the fore-aft (X) profile as it
+  // rises -> the blossom is a full-width rounded ridge, no width-taper overhang.  The corner radius eases up to the tip.
+  top = [ for (j = [1:Btop]) let(a = 90*j/Btop, Y = pad_y1 + bh*sin(a),
+               k  = pow(sin(a), 1.7),                    // slow start (full base) -> fast finish (rounded top)
+               shx = (pad_aft - 3.5)*k, r = min(rmax + bh*0.15, mast_w/2 - 0.1))
+          rprof(0 + shx, pad_aft, mast_z0, mast_z1, Y, r) ];   // AFT face stays at the seam (pad_aft) -> coplanar with the
+                                                                // guard boss, no notch; only the FORWARD face rounds back
   skin(concat(main, top), slices = 0, method = "reindex");
 }
 module pylon() color("Tan") union() {

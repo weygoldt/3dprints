@@ -318,6 +318,9 @@ motor_body_d   = 28;    // motor can diameter (nominal A2212; pad + ghost sizing
 // pad_top_pad so a full FLAT seat sits above that screw before the round begins.  Only the top grows
 // (the bottom still merges into the buttress), so the mast + motor axis stay put.
 pad_top_pad    = 6;     // extra flat above the top "+" screw (>= pylon_fillet + ~1 keeps the screw off the round)
+pad_blossom    = 13;    // ONE-PART sculpt: the mast BLOSSOMS this far UP past the pad (Y), rounding into a nub that rises
+                        // into the guard's domed boss so the assembled pair reads as one rising form.  Purely additive
+                        // ABOVE the bolt pad (mount untouched); prints in-plane on the side-print -> supportless.  0 = off.
 
 // =====================================================================
 //  [Motor mount MODE] -- INTEGRATED pylon + prop-guard rev (2026-08-13, Patrick's handoff).
@@ -1037,6 +1040,10 @@ guard_hub_light   = (guard_style=="legacy"); // SOLID hub in bloom/web (it IS th
 //     review's central finding).  It blocks only the inner/low-thrust part of the disc, so it stays functionally cheap
 //     (unlike a full solid shell over the whole sector -- see guard_style="web").  Set <= the hub reach for a PURE open fan.
 guard_collar_r    = 44;     // solid from the hub out to this radius (~0.43R), then fins.  A knob to trade cohesion mass vs a lighter/airier guard.
+guard_collar_crown = 4;     // ONE-PART sculpt: the collar DOMES this far proud aft -> a rounded central BOSS that continues
+                            // the mast into the guard (0 = flat collar).  The mast blossoms up to the flat bolt seam; this is
+                            // the guard's half of that blossom, swelling aft toward the motor.
+guard_collar_flat  = 16;    // the collar stays FLAT (= guard_t) within this radius before it domes -- clears the ~r14 motor can
 // --- VANES: broad sculpted fins that fan out of the collar (replace the thin wire spokes) ---
 guard_vanes       = 5;      // fins across the arc (they leave the SOLID collar and taper to the rim)
 guard_vane_root   = 13;     // fin width where it leaves the collar (broad; >2*guard_round+3 so the r2.5 roll is an EASED edge, not a rod)

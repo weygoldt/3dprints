@@ -47,6 +47,8 @@ $fn = 140;
 guard_part = "full";   // [full, onpylon] full = the printable guard ; onpylon = bolted to the real pylon in front of the BasePlate + Motor + prop ghosts (fit check)
 show_prop  = true;     // onpylon: draw the translucent prop-disc ghost (turn off for clean cohesion shots)
 show_motor = true;     // onpylon: draw the Motor.stl ghost
+mono       = false;    // onpylon: draw BOTH parts in one colour -> judge the assembled FORM (the "one part" read) w/o the print-colour seam
+mono_col   = "BurlyWood";
 
 // =====================================================================
 //  GEOMETRY  (flat in X-Y, built +Z = aft ; frontal/intake face at Z=0 -> pad/bed)
@@ -104,11 +106,25 @@ module guard_bead(r_in, w, h_mid, h_end)
     else guard_height_mask(h_mid, h_end, r_in + w);
   }
 
+// DOMED collar: a rounded central BOSS around the hub (the guard's half of the mast's blossom).  Flat (= guard_t) inside
+// guard_collar_flat (clears the motor can), domes to +guard_collar_crown mid-band, back to guard_t at the collar rim where
+// the fins take over.  Frontal face flat on the bed; the aft dome is convex -> self-supporting (no overhang).  Revolved
+// over the arc.  guard_collar_crown=0 falls back to a flat collar (guard_bead).
+function guard_collar_z(r) =
+  let(r0 = guard_collar_flat, r1 = guard_collar_r,
+      t = (r <= r0) ? 0 : (r >= r1) ? 0 : (r - r0)/(r1 - r0))
+  guard_t + guard_collar_crown * (0.5 - 0.5*cos(360*t));
+module guard_collar_boss() let(ri = guard_hub_ext - 3, ro = guard_collar_r, NS = 44)
+  rotate([0,0,guard_a0 - (guard_full_ring?0:guard_shroud_ext)])
+    rotate_extrude(angle = guard_full_ring ? 360 : guard_arc + 2*guard_shroud_ext, $fn=300)
+      polygon(concat([[ri,0],[ro,0]], [ for (i=[0:NS]) let(r = ro - (ro-ri)*i/NS) [r, guard_collar_z(r)] ]));
+
 module guard_bloom() difference() {
   union() {
     guard_hub_bloom();                                                       // pad-echo hub (rolled aft, crisp bed)
     if (guard_has_collar)                                                    // SOLID inner bloom (grows from the pad -> pylon mass)
-      guard_bead(guard_hub_ext - 3, guard_collar_r - (guard_hub_ext - 3), guard_t, guard_t);
+      if (guard_collar_crown > 0.01) guard_collar_boss();                    //   domed BOSS (one-part sculpt) ...
+      else guard_bead(guard_hub_ext - 3, guard_collar_r - (guard_hub_ext - 3), guard_t, guard_t);  // ... or flat
     for (a = guard_vane_angles) guard_vane_bloom(a);                         // broad sculpted fins fanning out of the collar
     for (r = guard_ring_radii) guard_bead(r - guard_rib_w/2, guard_rib_w, guard_t, guard_t);  // flush concentric rib(s), outer band
     if (guard_rim) guard_bead(guard_r_tip, guard_rim_wall,                   // ONE rolled rim (proud aft, tapered ends)
@@ -269,12 +285,12 @@ echo("------------------------------------------------------------");
 //  STANDALONE RENDER
 // =====================================================================
 if (guard_part == "onpylon") {
-  color("Tan") difference() { pylon(); pylon_cut(); }
+  color(mono ? mono_col : "Tan") difference() { pylon(); pylon_cut(); }
   if (mount_to == "motor") {
     // INTEGRATED fit check: guard = washer at the OFFSET motor axis, motor bolted straight to it (NO plate).
     if (show_motor) color([0.12,0.12,0.13,0.9]) translate([pad_aft+guard_t, pylon_rise, motor_zc]) rotate([0,0,90]) import("Motor.stl");
     if (show_prop) color([0.85,0.2,0.2,0.30]) translate([pad_aft+guard_t+guard_standoff, pylon_rise, motor_zc]) rotate([0,90,0]) cylinder(h=1.5, r=prop_radius, center=true); // prop disc
-    color("DarkSeaGreen") translate([pad_aft, pylon_rise, motor_zc]) rotate([0,90,0]) guard_full();
+    color(mono ? mono_col : "DarkSeaGreen") translate([pad_aft, pylon_rise, motor_zc]) rotate([0,90,0]) guard_full();
   } else {
     // legacy fit check: guard on the pad, BasePlate + Motor STL ghosts, prop disc.
     color([0.72,0.73,0.75,0.9]) translate([pad_aft+guard_t, pylon_rise, pylon_width/2]) rotate([45,0,0]) rotate([0,0,-90]) import("BasePlate.stl");
