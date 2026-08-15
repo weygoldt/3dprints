@@ -412,8 +412,31 @@ slide fit is loosest.
    full thickness, so the real cantilever was a whole flange shorter than `cap_strain()` assumed — true strain
    ~3.2%, not the 2.3% the echo printed. Fixed by **`cap_relief`**, an 0.8 mm annular groove sunk into the
    flange's SEATING face down to `cap_base`, which frees the finger and makes the formula true. Consequence:
-   flange thickness now *lengthens* the fingers, so `cap_flange_t` went **1.5 → 2.4** (it is also a better pry
+   flange thickness now *lengthens* the fingers, so `cap_flange_t` went **1.5 → 2.8** (it is also a better pry
    lip). The groove is a blind annulus behind the seating ring — not a leak path.
+
+### Three more, from the review pass
+
+3. **The groove put a sharp notch at the new cantilever root.** Freeing the finger moved its root to a 90°
+   internal corner which is both the peak-stress point *and*, printed flange-down, a layer interface loaded in
+   **interlayer tension** — the classic FDM snap-fit crack site, newly created by fix 2 (the fused flange used
+   to buttress it). **`cap_root_fil`** = 0.4 rounds it (Kt ~3 → ~1.7); `cap_relief` 0.8 → **1.2** so the groove
+   still prints 0.8 wide at its floor with the fillet in it, and `cap_flange_t` 2.4 → **2.8** buys back the
+   0.4 of free length the fillet spends, so strain lands back on 2.6%.
+4. **The seated-clamp check could not fail.** `cap_seat_spring()` linearly extrapolated the retention ramp with
+   no idea where the ramp *ends*, so at `d_max` its `>0` guard reduced to `(bor−tor)·cap_preload/cap_bead_ax`
+   — positive for any `cap_preload > 0`, whatever the geometry. Set `cap_preload=0.3` and every echo printed OK
+   while the bead apex sat 0.03 mm *inside* the wall, i.e. nothing sprang out behind it and the plug had **no
+   retention at all**. `cap_seat_spring` is now clamped at the apex, and a new **`cap_apex_clear()`** echo
+   reports how far the apex stands proud of the wall's inner face (0.12 SMALL / 0.23 BIG) and warns at ≤0.
+   Verified the guard fires on exactly that `cap_preload=0.3` case.
+5. **Rejected: "`cap_strain()` understates root strain ~20%".** The review proposed substituting the *root*
+   thickness into the constant-section formula, giving 3.08%. That double-counts — it assumes the whole finger
+   is root-thick, which stiffens it, inflating the load a given deflection needs and hence the root moment. The
+   exact tapered-beam solution `ε=Y·h_root/(2L²J)`, `J=∫(1−u)²/(1−cu)³du`, gives **2.52%** (taper factor
+   K=1.22, matching the Bayer table's ~1.27 for our 0.76 thickness ratio). The mean-thickness figure the echo
+   reports, 2.57%, is **conservative by 2%**, not optimistic by 20%; the PLA number is sound. A comment in
+   `cap_strain()` records this so the next reader doesn't "fix" it back.
 
 ### Numbers (defaults)
 
@@ -422,7 +445,8 @@ slide fit is loosest.
 | shank OD / radial slide | 11.60 — 0.20 @12, 0.30 @12.2 | 15.60 — 0.20 |
 | bead OD / retention bite | 12.70 — **0.35** @12, **0.25** @12.2 | 16.70 — **0.35** |
 | seated clamp (fingers still sprung) | 0.24 @12, 0.14 @12.2 | 0.14 |
-| flange × proud / part height | 17.2 × 2.4 / 7.32 | 21 × 2.4 / 7.43 |
+| bead apex proud of the wall's inner face | 0.12 | 0.23 |
+| flange × proud / part height | 17.2 × 2.8 / 7.72 | 21 × 2.8 / 7.83 |
 | free finger / insert strain | 4.52 / **2.6 %** | 4.63 / **2.4 %** |
 
 **`cap_clear` stays 0.4 — deliberately.** The shank is therefore still **11.6** in the 12 family, *exactly* the
@@ -434,7 +458,7 @@ centres the plug. Drop it to 0.3 if you have measured your bores at true nominal
 `cap_interf` 0.25 → **0.35** keeps 0.25 of bite (the old value) at the loose end of the merged range, so the
 merge costs no retention. `cap_bead_ax` 0.5 → **0.6** holds the bead overhang at 42.5° (must stay ≤45°).
 
-**PETG**, as before — 2.5% strain is past PLA's comfortable range. The echo prints the PLA-safe number
+**PETG**, as before — 2.6% strain is past PLA's comfortable range. The echo prints the PLA-safe number
 (`cap_interf` ≈ 0.27 for 2% strain, which drops the loose-end bite to 0.17).
 
 ### Export / verify (from `boat_enclosure/`)
@@ -451,9 +475,10 @@ no clamp**; non-empty is real preload, and the export measures it — Z extent =
 X/Y half-extent = the cone radius there, clipped by the slot straddling +X (`sqrt(R² − (slot_w/2)²)`). All
 three families match prediction to ~1e-4. `cap="none"` suppresses the standalone render for probes.
 
-**Verified:** all 5 render modes NoError + manifold; small 17.200 × 7.3227, big 21.000 × 7.4318 (both to the
-0.0001 the hand derivation predicts); the relief-groove annulus renders **empty** (finger genuinely free); only
-the bead lies outside a 12.0 hole on insertion (z 5.1409–6.1591, max r 6.32135 vs 6.32160 predicted — so tube,
+**Verified:** all 5 render modes NoError + manifold; small 17.200 × 7.7227, big 21.000 × 7.8318 (both to the
+0.0001 the hand derivation predicts); the relief-groove annulus renders **empty** above the fillet (finger
+genuinely free) while the fillet zone renders **solid** (the round is really in the mesh); only
+the bead lies outside a 12.0 hole on insertion (z 5.5409–6.5591, max r 6.32135 vs 6.32160 predicted — so tube,
 tip and chamfer all pass freely and only the bead deflects, over 1.02 mm of travel); BIG flange 21 clears a
 fitted gland by 4 mm and an adjacent cap by 3 mm on the 24 mm gland pitch.
 

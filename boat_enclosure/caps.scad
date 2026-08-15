@@ -84,18 +84,25 @@ cap_interf      = 0.35; // RADIAL bead protrusion past d_min/2 = the retention l
                         // 0.35 gives 0.35 of bite in a d_min hole and 0.25 -- the old value -- in the d_max hole,
                         // so merging the families costs no retention at the loose end.  Drives the strain echo.
 cap_flange_over = 2.5;  // flange overhang past the BIGGEST hole radius (covers the mouth + leaves a lip to pry under)
-cap_flange_t    = 2.4;  // flange thickness.  With the relief groove this is finger LENGTH: raising it lowers strain
+cap_flange_t    = 2.8;  // flange thickness.  With the relief groove this is finger LENGTH: raising it lowers strain
                         // (and gives a better pry lip).  Costs how proud the button sits on the wall face.
+                        // 2.8, not 2.4, to buy back the length cap_root_fil spends.
 cap_flange_ch   = 0.6;  // 45 deg chamfer on the flange TOP outer edge (finished look; self-supports flange-down)
 cap_base        = 1.0;  // solid closed base under the pocket -- blanks the hole, carries the flange, AND is the
                         // finger ROOT height (low = long fingers).  1.0 = 5 layers at 0.2.
-cap_relief      = 0.8;  // annular groove around the tube, sunk into the flange SEATING face down to cap_base.
+cap_relief      = 1.2;  // annular groove around the tube, sunk into the flange SEATING face down to cap_base.
                         // This is what makes the finger root cap_base instead of cap_flange_t -- see note 2 above.
-                        // Keep >= 2 extrusion widths or the slicer fills it and the fingers stiffen back up.
+                        // Keep (cap_relief - cap_root_fil) >= 2 extrusion widths, or the slicer fills the groove
+                        // and the fingers stiffen back up -- that is the failure the echo below guards.
+cap_root_fil    = 0.4;  // FILLET blending the groove floor into the finger root.  That corner is the finger's
+                        // peak-stress point AND, printed flange-down, a layer interface loaded in interlayer
+                        // TENSION -- the classic FDM snap-fit crack site.  A sharp notch there runs Kt ~3; this
+                        // rounds it to ~1.7 for the price of cap_root_fil of free length (paid back in flange_t).
 cap_tube_wall   = 1.2;  // finger wall thickness at the ROOT (3 perimeters at a 0.4 nozzle)
 cap_tube_taper  = 0.4;  // inner wall opens this much toward the tip -> fingers thin to (wall - taper) at the tip
 cap_slots       = 4;    // radial relief slots -> that many cantilever fingers
 cap_slot_w      = 1.2;  // slot width
+cap_fil_n       = 6;    // segments in the root fillet arc (cosmetic; 6 is smooth at this size)
 cap_preload     = 0.15; // axial overlap PAST first cone engagement in the d_max hole -> the fingers stay sprung when
                         // the flange is home, wedging the cone in the hole's inner corner (note 1 above).  0.15 also
                         // absorbs +/-0.15 of wall-thickness error before the clamp goes slack.
@@ -122,13 +129,25 @@ function cap_bor(bore) = bore[0]/2 + cap_interf;    // bead outer radius -- the 
 // axial rise from the ramp start to where the cone first fills the BIGGEST hole in the range
 function cap_engage(bore) = cap_bead_ax * (bore[1]/2 - cap_tor(bore)) / (cap_bor(bore) - cap_tor(bore));
 function cap_yret(bore)   = cap_flange_t + bore[2] - cap_engage(bore) - cap_preload;  // bead retention ramp START
-function cap_len(bore)    = cap_yret(bore) + cap_bead_ax - cap_base;   // FREE finger: groove floor -> bead apex
-// constant-section cantilever snap-fit strain: 1.5 * h * Y / L^2.  Y = cap_interf, the travel into the d_min hole.
+// FREE finger: the fillet TANGENT (not the groove floor) is the real root -> bead apex
+function cap_len(bore)    = cap_yret(bore) + cap_bead_ax - cap_base - cap_root_fil;
+// Constant-section cantilever snap-fit strain, 1.5 * h * Y / L^2, with h = the MEAN finger thickness and
+// Y = cap_interf (the travel into the d_min hole).  Using the mean is deliberate: the finger tapers, and the
+// exact tapered-beam solution is eps_root = Y*h_root/(2*L^2*J) with J = int(1-u)^2/(1-cu)^3 du.  At the
+// defaults that is 2.52% -- this mean-thickness stand-in reports 2.57%, i.e. conservative by ~2%.  Do NOT
+// "fix" it by substituting the ROOT thickness into this constant-section form: that assumes the whole finger
+// is root-thick, inflates the load a given deflection needs, and overstates the root strain by ~22%.
 function cap_strain(bore) = let (L = cap_len(bore))
   1.5 * (cap_tube_wall - cap_tube_taper/2) * cap_interf / (L*L);
-// radial spring still held in a hole of diameter d once the flange is bottomed (>0 == it clamps)
+// How far the bead APEX sits proud of the wall's inner plane.  Must be > 0 or no part of the bead ever
+// emerges behind the wall and the plug has NO retention at all -- the seat-spring figure below would still
+// read healthy, because it is a linear extrapolation of the ramp with no idea where the ramp ends.
+function cap_apex_clear(bore) = cap_bead_ax - cap_engage(bore) - cap_preload;
+// Radial spring still held in a hole of diameter d once the flange is bottomed (>0 == it clamps).
+// Clamped at the apex: the cone cannot be wider than bor no matter how far the ramp is extrapolated.
 function cap_seat_spring(bore, d) =
-  (bore[1] - d)/2 + (cap_bor(bore) - cap_tor(bore)) * cap_preload / cap_bead_ax;
+  min(cap_bor(bore),
+      cap_tor(bore) + (cap_bor(bore) - cap_tor(bore)) * (cap_engage(bore) + cap_preload) / cap_bead_ax) - d/2;
 
 function cap_r1(x) = round(10*x)/10;
 function cap_r2(x) = round(100*x)/100;
@@ -163,7 +182,11 @@ module bore_cap(bore) {
         [0, 0], [fr, 0],                                   // flange bottom (on the bed, the visible outer face)
         [fr, ft - cap_flange_ch], [fr - cap_flange_ch, ft], // flange side + top chamfer
         [gor, ft],                                         // in across the flange SEATING ring to the groove
-        [gor, cap_base], [tor, cap_base],                  // down the groove wall, across its floor to the tube
+        [gor, cap_base],                                   // down the groove outer wall to its floor
+        // FILLET the groove floor into the finger root -- that corner is the peak-stress point and, printed
+        // flange-down, a layer interface in interlayer tension.  Arc runs -90 -> -180 about the corner centre.
+        for (i = [0 : cap_fil_n]) let (th = -90 - i*90/cap_fil_n)
+          [tor + cap_root_fil*(1 + cos(th)), cap_base + cap_root_fil*(1 + sin(th))],
         [tor, y_ret], [bor, y_apex], [tor, y_btop],        // tube OD up, bead retention ramp OUT, lead-in ramp back IN
         [tor, y_top - cap_tip_ch], [tor - cap_tip_ch, y_top], // tube to the tip + tip chamfer
         [ir_top, y_top],                                   // across the tip face to the inner wall
@@ -203,6 +226,12 @@ for (f = cap_families) {
            cap_span(f[1], cap_bor(f[1]) - f[1][0]/2, cap_bor(f[1]) - f[1][1]/2), " ",
            cap_bor(f[1]) - f[1][1]/2 >= 0.2 ? "OK (>=0.2 at the loose end)"
                                             : "  << WARNING: the big hole barely bites -- raise cap_interf"));
+  // the apex MUST clear the wall's inner plane, or nothing springs out behind the wall and there is no
+  // retention at all -- check this BEFORE trusting the clamp figure, which cannot see the end of the ramp
+  echo(str("      bead apex proud of the wall's inner face by ", cap_r2(cap_apex_clear(f[1])), " ",
+           cap_apex_clear(f[1]) >= 0.05
+             ? "OK (>0 == the bead emerges and can hold)"
+             : "  << WARNING: apex sits INSIDE the wall -- NO retention.  Lower cap_preload or raise cap_bead_ax"));
   echo(str("      seated CLAMP (fingers still sprung with the flange home): ",
            cap_span(f[1], cap_seat_spring(f[1], f[1][0]), cap_seat_spring(f[1], f[1][1])), " ",
            cap_seat_spring(f[1], f[1][1]) > 0 ? "OK (>0 == it pulls the flange down, no rattle)"
@@ -222,10 +251,14 @@ tip_face = cap_tube_wall - cap_tube_taper - cap_tip_ch;
 echo(str("  tip face width ", cap_r2(tip_face), " ",
          tip_face > 0 ? "OK (>0, the cross-section closes)"
                       : "  << WARNING: cap_tip_ch + cap_tube_taper >= cap_tube_wall -- section self-intersects"));
-// -- the relief groove is what makes the strain figure above true --
-echo(str("  finger relief groove ", cap_relief, " wide x ", cap_r1(cap_flange_t - cap_base), " deep ",
-         cap_relief >= 0.8 ? "OK (>=0.8 = 2 extrusions; the fingers root at cap_base, not at the flange top)"
-                           : "  << WARNING: too narrow to print -- the flange will fuse to the tube and stiffen the fingers"));
+// -- the relief groove is what makes the strain figure above true; the fillet eats into its floor --
+echo(str("  finger relief groove ", cap_relief, " wide x ", cap_r1(cap_flange_t - cap_base),
+         " deep, narrowing to ", cap_r2(cap_relief - cap_root_fil), " at the floor (", cap_root_fil,
+         " root fillet) ",
+         // compare the ROUNDED value we just printed -- 1.2-0.4 is 0.79999.. in floating point
+         cap_r2(cap_relief - cap_root_fil) >= 0.8
+           ? "OK (>=0.8 = 2 extrusions; the fingers root at cap_base, not at the flange top)"
+           : "  << WARNING: too narrow to print -- the flange will fuse to the tube and stiffen the fingers"));
 cap_strain_max = max([for (f = cap_families) cap_strain(f[1])]);
 echo(str("  finger bending strain on insert (worst family) ", cap_r1(100*cap_strain_max), "% ",
          cap_strain_max <= 0.03 ? "OK (<=3% -- fine for PETG)"
