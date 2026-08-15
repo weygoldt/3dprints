@@ -381,3 +381,83 @@ review (DFM/structure/function/geometry) covered the earlier basket + flat revs.
 5. **Mast resonance** — 30 g at the mast tip lowers the mast's 1st bending freq. Patrick is NOT balancing the
    prop, so mass was kept low (arc + tiny lip); dropping to the frontal-only lip already shed the biggest
    remaining rim-mass lever (was 41 g), so a resonance dwell is less likely than the earlier tall-shroud rev.
+
+## Blanking caps — one plug per hole RANGE, and why the first revision rattled (`caps.scad`, 2026-08-15)
+
+Snap-in plugs for bores you don't populate (a gland you didn't fit, the lid switch bore on the hull that has
+no switch): a flanged, hollow, slotted push-plug that clicks in from **outside** and pries back out. Standalone
+in `caps.scad`; nothing else includes it, and it pulls every hole size from `common.scad` so they can't drift.
+
+**Patrick's three asks (2026-08-15):** merge the 12 / 12.2 families into one plug, make them stay put more
+securely, and add a 16 for the gland bores he opened out for thicker glands.
+
+**A family is now `[d_min, d_max, wall]`, not a single bore.** The shank is cut for the SMALL end so it
+physically enters every hole in the range; the bead and the preload are guaranteed at the BIG end so the
+loosest hole still bites. That is what makes the merge safe — `12 .. 12.2` is one plug, and the old
+`lid_bore`/`side_bore` pair is gone. `bore_big` (`cap_big_d`=16, single-size) is the second family.
+
+**The merge costs radial clearance in the bigger hole** (0.15/side at 12, 0.25/side at 12.2). The preload fix
+below pays it back: a cone wedged in a round edge **self-centres**, so the plug doesn't wander even where the
+slide fit is loosest.
+
+### Two real defects the tightening exposed (both measured, not argued)
+
+1. **`cap_preload` did nothing.** It was measured from the retention ramp's START, so at the wall's inner plane
+   the cone had only reached r 5.89 against a 6.0 hole — the bead never touched. Seated flush, the old plug had
+   **0.000 mm³** of material inside the wall (probe below, both 12 and 12.2) and ~0.12 mm of axial free play.
+   *That was the "loose" complaint.* `cap_preload` is now the axial overlap driven PAST first cone engagement
+   in the `d_max` hole, so the fingers are still sprung when the flange is home. New engagement: **0.35 / 1.03 /
+   0.47 mm³** (small@12.2, small@12, big@16).
+2. **The fingers rooted at the flange top, not at `cap_base`.** The flange ring was fused to the tube for its
+   full thickness, so the real cantilever was a whole flange shorter than `cap_strain()` assumed — true strain
+   ~3.2%, not the 2.3% the echo printed. Fixed by **`cap_relief`**, an 0.8 mm annular groove sunk into the
+   flange's SEATING face down to `cap_base`, which frees the finger and makes the formula true. Consequence:
+   flange thickness now *lengthens* the fingers, so `cap_flange_t` went **1.5 → 2.4** (it is also a better pry
+   lip). The groove is a blind annulus behind the seating ring — not a leak path.
+
+### Numbers (defaults)
+
+| | SMALL (12–12.2) | BIG (16) |
+|---|---|---|
+| shank OD / radial slide | 11.60 — 0.20 @12, 0.30 @12.2 | 15.60 — 0.20 |
+| bead OD / retention bite | 12.70 — **0.35** @12, **0.25** @12.2 | 16.70 — **0.35** |
+| seated clamp (fingers still sprung) | 0.24 @12, 0.14 @12.2 | 0.14 |
+| flange × proud / part height | 17.2 × 2.4 / 7.32 | 21 × 2.4 / 7.43 |
+| free finger / insert strain | 4.52 / **2.6 %** | 4.63 / **2.4 %** |
+
+**`cap_clear` stays 0.4 — deliberately.** The shank is therefore still **11.6** in the 12 family, *exactly* the
+old SIDE cap's, so any bore that took the old plug takes this one: backward compatibility is exact, not
+argued. Tempting as a snugger slide fit was for "make it stay put", the holes you actually BLANK are the ones
+you never test-fitted a gland into, so their real printed size is unverified — a horizontal 12 in FDM can come
+out ~11.7. And it buys little now: with the cone engaged it is the **cone**, not the shank, that locates and
+centres the plug. Drop it to 0.3 if you have measured your bores at true nominal.
+`cap_interf` 0.25 → **0.35** keeps 0.25 of bite (the old value) at the loose end of the merged range, so the
+merge costs no retention. `cap_bead_ax` 0.5 → **0.6** holds the bead overhang at 42.5° (must stay ≤45°).
+
+**PETG**, as before — 2.5% strain is past PLA's comfortable range. The echo prints the PLA-safe number
+(`cap_interf` ≈ 0.27 for 2% strain, which drops the loose-end bite to 0.17).
+
+### Export / verify (from `boat_enclosure/`)
+
+```
+openscad -o stl/airboat_cap_12.stl -D 'cap="small"' -D 'cap_n=4' -D '$fn=256' caps.scad
+openscad -o stl/airboat_cap_16.stl -D 'cap="big"'   -D 'cap_n=4' -D '$fn=256' caps.scad
+openscad -D 'cap="seated"' caps.scad                      # plug in a stub of its LOOSEST hole
+openscad -D 'probe_fam="big"' _probe_cap.scad             # SEAT-PRELOAD probe, see below
+```
+
+`_probe_cap.scad` intersects the plug (pushed fully home) with the wall as **solid** material. **Empty means
+no clamp**; non-empty is real preload, and the export measures it — Z extent = how far past first engagement,
+X/Y half-extent = the cone radius there, clipped by the slot straddling +X (`sqrt(R² − (slot_w/2)²)`). All
+three families match prediction to ~1e-4. `cap="none"` suppresses the standalone render for probes.
+
+**Verified:** all 5 render modes NoError + manifold; small 17.200 × 7.3227, big 21.000 × 7.4318 (both to the
+0.0001 the hand derivation predicts); the relief-groove annulus renders **empty** (finger genuinely free); only
+the bead lies outside a 12.0 hole on insertion (z 5.1409–6.1591, max r 6.32135 vs 6.32160 predicted — so tube,
+tip and chamfer all pass freely and only the bead deflects, over 1.02 mm of travel); BIG flange 21 clears a
+fitted gland by 4 mm and an adjacent cap by 3 mm on the 24 mm gland pitch.
+
+**Open item — are the 16 mm holes a MODEL change?** `cap_big_d` is the *cap's* hole size only; `common.scad`
+still cuts every gland at `port_gland_d`=12. If future housings should print those bores at 16, that's a
+per-gland diameter in `common.scad` + `body.scad`, not here. Ask Patrick whether he opened printed parts by
+hand or wants the model changed.
