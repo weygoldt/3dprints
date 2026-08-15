@@ -750,11 +750,13 @@ everywhere else, and check `[7]` only runs when it is on.
 ## Quick-release buckle (`part="buckle"`)
 
 The one part here we did not draw. `buckle.scad` **imports**
-`inspiration/Quck Release v3 clip.STL` and changes it in one way: it stops
+`inspiration/Quck Release v3 clip.STL` and changes it in two ways: it stops
 taking a GoPro hand screw and starts taking the pairing the simple arm is built
-around — an M5 socket cap head one side, a press-fit M5 nut the other. The
-body, the latch, the rails and the 3-prong joint are the donor's and are not
-touched.
+around — an M5 socket cap head one side, a press-fit M5 nut the other — and it
+stands the 3-prong connector **1.500 mm higher**, which is what buys an arm
+bolted to it a full half turn. The body, the latch, the rails and the joint
+itself are the donor's and are not touched; the connector is the donor's too,
+just further off the plate.
 
 ### What the donor actually is
 
@@ -810,6 +812,87 @@ away — three changes to save none.
 The far prong is only **2.604** thick, and a 5.00 mm cap head sunk `head_seat`
 below flush wants `hd_depth + nut_wall` = 6.80. Hence a **4.196 mm boss**.
 
+### The raise — 1.500 mm, and why that number
+
+**An arm bolted to the donor as it stands cannot lie down.** Measured with
+`fitcheck.py --buckle`, it swings **−90 … +70°** — 160°, and the 20 it is short
+of a half turn are all on the clip-body side.
+
+What stops it is not the joint. The mating knuckle is R7.5 and the donor's
+connector is R7.3655, so the *knuckle* clears the whole way round. It is the
+arm's **body**: `arm_simple`'s is a 15.0 mm slab, so it sweeps a half-height of
+7.5 mm radially outward from the pivot at every angle, and swinging it down
+lays that slab across the clip. The pivot sits only 15.240 above the face the
+part prints on, with the plate under it and beside it.
+
+So the fix is **height, not shape** — lift the connector and the swept slab
+lifts with it, while nothing else on the part moves:
+
+| raise | clear swing | |
+|---|---|---|
+| 0.00 | −90 … +70 | **160°**, as the donor stands |
+| 1.22 | | +90 still fouls, by 0.0554 mm³ — the last of it |
+| 1.23 | −90 … +90 | 180°, on the boundary |
+| **1.50** | **−90 … +90** | **180° — this** |
+| 1.70 | −100 … +90 | 190° |
+| 4.00 | −100 … +100 | 200° |
+
+1.50 is the 1.23 where the half turn first comes free plus `joint_clr`, the
+0.25 mm every hinge here already carries, so the range is met with 0.27 mm of
+lift in hand rather than by a reading that sits on zero.
+
+**And it stops there on purpose.** The table does not level off — 1.70 buys
+another 10° and 4.00 another 10 after that. But the connector is a cantilever
+carrying the arm and whatever is on the end of it, its neck is the whole load
+path, and every millimetre of lift is another millimetre of lever on that neck,
+bought for swing nobody asked for. 180° was the ask.
+
+#### How you raise donor mesh
+
+There is no parameter for this: the connector *is* the imported mesh. What
+makes the surgery a clean one is the donor's own shape, ray-cast rather than
+guessed:
+
+| | |
+|---|---|
+| above y 15.240 (the pivot) | the knuckle, a disc of R 7.3655 |
+| below it | a gusset flaring at exactly **10°** — 7.4796 at the pivot's height, 7.6983 at y 14, 7.8746 at 13, 8.2273 at 11, i.e. 0.1763 = tan 10° per mm |
+| below y ≈ 9.7 | the plate, and in this x window **nothing else** |
+
+Two things follow, and they are the whole method: the section **narrows
+monotonically upward** through all of it, and above y 9.7 there is nothing in
+that x window but the connector. So — **cut at y 11.00, lift everything above
+it, and fill with that section extruded.**
+
+The fill is `projection(cut = true)` of the donor at the cut plane, so it is
+the section *itself* rather than a guess at it — no need to know how many
+prongs there are, where the slots stop, or whether the gusset is solid across.
+And because the section narrows upward it is flush at both ends: the profile
+runs the donor's gusset up to y 11.00, a **straight band 1.500 tall**, then the
+donor's gusset again. **Every horizontal section of the finished part is a
+section the donor already had.** Nothing gains a silhouette, and the print
+keeps its overhang budget — a 0° wall where there was a 10° one is the safe
+direction.
+
+Two asserts fence the cut plane, and both are about what the section is:
+
+- **not into the bore.** Above y 12.510 the section has the pivot bore in it,
+  and extruding a section with a hole makes that hole a **slot** 1.5 mm taller
+  than it is wide.
+- **not into the plate.** Below y 9.669 the cut starts taking the clip plate up
+  with the connector. `buckle_diff.scad` re-measures this every build rather
+  than trusting the assert: defeat it and cut at y 9.00 and **22.29 mm³** of
+  plate appears outside the connector's own x window.
+
+#### What it costs
+
+One thing, in one place. The boss stands on the knuckle silhouette, so it rode
+up with the hinge while the shelf it bridges to stayed put: that bridge was
+0.42…1.06 mm and is now **1.92…2.56 mm**, 13 layers at 0.2 over a wide flat.
+This part is printed with support in four places already and this is still the
+mildest of them, but it is a real change and `verify_buckle.py` `[7]` prints
+the number every build.
+
 ### The boss, and the one envelope rule
 
 Nothing may poke outside R7.5 about the pivot or the hinge jams part-way through
@@ -827,11 +910,12 @@ inside r 9.0.
 
 What the boss does *not* share with `arm_simple`'s bosses is a footing. There
 the knuckle is tangent to the bed and the boss stands on it. Here the knuckle
-floats — its lowest point is y 7.8745 — and the buckle's own body runs beneath
-as a shelf falling from y 7.457 to 6.819. So the boss underside starts **0.42 mm
-above solid material where it begins and 1.06 mm above it where it ends**: two
-to five layers of air at 0.2 mm, directly over a wide flat shelf. A short
-bridge, not a cliff.
+floats — its lowest point is y 9.3745, the donor's 7.8745 plus the raise — and
+the buckle's own body runs beneath as a shelf falling from y 7.457 to 6.819. So
+the boss underside starts **1.92 mm above solid material where it begins and
+2.56 mm above it where it ends**: 10 to 13 layers of air at 0.2 mm, directly
+over a wide flat shelf. A bridge, not a cliff — but a longer one than the donor
+had, and *The raise* above is where that came from.
 
 **Its outer rim is rounded r1.25**, matching the donor's own nut boss on the
 other end of the same part (measured R1.24 there) and the simple arm's bosses,
@@ -847,8 +931,14 @@ on that r1.25 circle to **0.2 µm**.
 **Not** like the arms. This part prints on its **y = 0 face** (`+Y` up) and it
 **needs support**, in the same four places `arm_simple` does and for the same
 reasons: the hex roof is flat, the head counterbore's roof is a ceiling however
-you cut it, the donor's pivot bore is round, and the boss underside bridges to
-the shelf. **Dig the pockets out before the nut and the screw go in.**
+you cut it, the donor's pivot bore is round, and the boss underside bridges
+1.92…2.56 mm to the shelf. **Dig the pockets out before the nut and the screw
+go in.**
+
+The raise adds no fifth place. It replaces 1.500 mm of the gusset's 10° draft
+with a **0° wall**, which is the safe direction to move an overhang, and the
+part is 1.500 taller in Y — 22.606 → 24.106 — with X and Z and the 718 mm² bed
+face all exactly the donor's.
 
 **What fits it: an M5×16 socket cap + M5 nut**, driven with a 4 mm key instead
 of a thumb. Head sunk 0.30 below the boss face, nut 0.30 below its own.
@@ -1025,6 +1115,7 @@ python3 verify_twist.py stl/gopro_90_twist.stl                    # the twist ad
 python3 fitcheck.py                                               # mating interference
 python3 fitcheck.py --simple
 python3 fitcheck.py --twist              # both ends, each on its own axis
+python3 fitcheck.py --buckle             # a REAL arm on the buckle's hinge
 python3 fitcheck.py --simple --chain     # also arm-to-arm, which is slower
 ```
 
@@ -1169,18 +1260,76 @@ face 5.0164 + `pkt_depth`; the head floor at 22.531 = boss face 27.831 −
 **What we did not touch** cannot be measured that way at all. "The rest of the
 buckle is unchanged" is a claim about two *sets*, and a pocket cut in the wrong
 place measures exactly as well as one cut in the right place. So `[2]` renders
-the two set differences through `buckle_diff.scad` and measures those:
+the set differences through `buckle_diff.scad` and measures those.
+
+**The raise made that a chain of two, and that is the point rather than a
+complication.** Once the connector stands 1.500 higher, differencing the
+finished part against the raw donor mixes two changes that have nothing to do
+with each other: the pockets read as "moved", the knuckle as "added and
+removed", and no fence can tell a mis-cut pocket from the lift it rode up on.
+So each step is bounded on its own —
+`donor → bk_donor_raised() → buckle()`:
 
 | | |
 |---|---|
-| `added` | `buckle()` − donor. Must be **444.991 mm³** against 445.042 predicted — the boss with its r1.25 rim, less the Ø8.8 bore, over 4.196. |
-| `removed` | donor − `buckle()`. 56.743 mm³, both pockets. |
-| `*_stray` | each of the above minus a conservative fence round where the change is *allowed* to be. Both read **0.000000 mm³**. |
+| `added` | `buckle()` − the **raised** donor. Must be **445.034 mm³** against 445.042 predicted — the boss with its r1.25 rim, less the Ø8.8 bore, over 4.196. |
+| `removed` | the raised donor − `buckle()`. **56.743 mm³**, both pockets — the same number this check has always held them to. |
+| `lift_added` / `lift_removed` | the raised donor against the **donor**: 390.076 and 118.916 mm³. |
+| `spacer` | `bk_spacer()` alone — **271.160 mm³**, i.e. 180.773 mm² of section over 1.500. |
+| `*_stray` | each difference minus a conservative fence round where the change is *allowed* to be. |
 | `ctrl` | the donor differenced against itself shifted 0.5 mm. Must be non-zero — 769.6 mm³ — or the boolean-and-measure path is blind. |
+
+**The identity is what really pins the lift down:**
+
+> `lift_added − lift_removed == volume(spacer)` — measured, 271.16014 both
+> sides, agreeing to six decimals.
+
+Lift a solid whose section narrows monotonically upward and fill the gap with
+the section you cut at, and the material you have gained is the fill and
+nothing else: every shell the lift adds higher up telescopes exactly into one
+it vacates. A lift that dragged the plate with it, a spacer that did not match
+its own cut, a cut plane where the section is not monotone — each breaks the
+sum, and **none of them has to be anticipated for it to come out wrong.**
 
 The fences in `buckle_diff.scad` are written out as plain numbers rather than
 built from `buckle.scad`'s own modules, deliberately: **a bound that shared code
-with the thing it bounds would agree with its bugs.**
+with the thing it bounds would agree with its bugs.** That now includes the
+pivot height they are struck about — 16.740 = 15.240 + 1.500 — so the file
+asserts `bk_raise == 1.50` rather than let a stale fence pass a part it was
+never sized for.
+
+> **The hole you forget is the donor's own.** `lift_removed` is every hole in
+> the connector riding up and boring 1.500 off the top of where it used to
+> stop, and there are two: the pivot bore, and the **hexagon the donor already
+> had** in its nut boss. Fencing only the bore left 49.26 mm³ unexplained. What
+> survives is **0.000303 mm³** — 110 shells a few tenths of a micron thick,
+> spread round the whole perimeter, where the gusset's faceted wall stands
+> outside the section 1.5 mm below it. Five orders under the fault it caught,
+> so the band gives away nothing worth having.
+
+`[2c]` then reads the raise off the **finished mesh** as a profile, which is the
+check that says what shape it left rather than how much material moved. The
+donor's gusset is a straight 10° draft, so the profile is predictable to four
+places at every height — the donor's below the cut, **constant** through the
+band, the donor's again 1.500 lower down the draft above it:
+
+| y | half-width | predicted | |
+|---|---|---|---|
+| 10.00 | 8.4036 | 8.4036 | donor, below the cut |
+| 11.00 … 12.50 | **8.2273** | 8.2272 | the spacer — flat to 0.000000 mm |
+| 13.00 | 8.1391 | 8.1391 | donor at y 11.50 |
+| 16.00 | 7.6101 | 7.6101 | donor at y 14.50 |
+
+The flat band is the part that cannot be faked: a fill that followed the draft
+instead of the section reads **0.264490 mm** of taper across it, which is
+1.500 × tan 10° to five decimals.
+
+`[2c]` also walks the **top** of the part across ten stations from x 5.20 to
+23.50 and requires every one to sit exactly 1.500 above the donor's own top
+there. That check exists because mutation testing found the profile could not
+see a lift window cut back to x 22.00: it reads the outermost material over
+several x at once, so a torn-off prong hides behind its lifted neighbour, and
+only one check anywhere noticed — by a side effect.
 
 `[2]` is measured by *volume*, never by vertex position. Differencing two meshes
 that share most of their surfaces leaves coplanar, **zero-volume shells** strewn
@@ -1201,6 +1350,60 @@ about a nut there gets the correct answer "does not fit", which tests nothing. A
 7.00 hex clears 8.80 and reads **60.0° = free** there against 21.84° in the hex
 pocket, which is the discrimination the control exists to demonstrate.
 
+#### Swinging a real arm on it (`fitcheck.py --buckle`)
+
+The buckle's fit check breaks the pattern the other three share, twice, and
+both times because of what is being asked.
+
+**It swings a real arm, not `ref_2prong()`.** What limits this hinge is
+`arm_simple`'s 15.0 mm slab body, and the ideal reference has no body worth the
+name — a synthetic male would measure the joint and miss the part being asked
+about.
+
+**And it gates on the RANGE, not on zero-at-collinear.** The connector is
+raised exactly far enough to free a half turn; a check that only asked "does it
+fit extended" would pass the unraised part just as happily. `ang = 0` stands
+the arm straight up out of the clip, which is this pairing's collinear, and the
+gate is 180° of contiguous clear swing through it.
+
+The arm arrives with two things cut away, and **the donor's imperial grid is
+the reason for both**:
+
+- **its 2-prong knuckle**, everything within R7.5 of that end's hinge axis. Our
+  fingers sit on ±3.00 where the donor's slots are on ±3.175, so 0.0375 mm of
+  each finger overlaps the middle prong *at every angle*. Nothing else is
+  inside R7.5 to remove — the donor's body comes no closer to the axis than
+  7.63 — so what is left is the two **bodies**, which is the question.
+- **0.0875 mm off each wall of its central gap.** Cutting the knuckle catches
+  only half of that grid: our gap is 3.10 where the middle prong is 3.175, so
+  0.0375 of the arm's *body* stands proud into the prong on each side, beyond
+  R7.5 where the envelope cut cannot reach. Left in it scrapes the prong
+  through the whole sweep — 0.00004 mm³ at the extended pose rising to 0.66 at
+  80°, which is the donor's tolerance being measured a second time rather than
+  articulation. So the probe opens its gap to the donor's 3.175 plus
+  `slot_extra`: the easing the part already asks for, done on the *arm* because
+  the buckle is what is under test.
+
+> Sized dead on 3.175 the two walls come out **coincident**, and coincident
+> faces strew a boolean with zero-volume shells and thousandths of a mm³ of
+> dust — measured, 0.0015 mm³ at 80°, small but never zero. `slot_extra` is
+> the project's own rule for what a slot owes a finger, and it also happens to
+> be enough to keep the walls apart.
+
+Two preliminaries run before the sweep, and neither is the arms' off-axis nudge:
+
+| | |
+|---|---|
+| **GRID** | the same pairing with the envelope left in, at the extended pose: **11.2524 mm³** against 11.0258 predicted from two finger faces of R7.3655 less the donor's bore. This is the number that justifies cutting the envelope out. |
+| | and its **bbox**, because volume alone cannot see a mis-centred stack — shift the arm along the hinge and one finger bites deeper by exactly what the other gives up. It must land on x 14.681…17.856, the middle prong **and nothing else**. |
+| **CONTROL** | a *pose*, not an offset: the arm driven straight down into the plate at ang 180, deliberately outside the swept range so it is not merely one of the sweep's own points. At the extended pose there is nothing to nudge it into — the arm points into 190° of open air. |
+
+The sweep prints **six** decimals where the other three print four. The angles
+that decide this range come free through the 1e-5 band — at ang −100 the
+interference falls 1.5e-4 → 1.3e-5 → 1.4e-7 as the raise goes 1.25 → 1.50 →
+1.70 — and at four places every one of those reads `0.0000` with an
+interference flag beside it.
+
 Nine mutants, each aimed at one claim, all caught:
 
 | mutant | caught by |
@@ -1214,6 +1417,22 @@ Nine mutants, each aimed at one claim, all caught:
 | head pocket driven 1 mm off the pivot | 2.0000 out of round; 6.800 across; and `[4]`'s control trips |
 | nut pocket put on the head prong | floor reads the donor's own 8.903, depth 3.886 — our cut is missing |
 | boss 0.5 too thin | `assert` at render time — the floor wall falls under `nut_wall` |
+
+Eleven more, aimed at the raise and at the harness that chose it, all caught:
+
+| mutant | caught by |
+|---|---|
+| the raise removed (`bk_raise = 0`) | 5 checks, the fence assert, and **FIT FAILED** at 160° |
+| the raise 0.30 short (1.20) | **FIT FAILED** — the gate is sensitive at a third of a millimetre |
+| spacer cut from a section 1 mm lower | all four band heights read the wrong width; 1.13 mm³ outside the window |
+| fill follows the **draft** instead of the section | the band tapers **0.264490 mm** = 1.500 × tan 10° to five places |
+| cut plane at 9.50, into the plate | `assert` at render time |
+| cut plane at 13.00, into the bore | `assert` at render time — it would stretch the bore into a slot |
+| ... and again at 9.00 with that assert defeated | 8 checks, incl. **22.29 mm³** of plate outside the connector's x window |
+| lift window cut back to x 22.00 | the ten-station top walk — **and nothing else, which is why that check exists** |
+| lift window started at x 8.00 | 4 checks; the donor's nut boss left standing |
+| harness: the eased gap removed | **FIT FAILED** — the donor's 1/8″ grid swamps the sweep |
+| harness: mating stack centred 0.25 off | the GRID bbox control trips: *not the grid overlap this test claims to isolate* |
 
 Six more, aimed at the boss rims across both models, all caught:
 

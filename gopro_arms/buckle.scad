@@ -13,8 +13,12 @@
 //
 //    hinge axis        along X
 //    pivot             y 15.240, z 12.700;  bore 5.461 through all three prongs
-//    knuckle           R 7.3655, dead flat over the whole free arc (-85..+90
-//                      about the pivot); the body takes over outside that
+//    knuckle           R 7.3655, dead flat over the whole free arc (-80..+90
+//                      about the pivot); outside that the gusset takes over
+//                      and the radius climbs -- 7.3705 by -82, 7.4796 by -90,
+//                      7.8387 by -100, which is a straight 10 deg draft.  The
+//                      -85 this line used to claim is inside the climb, and
+//                      verify_buckle.py [1] has always swept only to -80.
 //    slots             x 11.506..14.681 and 17.856..21.031, both 3.175
 //    middle prong      x 14.681..17.856, 3.175
 //    outer prongs      NOT on the grid, and not equal to each other.  The
@@ -137,6 +141,93 @@ clip_face_nut  =  5.0164; // low-x prong: outer face of the boss the donor has
 clip_slot_nut  = 11.506;  // ... and the slot wall behind it
 clip_face_hd   = 23.635;  // high-x prong: the plain outer face
 clip_slot_hd   = 21.031;  // ... and the slot wall behind it
+// Centre of the prong stack, i.e. where a mating 2-prong end has to sit.  The
+// middle prong runs 14.681..17.856 and the two slots are centred on 13.0935
+// and 19.4435, so both give 16.2685 -- the stack is symmetric about it even
+// though the two OUTER prongs are not.  Nothing in the part is positioned off
+// this; fitcheck.scad needs it to place a mating arm on the hinge.
+clip_mid_c   = 16.2685;
+
+// ------------------------------------------------------- the raised hinge
+// THE ONE CHANGE THIS FILE MAKES TO THE DONOR'S SHAPE.  An arm bolted to the
+// buckle could not lie down: measured, it swung -90..+70 -- 160 deg, and the
+// 20 it was short of a half turn were all on the clip-body side.
+//
+// What stops it is not the joint.  The mating knuckle is R7.5 and the donor's
+// own connector is R7.3655, so the KNUCKLE clears the whole way round.  It is
+// the arm's BODY: arm_simple's is a 15.0 mm slab, so it sweeps a half-height
+// of 7.5 mm radially outward from the pivot at every angle, and swinging it
+// down lays that slab across the clip.  The pivot sits only 15.240 above the
+// plane the part prints on, with the clip's own plate under it and beside it.
+//
+// So the fix is HEIGHT, not shape.  Lift the whole connector and the swept
+// slab lifts with it, while every other thing on the part stays exactly where
+// the donor put it.  fitcheck.py --buckle is what chose the number, by
+// swinging a real arm rather than an ideal knuckle:
+//
+//   raise  0.00   -90 .. +70    160 deg   as the donor stands
+//   raise  1.22   +90 still fouls, by 0.0554 mm^3 -- the last of it
+//   raise  1.23   -90 .. +90    180 deg   the half turn, on the boundary
+//   raise  1.50   -90 .. +90    180 deg   THIS
+//   raise  1.70   -100 .. +90   190 deg
+//   raise  4.00   -100 .. +100  200 deg
+//
+// 1.50 is the 1.23 where the half turn first comes free plus `joint_clr`, the
+// 0.25 mm of clearance every hinge in this project already carries.  The half
+// turn is what the part is for, and it is met with 0.27 mm of lift in hand at
+// the pose that binds, rather than by a reading that sits on zero.
+//
+// AND IT STOPS THERE ON PURPOSE, because the table does not level off -- 1.70
+// would buy another 10 deg and 4.00 another 10 after that.  The connector is a
+// cantilever carrying the arm and whatever is on the end of it, its neck is
+// the whole load path, and every millimetre of lift is another millimetre of
+// lever on that neck, bought for swing nobody asked for.  180 deg was the ask.
+//
+// clip_pivot_y stays what the DONOR measured, because that is what the mesh
+// surgery cuts against.  bk_pivot_y is where the hinge ends up, and every
+// feature this file adds or cuts hangs off THAT -- both pockets and the boss.
+// Set bk_raise = 0 and the two are the same number and the part is the
+// donor's again, which is how the byte-identical baseline was taken.
+bk_raise   = 1.50;
+bk_pivot_y = clip_pivot_y + bk_raise;
+
+// ---------------------------------------------------------- how it is done
+// The connector is DONOR MESH.  There is no parameter to turn, so raising it
+// is mesh surgery, and the donor's own shape is what makes it a clean one:
+//
+//   above y 15.240 (the pivot)   the knuckle, a disc of R 7.3655
+//   below it                     a gusset flaring out at exactly 10 deg from
+//                                7.4796 at the pivot's own height
+//   below y ~9.7                 the plate, and nothing else in this x window
+//
+// Measured by ray-casting the donor, not read off a drawing: the outermost
+// material in x 4.7..24.1 runs 7.4796 at y 15.240, 7.6983 at 14.0, 7.8746 at
+// 13.0, 8.2273 at 11.0 -- a straight 0.1763 = tan(10 deg) per mm -- and above
+// the pivot it is the knuckle circle to four places (7.1523 at y 17, 6.3329
+// at 19, 0 at 22.606 = 15.240 + 7.3655).
+//
+// Two things follow, and they are the whole method.  The section NARROWS
+// monotonically upward through all of that, and in this x window there is
+// nothing but the connector above y 9.7.  So:
+//
+//   cut at bk_cut_y, lift everything above it by bk_raise, and fill the gap
+//   with THAT SECTION extruded.
+//
+// The fill is `projection(cut = true)` of the donor at bk_cut_y, which is the
+// section itself rather than a guess at it -- no need to know how many prongs
+// there are, where the slots stop, or whether the gusset is solid across.  And
+// because the section narrows upward, the extrusion is exactly flush at both
+// ends: the profile runs the donor's gusset up to bk_cut_y, a straight band
+// bk_raise tall, then the donor's gusset again.  EVERY horizontal section of
+// the finished part is a section the donor already had.  Nothing gains a
+// silhouette, and the print keeps its overhang budget -- a 0 deg wall where
+// there was a 10 deg one is the safe direction.
+bk_cut_y   = 11.00;   // in the gusset: clear of the plate at 9.669 and of the
+                      // bore, which starts at 15.240 - 5.461/2 = 12.510
+bk_lift_x0 =  4.70;   // the connector's own x window.  Its faces are 5.0164
+bk_lift_x1 = 24.10;   // (the donor's nut boss) and 23.635 (the high-x prong);
+                      // measured, the lifted piece comes out 5.0164..23.6346
+                      // and |z - 12.700| <= 8.2273, i.e. no plate came with it.
 
 // ------------------------------------------------------------- the boss
 // Only as thick as the head pocket needs, exactly as boss_hd is in
@@ -174,6 +265,24 @@ assert(hd_d >= head_d + 0.10,
 // A nut trap, not a hole the nut spins in.
 assert(pkt_af/2 < nut_af/sqrt(3) - 0.05,
        "nut pocket is so wide the M5 nut spins freely -- it is not a trap");
+// THE SPACER HAS TO LAND IN THE GUSSET, and both of these say why.
+// Above the pivot the section is the knuckle circle, and extruding a circle
+// turns it into a stadium -- the joint would stop being round.  Below
+// clip_pivot_y - clip_bore_d/2 the section is solid, and above it there is a
+// hole: extrude a section with the bore in it and the bore becomes a SLOT,
+// bk_raise taller than it is wide.  0.50 keeps the cut clear of the mesh's own
+// faceting at the bore's widest point.
+assert(bk_cut_y <= clip_pivot_y - clip_bore_d/2 - 0.50,
+       str("the spacer is cut at y ", bk_cut_y,
+           ", which is inside the pivot bore starting at ",
+           clip_pivot_y - clip_bore_d/2, " -- it would stretch the bore into a slot"));
+// The other end of the same window: below y 9.669 the cut plane starts taking
+// the CLIP PLATE with it, and the plate is what the connector is supposed to
+// be rising out of.  Measured off the donor by ray-casting, not assumed --
+// buckle_diff.scad's `lifted_stray` re-measures it on every build.
+assert(bk_cut_y >= 10.20,
+       str("the spacer is cut at y ", bk_cut_y,
+           ", which is into the clip plate at 9.669 -- it would lift the plate too"));
 // Nothing outside R7.5 about the pivot, or the hinge jams part-way through.
 assert(clip_knuckle_r <= tab_r,
        str("the boss silhouette (", clip_knuckle_r, ") is outside the R", tab_r,
@@ -185,6 +294,42 @@ assert(clip_knuckle_r - pkt_r >= 1.50,
 assert(clip_knuckle_r - hd_d/2 >= 1.50,
        str("the head counterbore leaves ", clip_knuckle_r - hd_d/2,
            " to the knuckle -- under 1.50"));
+
+// --------------------------------------------------------- the raise
+// The x window, unbounded in y and z: what "the connector" means here.
+module bk_xwin() {
+    translate([bk_lift_x0, -60, -60]) cube([bk_lift_x1 - bk_lift_x0, 120, 120]);
+}
+// ... and the same window from bk_cut_y up: what moves.
+module bk_lift_box() {
+    translate([bk_lift_x0, bk_cut_y, -60]) cube([bk_lift_x1 - bk_lift_x0, 120, 120]);
+}
+
+// The spacer: the donor's own section at bk_cut_y, bk_raise tall.
+// `projection(cut = true)` works on the z = 0 plane, so the donor is dropped
+// so that bk_cut_y sits at y = 0 and then rolled +90 deg about X, which puts
+// that plane at z = 0; the extrusion is rolled back the same way.  Taking the
+// section off the x window rather than the whole part is what keeps the plate
+// and the rails out of it -- they have sections at this height too, just not
+// in these 19.4 mm of x.
+module bk_spacer() {
+    translate([0, bk_cut_y, 0]) rotate([-90, 0, 0])
+        linear_extrude(height = bk_raise)
+            projection(cut = true)
+                rotate([90, 0, 0]) translate([0, -bk_cut_y, 0])
+                    intersection() { import(clip_stl, convexity = 12); bk_xwin(); }
+}
+
+// The donor with its connector standing bk_raise higher.  Three pieces that
+// meet on two planes: the part below the cut where the donor left it, the part
+// above it lifted, and the spacer between.  A union, so the coincident faces
+// at bk_cut_y and bk_cut_y + bk_raise are seams and not slivers.
+module bk_donor_raised() {
+    difference() { import(clip_stl, convexity = 12); bk_lift_box(); }
+    translate([0, bk_raise, 0])
+        intersection() { import(clip_stl, convexity = 12); bk_lift_box(); }
+    bk_spacer();
+}
 
 // --------------------------------------------------------------- pieces
 // A disc on the donor's own knuckle circle, spanning x0..x1.  This is the
@@ -201,7 +346,7 @@ assert(clip_knuckle_r - hd_d/2 >= 1.50,
 // boss never touches the bed, it bridges to the donor's shelf, and the round
 // pulls its lowest point UP and away from that shelf rather than down onto it.
 module bk_disc(x0, x1, rim = 0) {
-    translate([(x0 + x1)/2, clip_pivot_y, clip_pivot_z])
+    translate([(x0 + x1)/2, bk_pivot_y, clip_pivot_z])
         cyl(r = clip_knuckle_r, h = x1 - x0, rounding2 = rim,
             orient = RIGHT, $fn = 180);
 }
@@ -213,7 +358,7 @@ module bk_disc(x0, x1, rim = 0) {
 // here, so that is FLATS UP: the same orientation the donor cut, and the same
 // one arm_simple argues for (a vertex up rests the nut on two points).
 module bk_nut_pocket() {
-    translate([clip_face_nut - 0.5, clip_pivot_y, clip_pivot_z])
+    translate([clip_face_nut - 0.5, bk_pivot_y, clip_pivot_z])
         rotate([0, 90, 0])
             linear_extrude(height = pkt_depth + 0.5)
                 circle(r = pkt_r, $fn = 6);
@@ -229,7 +374,7 @@ module bk_nut_pocket() {
 // would cut nothing at all on the last 0.08 of radius and leave the sharp
 // corner exactly where the fillet lands.
 module bk_head_pocket() {
-    translate([bk_face_hd - hd_depth, clip_pivot_y, clip_pivot_z]) {
+    translate([bk_face_hd - hd_depth, bk_pivot_y, clip_pivot_z]) {
         rotate([0,  90, 0])                       // outboard: the counterbore
             cylinder(d = hd_d, h = hd_depth + 0.5, $fn = 96);
         rotate([0, -90, 0])                       // inboard: the relief
@@ -242,7 +387,7 @@ module bk_head_pocket() {
 module buckle() {
     difference() {
         union() {
-            import(clip_stl, convexity = 12);
+            bk_donor_raised();
             bk_disc(clip_face_hd, bk_face_hd, boss_rim_r);
         }
         bk_nut_pocket();

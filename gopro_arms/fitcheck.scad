@@ -30,6 +30,16 @@
 //  point of the part: the two ends articulate in planes at right angles, so a
 //  sweep of one says nothing about the other.  Running them together would
 //  also be wrong -- it would measure a pose, not a range.
+//
+//  ... and three against the QUICK-RELEASE BUCKLE, which break the pattern
+//  twice over:
+//    simple_in_buckle  a REAL simple arm's body swung on the buckle's hinge
+//    buckle_grid       the same pair with the joint envelope left in
+//    show_buckle       the two together, for looking at
+//  The mating part is a real arm and not ref_2prong() because the question is
+//  about the arm's 15.0 mm slab BODY, which the ideal reference does not have;
+//  and the answer is a RANGE rather than zero-at-collinear, because the whole
+//  point of raising that connector was to free a half turn.
 // =====================================================================
 
 lib_t = true;        // the include chain: twist -> buckle -> arm_simple -> arm
@@ -112,6 +122,71 @@ module at_twist_B(a) {
                 translate([0, 0, -pivot_z]) children();
 }
 
+// The QUICK-RELEASE BUCKLE's hinge is nothing like an arm's: it runs along X
+// at (bk_pivot_y, clip_pivot_z) and the part stands on its y = 0 face.  So the
+// ARM is carried into the buckle's frame rather than a reference into ours.
+//
+//   translate  the arm's 2-prong pivot onto the origin, its axis along Y
+//   rotate Z   -90 deg -- that axis turns onto X, and the body onto +Y
+//   rotate X   the swing itself, about the buckle's own hinge axis
+//
+// A rotation and never a mirror: the arm has to stay the handedness it prints
+// as.  ang = 0 stands the arm straight UP, out of the clip and in the middle
+// of the donor's free arc, so it is this pairing's "collinear"; positive ang
+// swings it toward +Z, which is the way the clip body runs.
+module at_buckle(a) {
+    translate([clip_mid_c, bk_pivot_y, clip_pivot_z])
+        rotate([a, 0, 0])
+            rotate([0, 0, -90])
+                translate([-armL, 0, -s_pivot_z])
+                    children();
+}
+
+// The arm MINUS its 2-prong knuckle -- everything within R7.5 of that end's
+// hinge axis.  Two reasons, and neither is to make the number look better.
+//
+//   * The donor's prong grid is IMPERIAL.  Its slots sit on +/-3.175 where our
+//     fingers sit on +/-3.00, so 0.0375 mm of each finger overlaps the middle
+//     prong AT EVERY ANGLE -- the 0.075 mm "firm push" buckle.scad already
+//     documents.  It does not vary with the hinge, and left in it would report
+//     the joint as fouling through the whole of its travel.  `buckle_grid`
+//     measures that overlap instead of taking it on trust.
+//   * Nothing else is inside R7.5 to remove.  The donor's body comes no closer
+//     to the hinge axis than 7.63 mm, so within the envelope the only material
+//     either part has is the interleaving prongs.  What is left is the two
+//     BODIES, and the body is what the complaint is about: an ideal
+//     ref_2prong() has no 15.0 mm slab and would measure the wrong part.
+// The grid shows up TWICE, and cutting the knuckle away only catches one of
+// them.  Our central gap is 3.10 where the donor's middle prong is 3.175, so
+// 0.0375 mm of the arm's BODY stands proud into that prong on each side --
+// beyond R7.5, so the envelope cut leaves it, and it scrapes the prong through
+// the entire sweep (0.00004 mm^3 at the extended pose rising to 0.66 at 80 deg
+// on the part as it stands).  That is the donor's tolerance being measured a
+// second time, not articulation.  So the probe also opens its own gap to the
+// donor's 1/8" -- the easing buckle.scad already prescribes, done on the ARM
+// because the buckle is the part under test and has to arrive untouched.
+//
+// Only over the slot's own reach, `2*pocket_r`: past that the buckle is a
+// plate spanning every x, our body is solid across its full 8.9 mm, and a
+// collision there is the real thing rather than a 0.0375 mm sliver.
+// The eased gap is the donor's 3.175 plus `slot_extra`, which is the rule
+// every slot in this project already follows -- a slot accepts a finger of its
+// own unit plus 0.10.  Sizing it dead on 3.175 instead leaves the two walls
+// COINCIDENT, and coincident faces are what strew a boolean with zero-volume
+// shells and thousandths of a mm^3 of numerical dust; measured, that dust was
+// 0.0015 mm^3 at 80 deg, small but never zero, and this gate reads zero.
+module simple_body(L) {
+    ease = (3.175 + slot_extra - slot_w)/2;      // 0.0875 off each wall
+    difference() {
+        arm_simple(L);
+        translate([L, -4*tab_r, s_pivot_z]) rotate([-90, 0, 0])
+            cylinder(r = tab_r, h = 8*tab_r, $fn = 240);
+        for (s = [-1, 1])
+            translate([L, s*(slot_w + ease)/2, s_pivot_z])
+                cube([2*pocket_r, ease, 8*tab_r], center = true);
+    }
+}
+
 if (test == "male_in_ours")
     intersection() { arm(armL); at_pivot(0, ang) ref_2prong(); }
 else if (test == "ours_in_female")
@@ -164,6 +239,16 @@ else if (test == "show_twist")
         at_ref_pivot(0, ang, s_pivot_z) ref_2prong();
         at_twist_B(ang) ref_3prong();
     }
+// ---- the quick-release buckle ---------------------------------------
+else if (test == "simple_in_buckle")
+    intersection() { buckle(); at_buckle(ang) simple_body(armL); }
+// The same pairing with the joint envelope left IN, which is the number that
+// justifies taking it out: at ang = 0 the bodies are nowhere near each other,
+// so everything this reports is the donor's 1/8" prong grid against our 3.00.
+else if (test == "buckle_grid")
+    intersection() { buckle(); at_buckle(ang) arm_simple(armL); }
+else if (test == "show_buckle")
+    { buckle(); at_buckle(ang) arm_simple(armL); }
 // Baseline: the SAME reference male swung against an unmodified inspiration
 // arm, so the articulation range can be compared like for like.  Its pivot A
 // sits at (161.646, -0.01, 7.600); move it onto ours at (0, 0, 7.5).

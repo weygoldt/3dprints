@@ -43,6 +43,16 @@ DONOR = os.path.join(HERE, 'inspiration', 'Quck Release v3 clip.STL')
 # ---- the donor, measured (mirrors buckle.scad) -----------------------
 PIVOT_Y   = 15.240
 PIVOT_Z   = 12.700
+# ... and THE RAISE, which is the one place the donor's own numbers and this
+# part's stop agreeing.  PIVOT_Y is where the donor put the hinge and is what
+# the mesh surgery cuts against; BK_PIVOT_Y is where it ends up, and every
+# probe below that looks at OUR part is struck about that one.  Only the
+# checks that measure the untouched donor still use PIVOT_Y.
+RAISE       = 1.50
+BK_PIVOT_Y  = PIVOT_Y + RAISE                                       # 16.740
+CUT_Y       = 11.00     # the plane the spacer is inserted at
+DRAFT       = math.tan(math.radians(10.0))                          # 0.176327
+GUSSET_R0   = 7.4796    # the donor's gusset half-width at its own pivot height
 D_BORE    =  5.461     # the donor's pivot bore -- wider than our own 5.30
 KNUCKLE_R =  7.3655
 FACE_NUT  =  5.0164    # low-x prong: outer face of the boss the donor has
@@ -84,23 +94,30 @@ def spans_x(tris, y, z):
     return [(a - 100, b - 100) for a, b in ray_intervals(t, (-100.0, y, z), 0)]
 
 
-def at(r, ang):
-    return (PIVOT_Y + r*math.cos(math.radians(ang)),
+# `py` is which hinge the probe is struck about, and it defaults to OURS.
+# Pass PIVOT_Y to look at the donor: after the raise the same feature sits at
+# two different heights on the two meshes, and every check that compares them
+# has to say which one it means.
+def at(r, ang, py=None):
+    py = BK_PIVOT_Y if py is None else py
+    return (py + r*math.cos(math.radians(ang)),
             PIVOT_Z + r*math.sin(math.radians(ang)))
 
 
-def wall_r(tsub, x, ang):
+def wall_r(tsub, x, ang, py=None):
     """Radius at which material starts, looking out from the pivot axis."""
+    py = BK_PIVOT_Y if py is None else py
     a = math.radians(ang)
-    h = [q for q in ray_hits(tsub, (x, PIVOT_Y, PIVOT_Z), [0.0, math.cos(a), math.sin(a)])
+    h = [q for q in ray_hits(tsub, (x, py, PIVOT_Z), [0.0, math.cos(a), math.sin(a)])
          if q > 1e-9]
     return h[0] if h else None
 
 
-def outer_r(tsub, x, ang):
+def outer_r(tsub, x, ang, py=None):
     """Outermost material along the same ray."""
+    py = BK_PIVOT_Y if py is None else py
     a = math.radians(ang)
-    h = [q for q in ray_hits(tsub, (x, PIVOT_Y, PIVOT_Z), [0.0, math.cos(a), math.sin(a)])
+    h = [q for q in ray_hits(tsub, (x, py, PIVOT_Z), [0.0, math.cos(a), math.sin(a)])
          if q > 1e-9]
     return h[-1] if h else None
 
@@ -187,10 +204,21 @@ def main(path):
     # micron bigger for it: the donor's own body already reaches x 32.537,
     # well past the 27.831 the boss stops at.  So the bounding box is a real
     # check, not a formality -- if it grew, the boss went on the wrong face.
-    print("\n[0] the boss hides inside the donor's own bounding box")
-    for k, nm in ((0, 'X'), (1, 'Y'), (2, 'Z')):
+    #
+    # THE RAISE IS THE ONE EXCEPTION, and the box is where it shows up plainest:
+    # X and Z may not move at all, the part still stands on y = 0, and the only
+    # number allowed to change is the TOP, which must be up by exactly RAISE.
+    # Anything else means the lift took something with it, or dragged the part
+    # off its own print face.
+    print("\n[0] the box is the donor's, except for the raise on top")
+    for k, nm in ((0, 'X'), (2, 'Z')):
         check(abs(lo[k] - dlo[k]) < 1e-3 and abs(hi[k] - dhi[k]) < 1e-3,
               f"{nm} {lo[k]:.3f}..{hi[k]:.3f} is the donor's own extent")
+    check(abs(lo[1] - dlo[1]) < 1e-3,
+          f"Y still starts at {lo[1]:.3f} -- the print face has not moved")
+    check(abs((hi[1] - dhi[1]) - RAISE) < 1e-3,
+          f"Y tops out {hi[1] - dhi[1]:.3f} higher than the donor "
+          f"({hi[1]:.3f} against {dhi[1]:.3f}) == the raise, {RAISE}")
 
     # ---------------------------------------------------------------- 1
     # The GoPro joint is the donor's and must come through untouched.  Every
@@ -205,7 +233,7 @@ def main(path):
     tE = near_axis(tris, 0, 16.0)
     tD = near_axis(donor, 0, 16.0)
     rE = [outer_r(tE, 16.0, a) or 0 for a in range(-80, 91, 5)]
-    rD = [outer_r(tD, 16.0, a) or 0 for a in range(-80, 91, 5)]
+    rD = [outer_r(tD, 16.0, a, PIVOT_Y) or 0 for a in range(-80, 91, 5)]
     check(max(abs(a-b) for a, b in zip(rE, rD)) < 1e-3,
           f"knuckle radius {min(rE):.4f}..{max(rE):.4f} over the free arc, "
           f"identical to the donor's")
@@ -214,7 +242,8 @@ def main(path):
           f"inside the R{TAB_R} envelope before we add anything")
     for r, ang in ((3.0, 0.0), (6.5, 90.0), (7.0, 315.0)):
         y, z = at(r, ang)
-        sE, sD = spans_x(tris, y, z), spans_x(donor, y, z)
+        yD, zD = at(r, ang, PIVOT_Y)
+        sE, sD = spans_x(tris, y, z), spans_x(donor, yD, zD)
         # Only the two pockets may differ; the slots between them may not.
         # Compared with a tolerance, not with ==: the two meshes are tessellated
         # differently, so the same plane is the same number only to within the
@@ -309,6 +338,125 @@ def main(path):
     check(sv < 1e-3,
           f"and {sv:.6f} mm^3 of it lies outside the two pocket fences -- the "
           f"latch, the rails and the joint kept all their material")
+
+    # ---------------------------------------------------------------- 2b
+    # The other half of the chain.  Everything above is buckle() against the
+    # RAISED donor, which says nothing about whether the raise itself was sane;
+    # this is the raised donor against the real one.
+    print("\n[2b] and the raise itself, against the donor it started from")
+    la = volume(render('lift_added') or []) or 0.0
+    lr = volume(render('lift_removed') or []) or 0.0
+    spm = render('spacer') or []
+    sp = volume(spm) or 0.0
+    slo, shi = bbox(spm)
+    print(f"     lift added {la:8.3f} mm^3, removed {lr:8.3f}, spacer {sp:8.3f}")
+    check(abs(slo[1] - CUT_Y) < 1e-3 and abs(shi[1] - (CUT_Y + RAISE)) < 1e-3,
+          f"the spacer spans y {slo[1]:.3f}..{shi[1]:.3f} == the cut at {CUT_Y} "
+          f"plus {RAISE}, and it is {sp/RAISE:.3f} mm^2 of section extruded")
+    # THE IDENTITY.  Lift a solid whose section narrows monotonically upward and
+    # fill the gap with the section you cut at, and the net material you have
+    # gained is the fill and nothing else: every shell the lift adds higher up
+    # telescopes exactly into one it vacates.  This is the check that would
+    # catch a lift that took the clip plate with it, a spacer that did not match
+    # its own cut, or a cut plane put somewhere the section is not monotone --
+    # none of which has to be anticipated for the sum to come out wrong.
+    check(abs((la - lr) - sp) < 1e-3,
+          f"added - removed = {la - lr:.5f} == the spacer's own {sp:.5f} -- the "
+          f"lift is one spacer of material and nothing besides")
+    ls = volume(render('lift_added_stray') or []) or 0.0
+    check(ls < 1e-2,
+          f"{ls:.6f} mm^3 of the added material lies outside the connector's own "
+          f"x window above the cut -- the lift reached nothing else")
+    ls = volume(render('lift_removed_stray') or []) or 0.0
+    # NOT held to zero, and the number is why.  The donor's gusset wall is a
+    # faceted approximation of a 10 deg draft, so over a single facet the
+    # polygon can stand a few tenths of a MICRON outside the section 1.500 mm
+    # below it; measured, that is 110 shells totalling 0.0003 mm^3 spread round
+    # the whole perimeter.  The smallest real fault this check has actually
+    # caught -- a missing fence round the donor's own hexagon -- read 49.26,
+    # five orders up, so the band gives away nothing worth having.
+    check(ls < 1e-2,
+          f"{ls:.6f} mm^3 of the removed material lies outside the pivot bore "
+          f"and the donor's hexagon -- the only two holes that rode up")
+
+    # ---------------------------------------------------------------- 2c
+    # The raise measured on the FINISHED MESH, and this one says what SHAPE it
+    # left behind rather than how much material it moved.  The donor's gusset
+    # is a straight 10 deg draft -- half-width GUSSET_R0 at its own pivot
+    # height, growing DRAFT per mm on the way down, measured 7.4796 / 7.6983 /
+    # 7.8746 / 8.2273 at y 15.240 / 14.0 / 13.0 / 11.0 -- so the finished
+    # profile is predictable to four places at every height:
+    #
+    #   below the cut     the donor's, untouched
+    #   through the band  CONSTANT, because the spacer is that section extruded
+    #   above it          the donor's again, RAISE lower down the draft
+    #
+    # The constant band is the part that cannot be faked.  A fill that followed
+    # the draft instead of the section would read 0.264 mm narrower at the top
+    # of the band than at the bottom, and a fill built from the wrong section
+    # would sit at the wrong number altogether.
+    print("\n[2c] the spacer, read off the part as a profile")
+
+    def half_w(y):
+        """Outermost material either side of the hinge plane, at height y."""
+        best = 0.0
+        for x in (10.0, 14.78, 16.27, 21.13, 22.40):
+            t = near_axis(tris, 0, x)
+            for d in ([0, 0, 1.0], [0, 0, -1.0]):
+                h = [q for q in ray_hits(t, (x, y, PIVOT_Z), d) if q > 1e-9]
+                if h and h[-1] > best:
+                    best = h[-1]
+        return best
+
+    def donor_w(y):
+        return GUSSET_R0 + (PIVOT_Y - y)*DRAFT
+
+    band = []
+    for y in (10.0, 10.5, CUT_Y, 11.5, 12.0, CUT_Y + RAISE, 13.0, 14.0, 16.0):
+        m = half_w(y)
+        if y < CUT_Y - 1e-9:
+            pred, why = donor_w(y), "donor, below the cut"
+        elif y <= CUT_Y + RAISE + 1e-9:
+            pred, why = donor_w(CUT_Y), "SPACER -- constant"
+            band.append(m)
+        else:
+            pred, why = donor_w(y - RAISE), f"donor at y {y - RAISE:.2f}"
+        print(f"     y={y:6.2f}  half-width {m:.4f}  against {pred:.4f}  ({why})")
+        check(abs(m - pred) < 0.01, f"     ... y={y:.2f} is {why}")
+    check(max(band) - min(band) < 1e-3,
+          f"the band is flat to {max(band) - min(band):.6f} mm over its whole "
+          f"{RAISE} mm -- the donor's own draft would have run {RAISE*DRAFT:.4f}")
+
+    # ... and THE WHOLE CONNECTOR WENT UP, which the profile above cannot say.
+    # It reads the outermost material over a handful of x at once, so a lift
+    # window that stopped short and left one prong behind still reads the
+    # lifted neighbour and passes.  Mutation testing found exactly that: a lift
+    # window cut back to x 22.00 tore the high-x prong in half and only ONE
+    # check anywhere noticed, by a side effect.  So walk the top of the part
+    # across the connector and compare it with the donor's own top at the same
+    # x: every one of them owes exactly RAISE, and a prong left standing owes 0.
+    def top_y(mesh, x):
+        t = near_axis(mesh, 0, x)
+        best = None
+        for z in [5.5 + 0.9*i for i in range(17)]:
+            h = [q for q in ray_hits(t, (x, 60.0, z), [0, -1.0, 0]) if q > 1e-9]
+            if h and (best is None or 60.0 - h[0] > best):
+                best = 60.0 - h[0]
+        return best
+
+    lifts = []
+    for x in (5.20, 7.00, 9.00, 11.30, 14.80, 16.27, 17.70, 21.20, 22.40, 23.50):
+        a, b = top_y(tris, x), top_y(donor, x)
+        lifts.append((x, a, b))
+    for x, a, b in lifts:
+        d = None if (a is None or b is None) else a - b
+        print(f"     x={x:6.2f}  top {a if a is None else round(a, 4)} "
+              f"against the donor's {b if b is None else round(b, 4)}"
+              + ("" if d is None else f"  -> {d:+.4f}"))
+    check(all(a is not None and b is not None and abs((a - b) - RAISE) < 1e-3
+              for _, a, b in lifts),
+          f"every station across the connector tops out exactly {RAISE} above "
+          f"the donor's -- the lift took all of it, not part of it")
 
     # ---------------------------------------------------------------- 3
     print("\n[3] the press-fit nut pocket")
@@ -518,7 +666,7 @@ def main(path):
 
     # ---------------------------------------------------------------- 7
     print("\n[7] print reality: what the boss underside has under it")
-    bot = PIVOT_Y - KNUCKLE_R
+    bot = BK_PIVOT_Y - KNUCKLE_R
     shelf = []
     for x in (FACE_HD + 0.4, (FACE_HD + BK_FACE)/2, BK_FACE - 0.2):
         t = near_axis(near_axis(tris, 0, x), 2, PIVOT_Z)
@@ -531,11 +679,18 @@ def main(path):
         else:
             print(f"     x={x:7.3f}: donor shelf tops out at y={s:.3f}, "
                   f"boss starts at y={bot:.4f}  -> gap {bot - s:.3f}")
+    # THE RAISE IS PAID FOR HERE, and it is the only place on the part where it
+    # costs anything.  The boss stands on the knuckle silhouette, so it rode up
+    # with the hinge while the shelf it bridges to stayed put: the gap was
+    # 0.42..1.06 on the donor's own pivot and is that plus RAISE now.  It is
+    # still a bridge over a wide flat shelf, and this part is printed with
+    # support in four places already, so what matters is that it stays a bridge
+    # rather than becoming a tower -- 3.00 mm is 15 layers at 0.20.
     gaps = [bot - s for _, s in shelf if s is not None]
-    warn(gaps and max(gaps) < 1.5,
+    warn(gaps and max(gaps) < 3.00,
          f"the boss underside bridges at most {max(gaps):.3f} mm to the donor's "
-         f"own shelf -- {max(gaps)/0.20:.0f} layers at 0.20, over a wide flat, "
-         f"which is the smallest of this part's four support jobs"
+         f"own shelf -- {max(gaps)/0.20:.0f} layers at 0.20 over a wide flat, "
+         f"and {max(gaps) - RAISE:.3f} of it was there before the raise"
          if gaps else "the boss underside has nothing beneath it to bridge to")
 
     # ---------------------------------------------------------------- 8

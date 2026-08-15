@@ -64,5 +64,10 @@ python3 fitcheck.py --simple
 # The twist adapter is the one part whose two ends articulate in planes the
 # other end cannot see, so each is swung independently against the reference.
 python3 fitcheck.py --twist
+# The buckle is swung against a REAL arm rather than the ideal reference, and
+# it is the only part here whose gate is a range and not just zero at 0 deg:
+# the connector is raised exactly far enough to free a half turn, so a check
+# that only asked "does it fit collinear" would pass the unraised part too.
+python3 fitcheck.py --buckle
 
 ls -la stl/
