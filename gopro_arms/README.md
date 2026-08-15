@@ -87,7 +87,8 @@ openscad -o out.stl --render -D 'x=0' -D 'part="arm100"' main.scad
 
 Parts, streamlined: `gauge`, `arm50`, `arm75`, `arm100`, `arm140`, `set`,
 `section`. Simple: `sgauge`, `simple50`, `simple75`, `simple100`, `simple140`,
-`sset`, `ssection`. Plus `clamp`. Arm names are **pivot-to-pivot** distance in mm.
+`sset`, `ssection`. Plus `clamp`, `buckle` and `twist`. Arm names are
+**pivot-to-pivot** distance in mm.
 
 > **Print a gauge first.** It is both ends with no beam, ~10 minutes, and it
 > tells you whether the 0.10 mm clearances land right on *your* PETG before you
@@ -125,6 +126,15 @@ Slicer notes:
 
   Then **dig the support out of the pockets and slots** before assembly, and run
   a 5 mm drill through the bores if they come out ragged.
+- **The twist adapter is the other exception, and its support is not
+  optional.** One of its two hinge axes stands vertical — it has to, or the
+  layer lines run across the arm instead of along it — so the fork's upper
+  finger hangs over a 3.10 mm slot: **229.5 mm² of ceiling, by design**. Your
+  slicer will not warn you about it; it is quiet because it has already planned
+  to fill that slot. What comes out is a 3.10 mm wafer lying flat on the lower
+  finger with its whole circumference open, so it pulls out — but **it must**,
+  or the joint will not close. `verify_twist.py` `[10]` prints the number every
+  build so it cannot quietly grow.
 - **Use a brim**, on both. The strut stands 20 mm tall on a 5 mm wide foot over
   155 mm of length; that is a narrow footprint for PETG, whose shrinkage will
   lift the ends given the chance. Bed contact is ~750 mm². The simple arm is
@@ -864,6 +874,146 @@ the file previously claimed an M5×20 with "nothing protruding", which is wrong
 by 2.5 mm — exactly the kind of number nobody checks until they are holding the
 part and the screw.
 
+## 90° twist adapter (`part="twist"`)
+
+A short arm whose two hinge axes stand at **right angles**, so a chain of GoPro
+parts can change its plane of articulation — the joint that turns a tilt-only
+stack into a tilt-and-pan one.
+
+It is built from `arm_simple.scad`'s numbers, not from the donor STL in
+`inspiration/`. That donor is a **shape reference and nothing else**; it is not
+imported and not one of its dimensions is inherited. It could not be — its
+3-prong middle prong is 3.300 against our 3.100 central gap, and its 2-prong
+fingers span ±(1.650…4.800) where our slots reach only 4.55, so neither of its
+ends would enter ours. What *did* come off it, measured by ray-casting, is the
+geometry of the twist itself:
+
+| | |
+|---|---|
+| angle between the two hinge axes | **exactly 90°** (dot product 0) |
+| distance apart | **34.994 ≈ 35.0**, common normal along the arm |
+| lateral offset | **0.000** — skew but square: no dogleg, no rise |
+| knuckle radius | **7.5**, which is our own `tab_r` |
+
+So the part is our joint at both ends, 35 apart, with the far end's hinge axis
+turned 90°. `verify_twist.py` `[2]` fits both axes off the finished mesh and
+asks those three questions again — square, 35.000 apart, common normal along
+the arm — because an adapter whose twist is 89° passes every other check here
+and fits nothing.
+
+### The orientation is a real trade, and it went the other way
+
+There is no orientation that is right on every count, and one fact forces the
+choice:
+
+> **Layers along the arm ⟺ the build direction is across the arm ⟺ one hinge
+> axis stands vertical.**
+
+You cannot have layer lines running the length of the part *and* both hinge
+axes horizontal. Both were built and measured:
+
+| | standing on end | **lying flat (this part)** |
+|---|---|---|
+| both slots | **0.00 mm²** of overhang | pivot A 0.00; pivot B carries **229.5 mm²** |
+| layer lines | *across* the arm — bending carried by layer adhesion at one 15 mm section | *along* the arm, where PETG is roughly twice as strong |
+| on the plate | a 50 mm tower on a **3.44 mm** first-layer line, brim mandatory | **477.6 mm²** flat, no brim needed |
+| body | had to turn 90°, done with a round waist to dodge the helix overhang | does not turn at all |
+
+Standing it up is the only way to keep *both* joints perfectly clean, and it
+was the first build. It loses on everything else, and the two things it loses
+on — snapping at a layer line and coming off the plate — are the two failures
+that actually happen. So the part lies down.
+
+**The bill is pivot B.** Its axis is vertical, so its slot is a horizontal gap
+and the upper finger hangs over it: 229.5 mm² of ceiling **inside a 3.10 mm
+slot**, which is the one thing this project otherwise refuses. It is taken with
+eyes open, and it is the mildest form of it there is — the support is a 3.10 mm
+wafer lying flat on the *lower* finger, with solid material directly beneath it
+and its whole circumference open, not a column growing up a blind slot.
+
+> **Dig it out before the joint goes together.** A knuckle that will not close
+> is what a forgotten one feels like. Your slicer will not warn you: it is not
+> complaining because it has already planned to fill that slot. Look at the
+> support preview at the fork end.
+
+`verify_twist.py` `[10]` holds both halves of that to account — pivot A's slots
+must still measure **0.00 mm²**, and pivot B's ceiling must be **exactly the
+area its own plan owes** (229.5 measured against 232.0 predicted) and not a
+millimetre more.
+
+### What lying down settles, and it is most of the part
+
+- **Pivot A is unchanged.** Not "similar to" `arm_simple`'s 3-prong end — it
+  *is* that end, built by the same modules in the same frame: the same centred
+  pivot at `tab_r`, the same flat slot floors, the same round pivot bore, the
+  same two pockets in the same two bosses. Nothing about it needed re-deriving,
+  which is the point of not importing.
+- **No gable.** Standing up, pivot A's slot floors faced *down* and had to be
+  ridged at 30° to keep a ceiling out of them. Lying down they face along −X
+  and are plain vertical planes, so the ridge is not merely unnecessary — it
+  would be a notch cut for nothing.
+- **No teardrops.** A teardrop only earns its keep pointing up. Pivot A's bore
+  now runs across the part like an arm's, so it is `arm_simple`'s plain round
+  bore, which buys back 1.10 mm of crown and costs the same ~24 mm² of ceiling
+  inside a 5.30 hole that file already pays. Pivot B's bore is **vertical**: a
+  vertical hole has no roof at all.
+- **The body does not twist.** Both ends' constraints are expressible in one
+  frame — pivot A wants 15.9 across Y, pivot B wants 8.9 up Z — so the section
+  changes size without ever rotating. There is no helix to pay overhang for,
+  because there is no helix.
+
+### The 3.05 mm step, and why it is not a dogleg
+
+The part has a **flat bottom**, is 15.0 tall at pivot A (that knuckle is 15.0 in
+diameter) and 8.9 tall at pivot B (that stack is 8.9 across), so the two joints'
+centrelines sit 3.05 mm apart in Z. That is not a dogleg bolted on: it is what a
+flat-bottomed part with two different end heights looks like, and the **axes**
+are still exactly perpendicular and exactly 35.000 apart, which is what the
+twist actually is. The donor has 3.4 mm of the same thing for the same reason.
+
+The alternative is to centre the fork on pivot A's height instead. That costs
+another ~155 mm² of ceiling — the *lower* finger's whole disc, less the bore,
+now hanging 3.05 mm off the bed — plus whatever the body's underside owes once
+it is cut away beneath it. And it *must* be cut away rather than filled in:
+that volume is where the **mating** part's lower outer prong swings.
+`tw_fork_z` is the one line that changes it.
+
+### Print it
+
+Flat on its underside, like the arms — no brim needed, 477.6 mm² on the plate.
+It needs **support**, in five places, and only the first is in a joint:
+
+| | |
+|---|---|
+| the fork's upper finger | ~230 mm² over pivot B's 3.10 mm slot — **the one to dig out** |
+| pivot A's knuckle underside | ~94 mm² — a tangent circle leaves the bed at 90°, as the simple arm's knuckles do |
+| the boss rims (r1.25) | ~18 mm², on the edge of that same underside |
+| the two screw pockets | ~57 mm² — a flat hex roof and a round counterbore roof |
+| pivot A's bore | ~24 mm², round rather than teardropped |
+
+Everything else is upward-facing or vertical by construction: the body's top
+rounding, its 45° bottom chamfer, the fork's outer walls and the vertical bore.
+The bottom edge is a **chamfer and not `arm_simple`'s r2.50 fillet**, and that
+is this part's orientation rather than a change of taste — a fillet is tangent
+to the bed, so it leaves through 90° of overhang and needs supporting for the
+whole length of the part. The flat underside *is* the argument for lying this
+part down, so it is not spent on a cosmetic round.
+
+**What fits it: an M5×16 socket cap + M5 nut** — the same pairing, the same two
+pockets, the same depths, because pivot A's end *is* `arm_simple`'s 3-prong end.
+Checked against this part's own two faces rather than assumed (`verify_twist.py`
+`[9]`): the head seats at y +6.05, the tip stops at −9.95 with **3.90 of the
+nut's 4.00 engaged and 0.40 to spare** inside the pocket. An M5×20 would stand
+3.60 proud. Pivot B takes a plain M5 through-bolt or a GoPro thumbscrew — it has
+no pockets, because a 2-prong end cannot have them: a boss on the outside of a
+finger fouls the mating part's outer prong.
+
+**Is 35 the right length?** It is the donor's number, and it survives the check
+that matters — not "does it look right" but "is there room to turn the corner".
+Pivot A's slots reach `pocket_r` = 11.05, and the body has to be down to the
+fork's 8.9 before it enters the mating knuckle's sweep at 7.75 from pivot B, so
+everything the body does happens in between: 16.2 mm at L = 35, 11.2 at 30, and
+by 25 the ramp is a step rather than a taper. Longer is free.
 ## Verifying
 
 ```sh
@@ -871,8 +1021,10 @@ python3 verify.py --selftest                                      # the LOADER f
 python3 verify.py stl/gopro_arm_100mm.stl --length 100            # measures the MESH
 python3 verify.py stl/gopro_arm_simple_100mm.stl --length 100 --simple
 python3 verify_buckle.py stl/gopro_qr_buckle.stl                  # the buckle
+python3 verify_twist.py stl/gopro_90_twist.stl                    # the twist adapter
 python3 fitcheck.py                                               # mating interference
 python3 fitcheck.py --simple
+python3 fitcheck.py --twist              # both ends, each on its own axis
 python3 fitcheck.py --simple --chain     # also arm-to-arm, which is slower
 ```
 
@@ -1085,6 +1237,44 @@ the donor's own Ø5.461 bore, removes nothing, and leaves the part unbroken. The
 harness passed it because it was *correct* to pass it. A mutation that does not
 actually change the part tests nothing; check that it bit before believing a
 green result.
+
+### The twist adapter (`verify_twist.py`)
+
+Same method, plus one instrument no other file here has: `[2]` **fits both
+hinge axes off the mesh** — each bore's circular surface sampled at two
+stations along its own axis, a least-squares circle at each — and then asks the
+pair whether they are square, how far apart they are, and whether their common
+normal runs along the arm. That is the failure this part can wear without
+looking wrong, and no dimension check finds it.
+
+Two habits carry over and both earned their place again. Every region test says
+**which pivot** it is about — `rad_A` is measured in the XZ plane because axis A
+runs along Y, `rad_B` in the XY plane because axis B runs along Z, and each is
+paired with a band on the other axis, or the same infinite-cylinder loophole
+opens that once waved every facet near a knuckle through. And the boss rim is
+classified **before** the flank it starts tangent to.
+
+Six mutants, all caught:
+
+| mutant | caught by |
+|---|---|
+| fork laid on its side (hinge axes parallel) | bbox z −7.500; the fit finds no bore B to measure |
+| L 35 → 34 | axes 34.000 apart, not 35.000; bbox x short; bore B mis-measured |
+| fork raised 3.05 off the bed | lower finger not at z 0; 229 mm² of *new* unclassified overhang |
+| pivot A's bore teardropped again | 2.647 below the pivot but 3.711 above — not round |
+| pivot A's slot floors made cylindrical | floor 2.687 mm off flat over the part's height |
+| boss rims removed | rim area 33.6 ≠ 17.2 owed |
+
+**The fork-raised mutant found a bug in the verifier, not in the part, and that
+is the second time a dud has been worth more than a pass.** Raising the fork
+moved bore B out from under the probe; `circle_fit` was handed too few points,
+divided by a singular pivot, and the run died with a `ZeroDivisionError` after
+four `PASS` lines — so `[4]`, the check that would have caught the mutation,
+never ran and the mutant scored **zero failures**. An instrument that crashes is
+not a verdict. `bore_centre` now returns `None` when it finds no bore, the
+caller turns that into a `FAIL`, and the axis checks are **skipped rather than
+fed a fallback** — a plausible substitute pair would have reported a clean
+90.0000° on a part where nothing was measured at all.
 
 ## Reinforcement, and where it is still weakest
 

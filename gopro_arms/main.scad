@@ -31,21 +31,31 @@
 //                   an M5 cap head one side, a press-fit nut the other.  Its
 //                   own print note is in buckle.scad and differs from the one
 //                   below -- it needs SUPPORT, and it prints on its y=0 face.
+//    twist          90 deg twist adapter -- a short arm whose two hinge axes
+//                   are at right angles, so a chain can change its plane of
+//                   articulation.  It prints FLAT, like the arms, so its layer
+//                   lines run the length of the part; that costs support in
+//                   ONE joint -- pivot B's axis stands vertical, so its slot
+//                   has a ceiling.  DIG THAT OUT before assembling.  The
+//                   trade, and what standing it on end would have bought
+//                   instead, is argued at the top of twist.scad.
 //
 //  Print: PETG, 0.2 mm layers, 0.4 nozzle, NO SUPPORT, flat face on the bed.
 //  Bump perimeters to 4-5; both bodies are under 10 mm thick, so perimeters
 //  do most of the structural work and the part ends up nearly solid.
 // =====================================================================
 
-// One include, three files: buckle.scad sets `lib_s` and includes
-// arm_simple.scad, which sets `lib` and includes arm.scad.  Each of the three
-// guards its own standalone preview on its own sentinel, so this file only has
-// to suppress the outermost one.
-lib_b = true;
-include <buckle.scad>
+// One include, four files: twist.scad sets `lib_b` and includes buckle.scad,
+// which sets `lib_s` and includes arm_simple.scad, which sets `lib` and
+// includes arm.scad.  OpenSCAD's include is textual and has no include-once,
+// so the project keeps ONE chain rather than several paths to arm.scad -- two
+// paths would define every module twice.  Each file guards its own standalone
+// preview on its own sentinel, so this file only suppresses the outermost.
+lib_t = true;
+include <twist.scad>
 use <clamp.scad>
 
-part = "arm100";   // [gauge, arm50, arm75, arm100, arm140, set, section, sgauge, simple50, simple75, simple100, simple140, sset, ssection, clamp, buckle]
+part = "arm100";   // [gauge, arm50, arm75, arm100, arm140, set, section, sgauge, simple50, simple75, simple100, simple140, sset, ssection, clamp, buckle, twist]
 
 arm_lengths = [50, 75, 100, 140];
 
@@ -65,6 +75,7 @@ else if (part == "sset")      simple_set();
 else if (part == "ssection")  section_simple_demo();
 else if (part == "clamp")     pipe_clamp();
 else if (part == "buckle")    buckle();
+else if (part == "twist")     twist_adapter();
 
 // All four arms, side by side, flat faces all on the bed.
 module arm_set() {

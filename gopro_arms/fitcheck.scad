@@ -21,10 +21,19 @@
 //  ... and the same four against the SIMPLE variant, suffixed _simple.  The
 //  joint is identical between the two variants, so any difference in the
 //  measured range is the BODY getting in the way and nothing else.
+//
+//  ... and three more against the 90 deg TWIST adapter:
+//    male_in_twist    ideal GoPro 2-prong into its 3-prong end (pivot A)
+//    twist_in_female  its 2-prong end into an ideal GoPro 3-prong (pivot B)
+//    ctrl_twist       the same control, driven off-axis along pivot A's X
+//  Each end is swung on ITS OWN axis, separately, because that is the whole
+//  point of the part: the two ends articulate in planes at right angles, so a
+//  sweep of one says nothing about the other.  Running them together would
+//  also be wrong -- it would measure a pose, not a range.
 // =====================================================================
 
-lib_s = true;        // arm_simple.scad sets `lib` itself and includes arm.scad
-include <arm_simple.scad>
+lib_t = true;        // the include chain: twist -> buckle -> arm_simple -> arm
+include <twist.scad>
 use <clamp.scad>
 
 test = "male_in_ours";
@@ -79,6 +88,30 @@ module at_ref_pivot(px, a, pz) {
     at_pivot(px, a, pz) translate([0, 0, pz - pivot_z]) children();
 }
 
+// The 90 deg twist adapter's two pivots do NOT share an axis, so ONE helper
+// cannot place a mating part on both -- which is the part's whole point.
+//
+// PIVOT A needs no helper at all: its hinge axis runs along Y at s_pivot_z,
+// which is exactly the simple arm's pivot, so at_ref_pivot() places a mating
+// part on it unchanged.  That is not a coincidence, it is the design -- lying
+// this part down makes its 3-prong end an arm's 3-prong end in every respect.
+//
+// PIVOT B is the one that needs its own: its axis is VERTICAL.  The reference
+// is built about arm.scad's pivot_z with its axis along Y and its body on -X,
+// so it is dropped onto the origin, rolled 180 deg about [0,1,1] -- which
+// takes Y to Z (the axis it has to share) and -X to +X (so its body points
+// away from ours at ang = 0) -- and then swung about Z.  A rotation, not a
+// mirror: the reference has to stay the handedness a real GoPro part is.
+//
+// It lands at fork_c up its own axis, not at s_pivot_z, because that is where
+// this part's fork actually sits -- see twist.scad on the 3.05 mm step.
+module at_twist_B(a) {
+    translate([tw_L, 0, fork_c])
+        rotate([0, 0, a])                          // swing about Z, the axis
+            rotate(180, [0, 1, 1])                 // Y axis -> Z, body -> +X
+                translate([0, 0, -pivot_z]) children();
+}
+
 if (test == "male_in_ours")
     intersection() { arm(armL); at_pivot(0, ang) ref_2prong(); }
 else if (test == "ours_in_female")
@@ -109,6 +142,27 @@ else if (test == "simple_in_simple")
         arm_simple(armL);
         // Both arms are built about s_pivot_z, so no lift -- just the swing.
         at_pivot(0, ang, s_pivot_z) translate([-armL, 0, 0]) arm_simple(armL);
+    }
+// ---- the 90 deg twist adapter --------------------------------------
+else if (test == "male_in_twist")
+    intersection() {
+        twist_adapter();
+        at_ref_pivot(0, ang, s_pivot_z) ref_2prong();
+    }
+else if (test == "twist_in_female")
+    intersection() { twist_adapter(); at_twist_B(ang) ref_3prong(); }
+// CONTROL: 1.0 mm off-axis along pivot A's own hinge axis Y, which is the
+// direction that closes the slot clearance -- the same control the arms use.
+else if (test == "ctrl_twist")
+    intersection() {
+        twist_adapter();
+        translate([0, 1.0, 0]) at_ref_pivot(0, ang, s_pivot_z) ref_2prong();
+    }
+else if (test == "show_twist")
+    {
+        twist_adapter();
+        at_ref_pivot(0, ang, s_pivot_z) ref_2prong();
+        at_twist_B(ang) ref_3prong();
     }
 // Baseline: the SAME reference male swung against an unmodified inspiration
 // arm, so the articulation range can be compared like for like.  Its pivot A

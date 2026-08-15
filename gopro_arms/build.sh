@@ -53,8 +53,16 @@ openscad -o "stl/gopro_qr_buckle.stl" --export-format binstl --render -D 'x=0' -
     | grep -E "Status|WARNING|ERROR" || true
 python3 verify_buckle.py "stl/gopro_qr_buckle.stl" | tail -4
 
+echo "--- 90 deg twist adapter"
+openscad -o "stl/gopro_90_twist.stl" --export-format binstl --render -D 'x=0' -D 'part="twist"' main.scad 2>&1 \
+    | grep -E "Status|WARNING|ERROR" || true
+python3 verify_twist.py "stl/gopro_90_twist.stl" | tail -4
+
 echo "--- mating / interference (a shipping gate that never checks FIT is no gate)"
 python3 fitcheck.py
 python3 fitcheck.py --simple
+# The twist adapter is the one part whose two ends articulate in planes the
+# other end cannot see, so each is swung independently against the reference.
+python3 fitcheck.py --twist
 
 ls -la stl/

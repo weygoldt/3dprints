@@ -8,9 +8,14 @@ nothing.
 
   python3 fitcheck.py                 the streamlined arm (arm.scad)
   python3 fitcheck.py --simple        the simple variant (arm_simple.scad)
+  python3 fitcheck.py --twist         the 90 deg twist adapter (twist.scad)
   python3 fitcheck.py --chain         also swing one of our arms against
                                       another, which is the pairing the body
                                       shape actually limits
+
+--twist sweeps its TWO ENDS SEPARATELY, and that is not tidiness: the adapter's
+whole job is that its two hinge axes stand at right angles, so each end
+articulates in a plane the other cannot see.  One sweep would measure a pose.
 """
 import argparse
 import os
@@ -62,11 +67,17 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--simple', action='store_true',
                     help='test arm_simple.scad instead of arm.scad')
+    ap.add_argument('--twist', action='store_true',
+                    help='test twist.scad -- both ends, each on its own axis')
     ap.add_argument('--chain', action='store_true',
                     help='also swing one of our arms against another')
     args = ap.parse_args()
     armL = 100
-    if args.simple:
+    if args.twist:
+        ctrl = 'ctrl_twist'
+        tests = ['male_in_twist', 'twist_in_female']
+        chain = None
+    elif args.simple:
         ctrl = 'ctrl_simple'
         tests = ['male_in_simple', 'simple_in_female']
         chain = 'simple_in_simple'
@@ -74,12 +85,13 @@ def main():
         ctrl = 'ctrl_male'
         tests = ['male_in_ours', 'ours_in_female']
         chain = 'arm_in_arm'
-    if args.chain:
+    if args.chain and chain:
         tests.append(chain)
 
+    what = ('90 deg TWIST adapter, each end on its own axis' if args.twist
+            else f"{'SIMPLE' if args.simple else 'streamlined'} arm, L={armL}")
     print(f"interference volume vs hinge angle   "
-          f"({'SIMPLE' if args.simple else 'streamlined'} arm, L={armL}, "
-          f"ang=0 is collinear / fully extended)\n")
+          f"({what}, ang=0 is collinear / fully extended)\n")
 
     print(f"  CONTROL -- male driven 1.0 mm off-axis in Y; must be NON-zero")
     v, _ = run(ctrl, 0, armL)
