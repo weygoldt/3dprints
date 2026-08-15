@@ -1048,6 +1048,9 @@ guard_collar_flat  = 16;    // the collar stays FLAT (= guard_t) within this rad
 guard_vanes       = 5;      // fins across the arc (they leave the SOLID collar and taper to the rim)
 guard_vane_root   = 13;     // fin width where it leaves the collar (broad; >2*guard_round+3 so the r2.5 roll is an EASED edge, not a rod)
 guard_vane_tip    = 8;      // fin width at the rim (leaves a ~3 mm flat face after the roll -> a fin, not a wire)
+guard_fin_converge = 0.38;  // fins CURVE this fraction toward the arc centre as they rise (0 = straight radial spokes) ->
+                            // a swept, gathered look that echoes the pylon's smoothstep loft; converging so tips never
+                            // overflow the arc.  The elegance lever: turns wheel-spokes into swept turbine blades.
 guard_ribs        = 1;      // concentric rolled rib(s) in the OUTER (finned) band -- breaks the angular gaps (still a screen)
 guard_rib_w       = 6.5;    // rib radial width (a rolled bead with a flat crown, was the thin 3 mm ring)
 // --- RIM: ONE fuller rolled bead (merges the old thin ring + the SEPARATE foot-fillet shroud into a flowing rolled lip) ---

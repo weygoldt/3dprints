@@ -68,15 +68,19 @@ module guard_hub_bloom()
 // VANE: a broad rounded trapezoid (root -> tip taper), extruded with the SAME rolled aft edge / crisp intake.  The
 // root overlaps into the hub (welds); the tip embeds into the rim.  Roots are wide so neighbours nearly kiss near the
 // hub -> a solid "bloom" that opens into distinct fins toward the rim.
-function guard_vane_path() =
-  let(ri = guard_vane_r0 - 4,                          // overlap into the collar (or hub) -> a solid weld at the fin root
-      ro = guard_r_tip + guard_rim_wall*0.6,           // push the TIP into the rim wall -> a full weld (NOT a tangent kiss),
-      hr = guard_vane_root/2, ht = guard_vane_tip/2,   //   stays inside the rim OD so it never bumps the outer face
-      te = min(ht*0.9, (ro-ri)/2 - 0.1))
-  round_corners([[ri,-hr],[ro,-ht],[ro,ht],[ri,hr]],
-                radius=[0.6, te, te, 0.6], closed=true, $fn=28);
-module guard_vane_bloom(a)
-  rotate([0,0,a]) offset_sweep(guard_vane_path(), height=guard_t,
+// SWEPT fin: a curved, tapering band from the collar out into the rim.  Its centreline curls guard_fin_converge of the way
+// toward the arc centre (smoothstep-eased, like the loft) so the fins read as swept turbine blades, not straight spokes.
+// The root overlaps the collar (solid weld) and the tip pushes into the rim wall (full weld, not a tangent kiss).
+function guard_fin_path(a, conv) =
+  let(ri = guard_vane_r0 - 4, ro = guard_r_tip + guard_rim_wall*0.6, N = 12,
+      C  = [ for (i=[0:N]) let(t=i/N, r=ri+(ro-ri)*t, s=t*t*(3-2*t),
+                               ang = a + conv*(guard_a_ctr - a)*s) [r*cos(ang), r*sin(ang)] ],
+      Wd = [ for (i=[0:N]) let(t=i/N) (guard_vane_root*(1-t) + guard_vane_tip*t)/2 ],
+      nrm = [ for (i=[0:N]) let(p0=C[max(0,i-1)], p1=C[min(N,i+1)], d=p1-p0, L=max(1e-6,norm(d))) [-d.y, d.x]/L ],
+      L = [ for (i=[0:N]) C[i] + nrm[i]*Wd[i] ], R = [ for (i=[0:N]) C[i] - nrm[i]*Wd[i] ])
+  concat(L, [ for (i=[N:-1:0]) R[i] ]);
+module guard_vane_bloom(a, conv)
+  offset_sweep(guard_fin_path(a, conv), height=guard_t, offset="delta",
                bottom=os_chamfer(width=guard_front_round), top=os_circle(r=guard_round));
 
 // ROLLED BEAD cross-section (radial start r_in, radial width w, height h): rounded TOP corners, FLAT crisp bed.
@@ -125,7 +129,11 @@ module guard_bloom() difference() {
     if (guard_has_collar)                                                    // SOLID inner bloom (grows from the pad -> pylon mass)
       if (guard_collar_crown > 0.01) guard_collar_boss();                    //   domed BOSS (one-part sculpt) ...
       else guard_bead(guard_hub_ext - 3, guard_collar_r - (guard_hub_ext - 3), guard_t, guard_t);  // ... or flat
-    for (a = guard_vane_angles) guard_vane_bloom(a);                         // broad sculpted fins fanning out of the collar
+    // fins fan out of the collar; the INNER fins swirl toward the arc centre while the two END fins stay radial to
+    // CAP the rim ends (a sin() taper of the convergence) -> a gathered swept look with no dangling rim tips.
+    for (i = [0:guard_vanes-1]) guard_vane_bloom(
+        guard_a0 + (guard_a1-guard_a0)*i/(guard_vanes-1),
+        guard_fin_converge * sin(180*i/max(1,guard_vanes-1)));
     for (r = guard_ring_radii) guard_bead(r - guard_rib_w/2, guard_rib_w, guard_t, guard_t);  // flush concentric rib(s), outer band
     if (guard_rim) guard_bead(guard_r_tip, guard_rim_wall,                   // ONE rolled rim (proud aft, tapered ends)
                               guard_t + guard_rim_proud, guard_t + guard_rim_proud_min);
