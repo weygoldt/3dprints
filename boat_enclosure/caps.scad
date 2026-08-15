@@ -50,6 +50,11 @@
 //     makes the printed part match cap_strain() below and buys back enough length to
 //     run a firmer bead.  Flange thickness now LENGTHENS the fingers instead of
 //     shortening them, so cap_flange_t is up (it is also a better pry lip).
+//     The groove's own corner then BECOMES the root, so it is filleted (cap_root_fil):
+//     printed flange-down that corner is a layer interface in interlayer tension, and a
+//     sharp notch there is where a snap finger cracks.  Freeing the fingers created that
+//     stress riser -- the fused flange used to buttress it -- so the fillet is part of
+//     the same fix, not an extra.
 //
 //  PRINTS FLANGE-DOWN, SUPPORTLESS: flange face flat on the bed (clean), shank up.  The
 //  only overhang is the bead's retention ramp, held <=45 deg from vertical (echo); the
