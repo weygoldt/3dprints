@@ -421,8 +421,8 @@ slide fit is loosest.
    internal corner which is both the peak-stress point *and*, printed flange-down, a layer interface loaded in
    **interlayer tension** — the classic FDM snap-fit crack site, newly created by fix 2 (the fused flange used
    to buttress it). **`cap_root_fil`** = 0.4 rounds it (Kt ~3 → ~1.7); `cap_relief` 0.8 → **1.2** so the groove
-   still prints 0.8 wide at its floor with the fillet in it, and `cap_flange_t` 2.4 → **2.8** buys back the
-   0.4 of free length the fillet spends, so strain lands back on 2.6%.
+   still prints ≥0.8 wide at its floor with the fillet in it, and `cap_flange_t` went up to buy back the free
+   length the fillet spends. (Flange thickness came back down again in the profile pass below.)
 4. **The seated-clamp check could not fail.** `cap_seat_spring()` linearly extrapolated the retention ramp with
    no idea where the ramp *ends*, so at `d_max` its `>0` guard reduced to `(bor−tor)·cap_preload/cap_bead_ax`
    — positive for any `cap_preload > 0`, whatever the geometry. Set `cap_preload=0.3` and every echo printed OK
@@ -446,8 +446,8 @@ slide fit is loosest.
 | bead OD / retention bite | 12.70 — **0.35** @12, **0.25** @12.2 | 16.70 — **0.35** |
 | seated clamp (fingers still sprung) | 0.24 @12, 0.14 @12.2 | 0.14 |
 | bead apex proud of the wall's inner face | 0.12 | 0.23 |
-| flange × proud / part height | 17.2 × 2.8 / 7.72 | 21 × 2.8 / 7.83 |
-| free finger / insert strain | 4.52 / **2.6 %** | 4.63 / **2.4 %** |
+| flange × proud / part height | 17.2 × **1.8** / 6.72 | 21 × **1.8** / 6.83 |
+| free finger / insert strain | 3.82 / **2.9 %** | 3.93 / **2.7 %** |
 
 **`cap_clear` stays 0.4 — deliberately.** The shank is therefore still **11.6** in the 12 family, *exactly* the
 old SIDE cap's, so any bore that took the old plug takes this one: backward compatibility is exact, not
@@ -458,8 +458,9 @@ centres the plug. Drop it to 0.3 if you have measured your bores at true nominal
 `cap_interf` 0.25 → **0.35** keeps 0.25 of bite (the old value) at the loose end of the merged range, so the
 merge costs no retention. `cap_bead_ax` 0.5 → **0.6** holds the bead overhang at 42.5° (must stay ≤45°).
 
-**PETG**, as before — 2.6% strain is past PLA's comfortable range. The echo prints the PLA-safe number
-(`cap_interf` ≈ 0.27 for 2% strain, which drops the loose-end bite to 0.17).
+**PETG**, as before — 2.9% strain is past PLA's comfortable range. The echo prints the PLA-safe number
+(`cap_interf` ≈ 0.24 for 2% strain, which drops the loose-end bite to 0.14 — i.e. **run these in PETG**; the
+low-profile flange spent the headroom that used to make a PLA version sensible).
 
 ### Export / verify (from `boat_enclosure/`)
 
@@ -475,10 +476,34 @@ no clamp**; non-empty is real preload, and the export measures it — Z extent =
 X/Y half-extent = the cone radius there, clipped by the slot straddling +X (`sqrt(R² − (slot_w/2)²)`). All
 three families match prediction to ~1e-4. `cap="none"` suppresses the standalone render for probes.
 
-**Verified:** all 5 render modes NoError + manifold; small 17.200 × 7.7227, big 21.000 × 7.8318 (both to the
+### Profile pass — "why do the caps have a lip?" (Patrick, 2026-08-15)
+
+The lip is not decoration, but the answer is *also* that it had been made bigger than it needed to be. Two
+jobs: it covers the bore mouth, stops the plug pushing through and gives you something to pry under — and,
+since the relief groove, **flange thickness IS the finger's cantilever length**. The finger has only the 3 mm
+wall to work in otherwise, so the trade is hard: flush (flange 0) needs **12.8%** bending strain and the
+fingers break off on the first insert; even 1.2 proud is 5.1%. There is no flush snap plug in a 3 mm wall.
+
+What *was* wasteful is that the length was being bought with flange thickness when it could be bought with
+**finger thickness**. Strain goes linearly with thickness, so `cap_tube_wall` 1.2 → **1.0** (tip 0.6) pays for
+`cap_flange_t` 2.8 → **1.8** — a **36% lower cap** with the bead untouched: bite still 0.35/0.25, apex
+clearance still 0.12, and the seat probes return the *identical* 0.349 / 1.027 / 0.472 mm³ of engagement,
+because preload doesn't depend on flange thickness at all. `cap_base` 1.0 → 0.8 and `cap_root_fil` 0.4 → 0.3
+recover the rest; `cap_tip_ch` 0.6 → 0.4 keeps a tip face on the thinner finger. Cost: strain 2.6% → 2.9%
+(still under the PETG bar, and the true tapered figure is ~2% below that), and PLA is now off the table.
+
+Below 1.8 the next thing to spend is **retention**: 1.5 proud needs `cap_interf` 0.35 → 0.30, dropping the
+loose-end bite to 0.20, which is exactly the minimum bar. Not taken by default.
+
+Also **moved `cap_flange_ch` to the exposed edge**. It was on the *seating* face — hidden against the housing,
+where it bought nothing and cost contact area. Now the visible rim is a 45° chamfer (bed face measures 16.04
+dia, opening to 17.2 over 0.6 mm) and the seating ring is full width, so the cap both reads thinner and beds
+flatter. Still supportless: 45° is the limit, not past it.
+
+**Verified:** all 5 render modes NoError + manifold; small 17.200 × 6.7227, big 21.000 × 6.8318 (both to the
 0.0001 the hand derivation predicts); the relief-groove annulus renders **empty** above the fillet (finger
 genuinely free) while the fillet zone renders **solid** (the round is really in the mesh); only
-the bead lies outside a 12.0 hole on insertion (z 5.5409–6.5591, max r 6.32135 vs 6.32160 predicted — so tube,
+the bead lies outside a 12.0 hole on insertion (z 4.5409–5.5591, max r 6.32135 vs 6.32160 predicted — so tube,
 tip and chamfer all pass freely and only the bead deflects, over 1.02 mm of travel); BIG flange 21 clears a
 fitted gland by 4 mm and an adjacent cap by 3 mm on the 24 mm gland pitch.
 

@@ -49,17 +49,24 @@
 //     2.3% the echo printed.  The groove frees the finger down to cap_base, which
 //     makes the printed part match cap_strain() below and buys back enough length to
 //     run a firmer bead.  Flange thickness now LENGTHENS the fingers instead of
-//     shortening them, so cap_flange_t is up (it is also a better pry lip).
+//     shortening them, so cap_flange_t is load-bearing now, not decoration.
 //     The groove's own corner then BECOMES the root, so it is filleted (cap_root_fil):
 //     printed flange-down that corner is a layer interface in interlayer tension, and a
 //     sharp notch there is where a snap finger cracks.  Freeing the fingers created that
 //     stress riser -- the fused flange used to buttress it -- so the fillet is part of
 //     the same fix, not an extra.
 //
-//  PRINTS FLANGE-DOWN, SUPPORTLESS: flange face flat on the bed (clean), shank up.  The
-//  only overhang is the bead's retention ramp, held <=45 deg from vertical (echo); the
-//  flange-top + tip chamfers self-support, and the pocket, the relief groove and the
-//  slots all open upward.
+//  HOW PROUD THE CAP SITS is set by cap_flange_t, and it is NOT free: with the relief
+//  groove, flange thickness IS the finger's cantilever length.  The finger has only the
+//  3 mm wall to work in otherwise, so a flush cap (flange 0) would need ~12.8% bending
+//  strain and the fingers would break off on the first insert.  1.8 is the lowest that
+//  keeps the full bead bite -- see cap_flange_t.  If you want it flatter than that, the
+//  next thing to spend is cap_interf (retention), not finger thickness.
+//
+//  PRINTS FLANGE-DOWN, SUPPORTLESS: flange face flat on the bed (clean), shank up.  Two
+//  overhangs, both <=45 deg from vertical: the bead's retention ramp (echo checks it) and
+//  the flange's exposed-edge chamfer, which is a plain 45.  The tip chamfer self-supports,
+//  and the pocket, the relief groove and the slots all open upward.
 //
 //  Requires BOSL2 (../BOSL2) via common.scad.  PETG preferred -- its higher
 //  strain-to-yield gives the fingers margin at the default cap_interf.  The echo
@@ -89,21 +96,30 @@ cap_interf      = 0.35; // RADIAL bead protrusion past d_min/2 = the retention l
                         // 0.35 gives 0.35 of bite in a d_min hole and 0.25 -- the old value -- in the d_max hole,
                         // so merging the families costs no retention at the loose end.  Drives the strain echo.
 cap_flange_over = 2.5;  // flange overhang past the BIGGEST hole radius (covers the mouth + leaves a lip to pry under)
-cap_flange_t    = 2.8;  // flange thickness.  With the relief groove this is finger LENGTH: raising it lowers strain
-                        // (and gives a better pry lip).  Costs how proud the button sits on the wall face.
-                        // 2.8, not 2.4, to buy back the length cap_root_fil spends.
-cap_flange_ch   = 0.6;  // 45 deg chamfer on the flange TOP outer edge (finished look; self-supports flange-down)
-cap_base        = 1.0;  // solid closed base under the pocket -- blanks the hole, carries the flange, AND is the
-                        // finger ROOT height (low = long fingers).  1.0 = 5 layers at 0.2.
+cap_flange_t    = 1.8;  // flange thickness = HOW PROUD the cap sits, and (via the relief groove) the snap finger's
+                        // LENGTH.  Those fight: the finger has only the 3 mm wall to work in, so every mm of
+                        // flange is a mm of cantilever.  Flush (0) would need 12.8% strain -- the fingers would
+                        // snap off on the first insert.  1.8 is the lowest that keeps the FULL bead bite; the
+                        // length it gives up vs 2.8 is paid for by the thinner cap_tube_wall below, not by
+                        // retention.  Going lower means cutting cap_interf: 1.5 costs 0.05 of bite at the
+                        // loose end of the merged range (0.25 -> 0.20, which is the bar).
+cap_flange_ch   = 0.6;  // 45 deg chamfer on the flange's EXPOSED (bed) outer edge -- the one you see and catch a
+                        // sleeve on.  It reads thinner than it is, and it leaves the SEATING face full width so
+                        // the cap beds flat on the housing.  (It used to be on the seating edge: hidden against
+                        // the wall, where it bought nothing and cost contact area.)
+cap_base        = 0.8;  // solid closed base under the pocket -- blanks the hole, carries the flange, AND is the
+                        // finger ROOT height (low = long fingers).  0.8 = 4 layers at 0.2.
 cap_relief      = 1.2;  // annular groove around the tube, sunk into the flange SEATING face down to cap_base.
                         // This is what makes the finger root cap_base instead of cap_flange_t -- see note 2 above.
                         // Keep (cap_relief - cap_root_fil) >= 2 extrusion widths, or the slicer fills the groove
                         // and the fingers stiffen back up -- that is the failure the echo below guards.
-cap_root_fil    = 0.4;  // FILLET blending the groove floor into the finger root.  That corner is the finger's
+cap_root_fil    = 0.3;  // FILLET blending the groove floor into the finger root.  That corner is the finger's
                         // peak-stress point AND, printed flange-down, a layer interface loaded in interlayer
                         // TENSION -- the classic FDM snap-fit crack site.  A sharp notch there runs Kt ~3; this
                         // rounds it to ~1.7 for the price of cap_root_fil of free length (paid back in flange_t).
-cap_tube_wall   = 1.2;  // finger wall thickness at the ROOT (3 perimeters at a 0.4 nozzle)
+cap_tube_wall   = 1.0;  // finger wall thickness at the ROOT.  1.0, not 1.2: strain goes as thickness, so thinning
+                        // the finger is what pays for the lower cap_flange_t WITHOUT touching the bead.  Do not
+                        // go below ~0.9 -- under 2 perimeters the finger is a shell, not a spring.
 cap_tube_taper  = 0.4;  // inner wall opens this much toward the tip -> fingers thin to (wall - taper) at the tip
 cap_slots       = 4;    // radial relief slots -> that many cantilever fingers
 cap_slot_w      = 1.2;  // slot width
@@ -115,7 +131,8 @@ cap_bead_ax     = 0.6;  // bead RETENTION ramp axial rise (tube OD -> apex): vs 
                         // sets the overhang angle -- raise it in step with cap_interf or the bead needs support
 cap_lead_ax     = 1.0;  // bead LEAD-IN ramp axial rise (apex -> tube OD): shallow = easy push-in, fully self-supporting
 cap_tip         = 0.8;  // tube length above the lead-in ramp (finger tip)
-cap_tip_ch      = 0.6;  // tip outer chamfer (entry lead)
+cap_tip_ch      = 0.4;  // tip outer chamfer (entry lead) -- 0.4 so it still leaves a tip face on the 1.0 finger
+                        // (cap_tube_wall - cap_tube_taper - this must stay > 0; the echo checks it)
 
 // per-bore FAMILY: [smallest hole, largest hole, wall thickness it passes through].
 // Taken straight from common.scad so they can never drift.  d_min == d_max is a single-size family.
@@ -184,9 +201,10 @@ module bore_cap(bore) {
   difference() {
     rotate_extrude($fn = max($fn, 96))
       polygon([
-        [0, 0], [fr, 0],                                   // flange bottom (on the bed, the visible outer face)
-        [fr, ft - cap_flange_ch], [fr - cap_flange_ch, ft], // flange side + top chamfer
-        [gor, ft],                                         // in across the flange SEATING ring to the groove
+        [0, 0], [fr - cap_flange_ch, 0],                   // flange bottom (on the bed) = the VISIBLE outer face
+        [fr, cap_flange_ch],                               // 45 deg chamfer on the EXPOSED edge (reads thin)
+        [fr, ft],                                          // flange OD up to the seating face
+        [gor, ft],                                         // in across the FULL-WIDTH seating ring to the groove
         [gor, cap_base],                                   // down the groove outer wall to its floor
         // FILLET the groove floor into the finger root -- that corner is the peak-stress point and, printed
         // flange-down, a layer interface in interlayer tension.  Arc runs -90 -> -180 about the corner centre.
