@@ -1010,38 +1010,70 @@ echo("---------------------------------------------------------------");
 //  it needs NO support.  Mounts in the motor-bracket sandwich on the pad's 4x M3.
 // =====================================================================
 prop_guard        = true;   // draw the guard in the assembly preview
+// VISUAL-COHESION REV (2026-08-15): restyle the guard to share the PYLON's rounded skin()-loft language so it reads as
+// ONE designed family (was a thin wire fan bolted onto a sculpted pylon).  guard_style selects the surface family.
+guard_style       = "bloom";// [bloom, web, legacy] surface FAMILY.  bloom = a pad-echo rounded-RECT hub that grows out of
+                            // the motor pad + broad SCULPTED vanes + one ROLLED rim (all edges eased ~2.5 like the pylon,
+                            // bed edges crisp) ; web = a solid arc SHELL lightened by organic cut-outs (most solid/heaviest,
+                            // closest to the pylon's mass) ; legacy = the old thin-spoke grille (kept for A/B + fallback).
 guard_arc         = 135;    // kept sweep (deg): top + outboard only (360 = full ring)
 guard_arc_bias    = 45;     // lean the kept arc off TOP toward the OUTBOARD side (deg; 0 = symmetric about top,
                             // 45 = centred on the top-outboard diagonal).  In guard-local the OUTBOARD side is
                             // -X / 180 deg (verified through the assembly transform), so the centre is 90 + this.
-guard_tip_gap     = 6;      // radial clearance: prop tip -> shroud INNER (the shroud must clear a flexing blade)
-guard_t           = 5;      // frontal grille thickness (Z / axial)
-guard_hub_r       = 24;     // FULL mount-hub radius -- backs the r17 bolt circle + margin; the rigid plate overhangs
-                            // (clamped at 4 bolts, like the pad).  Smaller than before so the bolt square isn't lost in a pancake.
-guard_round       = 1.6;    // edge-rounding radius on aft/top edges (low turbulence; no sharp corners)
-guard_front_round = 0.8;    // SMALL rounding on the FRONTAL (bed-side / intake) edges of the hub + spokes -- the faces the
-                            // airflow + debris hit first (the reviewer's low-turbulence point); kept small so bed contact holds
-guard_rings       = 1;      // intermediate frontal ring arcs (sparse -> low turbulence; the SHROUD is the main guard)
-guard_spokes      = 5;      // frontal spokes across the arc (fewer = cleaner; includes one at each end -> caps the ring arcs)
-guard_bar         = 3.0;    // frontal ring + spoke-TIP width (thin/elegant)
-guard_spoke_root  = 8;      // spoke width at the HUB -- spokes TAPER ~2.7:1 to guard_bar at the rim (reads intentional + strong root)
-guard_shroud      = true;   // a small aft LIP -- Patrick 2026-08-13: NOT reaching the prop (the barrel that bridged the
-                            // motor was dropped -- it choked the drone motor's cooling airflow).  Freely mounted at the pad,
-                            // motor breathes; this guard is FRONTAL protection only (the ~99% forward case).  The lip just
-                            // ties + stiffens the spoke rim and adds a hair of edge coverage.
-guard_shroud_h    = 8;      // lip rise (Z) at the arc MIDDLE -- tiny, structural (was a tall shroud when we tried to reach the prop)
-guard_shroud_h_min = 6;     // lip rise at the arc ENDS (>= guard_t so the spokes weld to it) -- nearly a constant rim
-guard_shroud_wall = 2.2;    // shroud radial thickness (thinned)
-guard_shroud_foot = 2.5;    // filleted FOOT at the shroud's inner base -> spreads the root stress across layers (the reviewer's
-                            // main reliability fix: a side strike loads the wall root in tension ACROSS layers) + adds bed contact
-guard_hub_light   = true;   // relieve the mount hub with lightening holes (save material/weight -- Patrick: it's a full disc)
+guard_tip_gap     = 6;      // radial clearance: prop tip -> rim INNER (the rim must clear a flexing blade)
+guard_t           = 5;      // frontal-plate thickness (Z / axial) -- ALSO the washer thickness (its flat aft face bears the motor)
+// --- edge language (matches the pylon: round EVERYTHING ~2.5 EXCEPT bed-contact edges, which stay crisp) ---
+guard_round       = 2.5;    // aft/top edge ROLL radius -- was 1.6 ; now MATCHES the pylon loft (rmax 2.5).  The rolled edge
+                            // is the aft/motor side (UP on the bed) so it self-supports; the bed/intake edge stays crisp.
+guard_front_round = 0.8;    // small 45deg easing on the FRONTAL (bed / intake) edges -- a chamfer (printable), not a lift
+guard_fillet      = 3;      // (reserved) concave junction fillet radius in the frontal plane -- the pylon-family fillet
+// --- HUB: a pad-echo rounded RECTANGLE that grows out of the motor pad (was a pancake disc) ---
+guard_hub_w       = mast_w;            // hub width  (X)       = the mast-band width  -> the hub OVERLAYS the pad outline
+guard_hub_h       = pad_y1 - pad_y0;   // hub height (Y, up-mast) = the pad face height -> reads as the pad continued forward
+guard_hub_rr      = 6;                 // hub in-plane corner radius (soft, a touch fuller than the pad -> a "bloom", not a box)
+guard_hub_light   = (guard_style=="legacy"); // SOLID hub in bloom/web (it IS the bearing washer) ; drilled relief only legacy
+// --- COLLAR: a SOLID inner bloom that grows from the pad, then opens into fins.  This is what makes bloom read as the
+//     pylon's MASS family (a thin fan of fins alone reads as a spoked wheel next to the solid pylon -- the cohesion
+//     review's central finding).  It blocks only the inner/low-thrust part of the disc, so it stays functionally cheap
+//     (unlike a full solid shell over the whole sector -- see guard_style="web").  Set <= the hub reach for a PURE open fan.
+guard_collar_r    = 44;     // solid from the hub out to this radius (~0.43R), then fins.  A knob to trade cohesion mass vs a lighter/airier guard.
+// --- VANES: broad sculpted fins that fan out of the collar (replace the thin wire spokes) ---
+guard_vanes       = 5;      // fins across the arc (they leave the SOLID collar and taper to the rim)
+guard_vane_root   = 13;     // fin width where it leaves the collar (broad; >2*guard_round+3 so the r2.5 roll is an EASED edge, not a rod)
+guard_vane_tip    = 8;      // fin width at the rim (leaves a ~3 mm flat face after the roll -> a fin, not a wire)
+guard_ribs        = 1;      // concentric rolled rib(s) in the OUTER (finned) band -- breaks the angular gaps (still a screen)
+guard_rib_w       = 6.5;    // rib radial width (a rolled bead with a flat crown, was the thin 3 mm ring)
+// --- RIM: ONE fuller rolled bead (merges the old thin ring + the SEPARATE foot-fillet shroud into a flowing rolled lip) ---
+guard_rim         = true;   // outer rolled rim / lip (the "shroud")
+guard_rim_wall    = 6;      // rim radial thickness (was guard_shroud_wall 2.2 -> a fuller rolled bead that reads next to the pylon mass)
+guard_rim_proud   = 3.5;    // how far the rim stands AFT beyond guard_t at the arc MIDDLE (a rolled lip vs SIDE debris;
+                            // still NOT reaching the disc -- the motor breathes open aft)
+guard_rim_proud_min = 2;    // proud at the arc ENDS (a gentle cosine taper -> a deliberate, smooth silhouette)
+// --- WEB variant (guard_style=="web") ---
+guard_web_holes   = 6;      // number of organic lightening cut-outs punched in the solid shell
+guard_web_margin  = 9;      // solid margin kept at the arc edges + between cut-outs
+// --- legacy grille params (guard_style=="legacy") -- kept so the old look + its echoes still render ---
+guard_hub_r       = 24;     // legacy FULL mount-hub disc radius (also backs the bolt-clearance echo bound)
+guard_rings       = 1;      // legacy intermediate frontal ring arcs
+guard_spokes      = 5;      // legacy frontal spokes across the arc
+guard_bar         = 3.0;    // legacy frontal ring + spoke-TIP width
+guard_spoke_root  = 8;      // legacy spoke width at the hub
+guard_shroud      = true;   // legacy aft lip
+guard_shroud_h    = 8;      // legacy lip rise at the arc middle
+guard_shroud_h_min = 6;     // legacy lip rise at the arc ends
+guard_shroud_wall = 2.2;    // legacy shroud radial thickness
+guard_shroud_foot = 2.5;    // legacy filleted foot at the shroud inner base
 // mount pattern + boss recess switch on mount_to.  "motor": the guard is the WASHER -- it bolts the A2212 cross and
 // its central bore is the boss recess (the 4 motor pads bear on the flat hub face around it).  "plate": legacy pad square.
 guard_bore_d      = (mount_to=="motor") ? motor_boss_d + 1.5 : bp_bore + 1.5;   // central boss clearance (>=10 in motor mode)
 guard_bolt_d      = (mount_to=="motor") ? motor_screw_d : bp_screw_d;           // M3 clearance (snug -- a vibration mount)
 // -- derived --
-guard_r_tip    = prop_radius + guard_tip_gap;        // shroud inner / frontal rim radius
-guard_r_out    = guard_r_tip + guard_shroud_wall;    // shroud outer radius
+guard_hub_ext  = (guard_style=="legacy") ? guard_hub_r : max(guard_hub_w, guard_hub_h)/2; // hub outer reach (rib/vane root placement)
+guard_vane_r0  = (guard_collar_r > guard_hub_ext) ? guard_collar_r : guard_hub_ext;        // fins start here (collar rim, or the hub if no collar)
+guard_has_collar = guard_collar_r > guard_hub_ext + 1;                                      // a solid inner collar is present
+guard_r_tip    = prop_radius + guard_tip_gap;        // rim inner / frontal rim radius
+guard_rim_w_eff = (guard_style=="legacy") ? guard_shroud_wall : guard_rim_wall;
+guard_r_out    = guard_r_tip + guard_rim_w_eff;      // rim outer radius
 guard_od       = 2*guard_r_out;                      // guard outer diameter
 guard_standoff = (mm_block_aft_z - pad_aft) - prop_disc_z;  // pad face -> prop disc; the guard aft-to-prop gap
 // arc centre from +X (90 = top; bias leans toward OUTBOARD = the side the motor sits on).  The lean follows the mast
@@ -1050,15 +1082,19 @@ guard_a_ctr    = 90 + guard_arc_bias * (mount_to=="motor" ? motor_offset_dir : 1
 guard_a0       = guard_a_ctr - guard_arc/2;          // arc start / end
 guard_a1       = guard_a_ctr + guard_arc/2;
 guard_full_ring = guard_arc >= 359.9;
-guard_ring_radii = [ for (i=[1:guard_rings]) guard_hub_r + i*(guard_r_tip - guard_hub_r)/(guard_rings+1) ];
+// concentric rib radii: legacy spaces them from the hub; bloom spaces them in the OUTER (finned) band, from the collar/hub
+// reach out to the rim (so a rib never lands inside the solid collar).
+guard_ring_radii = (guard_style=="legacy")
+  ? [ for (i=[1:guard_rings]) guard_hub_ext + i*(guard_r_tip - guard_hub_ext)/(guard_rings+1) ]
+  : [ for (i=[1:guard_ribs]) guard_vane_r0 + i*(guard_r_tip - guard_vane_r0)/(guard_ribs+1) ];
 // mount holes: "motor" = the A2212 cross (guard-local: LONG(19) along Y = up-mast, SHORT(16) along X = width),
 // SYMMETRIC about the hub centre (the one-sided offset is applied where the guard is PLACED, not in its pattern);
 // "plate" = the legacy pad square.
 guard_mount_xy   = (mount_to=="motor")
    ? [ [0, motor_bolt_long/2], [0, -motor_bolt_long/2], [motor_bolt_short/2, 0], [-motor_bolt_short/2, 0] ]
    : [ for (sx=[-1,1], sy=[-1,1]) [sx*bp_axis, sy*bp_axis] ];
-guard_shroud_ext = atan((guard_bar/2) / guard_r_tip);   // extend the shroud arc this far past each end spoke so the
-                                                        // full spoke width backs it (no half-contact / dangling end spoke)
+guard_shroud_ext = atan((guard_vane_tip/2) / guard_r_tip); // extend the rim arc this far past each end vane so the full
+                                                           // vane width backs it (no half-contact / dangling end vane)
 
 // =====================================================================
 //  MOTOR MOUNT (integrated) -- derived + echo (needs guard_t, so it lives after the guard block)
