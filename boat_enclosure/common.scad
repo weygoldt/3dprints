@@ -1154,6 +1154,10 @@ wire_slot_round = 1.2;  // lip ROLL radius (mm) on the AFT face + obround mouth 
                         // ROUNDED edge, not a sharp 90deg corner that could saw the insulation.  The roll is cut INWARD
                         // (a concave fillet), so it does NOT widen the slot in-plane -> the tight ~0.7 mm PLA web to the
                         // nearest M3 motor pad is UNCHANGED (bed lip keeps the guard's crisp/chamfer face rule).
+wire_slot_eye_d = 15;   // a round RELIEF "eye" at the cable EXIT: the diagonal slot leaves the SQUARE hub through its
+                        // corner, which slices the corner into two sharp acute PRONGS (the 45deg knife edges the moving
+                        // cable would chafe on).  This eye takes a round bite out of those prong tips -> rounded stubs.
+                        // Sits at the hub corner (radius ~22), well clear of the M3 pads at r~8-9.5.  0 = no eye.
 // direction from the hub centre to the INBOARD (toward boat centre) + DOWN (toward the deck) corner, in guard-local
 // (X=width, Y=up-mast).  INBOARD is OPPOSITE the arc lean (the arc covers the exposed OUTBOARD side); DOWN is -Y.  The sign
 // tracks motor_offset_dir -- VERIFY by eye (a mirror is probe-invisible; see the L/R memory).

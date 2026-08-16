@@ -269,12 +269,20 @@ module guard_rugged_body() {
 // INWARD (offset_sweep insets at the faces), so the slot's in-plane footprint is UNCHANGED -> the tight PLA web to the
 // nearest M3 motor pad stays put.  SUPPORTLESS split: the AFT (motor, UP-on-the-bed) lip is a 45deg CHAMFER (a rounded roll
 // on a hole's TOP lip would droop into an overhang); the BED lip is a full ROLL (a hole that widens downward self-supports).
-// The slot runs through the guard_t-thick hub only (not the proud rim).
+// The slot runs through the guard_t-thick hub only (not the proud rim).  A round RELIEF EYE at the exit rounds off the two
+// sharp PRONGS the diagonal canal leaves where it slices the square hub's CORNER (the 45deg knife edges the cable chafes on).
 module guard_wire_slot(ang = wire_slot_ang)
-  let(len = norm([guard_hub_w/2, guard_hub_h/2]) + 5)
-  rotate([0,0,ang]) translate([len/2, 0, -eps])   // -eps + height+2eps: penetrate both faces (no coincident cut plane)
-    offset_sweep(rect([len, wire_slot_w], rounding = wire_slot_w/2 - 0.01), height = guard_t + 2*eps,
-                 top = os_chamfer(width = wire_slot_round), bottom = os_circle(r = wire_slot_round));
+  let(len = norm([guard_hub_w/2, guard_hub_h/2]) + 5,      // slot aimed at the hub CORNER (rc), running a touch past it
+      rc  = norm([guard_hub_w/2, guard_hub_h/2]),
+      eyeR = rc - wire_slot_eye_d*0.18)                     // eye centre straddles the corner so its bite rounds both prongs
+  rotate([0,0,ang]) {
+    translate([len/2, 0, -eps])   // -eps + height+2eps: penetrate both faces (no coincident cut plane)
+      offset_sweep(rect([len, wire_slot_w], rounding = wire_slot_w/2 - 0.01), height = guard_t + 2*eps,
+                   top = os_chamfer(width = wire_slot_round), bottom = os_circle(r = wire_slot_round));
+    if (wire_slot_eye_d > 0)      // rounded eye (same eased lips: aft chamfer, bed roll) -> rounds the corner prongs
+      translate([eyeR, 0, -eps]) cyl(h = guard_t + 2*eps, d = wire_slot_eye_d, anchor = BOTTOM,
+                                     chamfer2 = wire_slot_round, rounding1 = wire_slot_round, $fn = 72);
+  }
 
 // the central boss + the (rotated) mount holes + the wire slot -- cut AFTER any body mirror so they stay in the real frame.
 module guard_cuts(rot = mount_rot, slot_ang = wire_slot_ang) {
