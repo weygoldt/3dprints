@@ -87,11 +87,15 @@ module ghost_screws() {
 
 show_wire = true;   // draw the bright motor-lead ghost (down the wire slot toward the boat centre)
 
-// one SET of two parallel fore-aft mounting RAILS per hull.  The printed rail is RECESSED into the foam (a milled slot),
-// its top flush with the deck, so the boxes screw DIRECTLY down to the hull.  Drawn embedded (top at the deck top Y=D,
-// body into the foam) so it reads as a recessed rail, not a proud strip.  Runs under BOTH boxes.
-module box_rails() for (sx=[-1,1]) color([0.30,0.30,0.34])
-  translate([sx*rail_gap/2, D + rail_h/2, 0]) cube([rail_w, rail_h, rail_len], center=true);
+// one SET of two parallel fore-aft mounting RAILS per hull (the repo dovetail rail, 40 mm hole grid).  RECESSED into the
+// foam, top flush with the deck, so the boxes screw DIRECTLY down to the hull.  Spans the box lugs (Z=box_z +/-100) plus a
+// margin, CONTAINED in the skid (does not run off the stern).  Small markers show the 40 mm bolt holes the boxes land on.
+module box_rails() {
+  z0 = box_back_z  - 100 - rail_end_inset;   // aft end (past the aftmost lug)
+  z1 = box_front_z + 100 + rail_end_inset;   // fwd end (past the forwardmost lug)
+  for (sx=[-1,1])
+    color([0.30,0.30,0.34]) translate([sx*rail_x, D + rail_disp_h/2, (z0+z1)/2]) cube([rail_disp_w, rail_disp_h, z1-z0], center=true);
+}
 
 // ONE drive: pylon (motor cross rotated by `rot`) + guard (rot + wire slot) + prop-disc + wire ghost, at a box's stern.
 module drive(rot) {

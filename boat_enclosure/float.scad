@@ -32,6 +32,17 @@ module bow_rake_cut() {
   }
 }
 
+// V-KEEL skid cross-section (X-Y at a station): full width w at the top, then the bottom keel_frac tapers IN to a keel
+// of width kw -> a boat-hull section (flat top, V bottom with a small keel flat).
+module skid_section(w, kw) let(yt = foam_top_y + deck_t, yv = yt + skid_t*(1 - keel_frac), yb = yt + skid_t)
+  polygon([[-w/2,yt], [w/2,yt], [w/2,yv], [kw/2,yb], [-kw/2,yb], [-w/2,yv]]);
+// one skid = a boat hull: full V-section for most of the length, PLAN-tapering to a narrow PROW at the bow (+Z).
+module skid() hull() {
+  translate([0,0,-skid_len/2])                 linear_extrude(eps) skid_section(skid_w, keel_w);          // stern (full)
+  translate([0,0, skid_len/2 - bow_taper_len]) linear_extrude(eps) skid_section(skid_w, keel_w);          // start of the bow taper
+  translate([0,0, skid_len/2])                 linear_extrude(eps) skid_section(keel_w*1.6, keel_w*0.6);  // bow PROW (narrow keel point)
+}
+
 module foam_body() {
   color([0.86, 0.86, 0.80]) difference() {
     union() {
@@ -39,8 +50,7 @@ module foam_body() {
         foam_slab(deck_w, deck_len, deck_t, foam_top_y, deck_r);
         if (deck_cutout_on) deck_cutout();
       }
-      for (s = [-1, 1]) translate([s*skid_center, 0, 0])   // two skids glued underneath
-        foam_slab(skid_w, skid_len, skid_t, foam_top_y + deck_t, skid_r);
+      for (s = [-1, 1]) translate([s*skid_center, 0, 0]) skid();   // two V-keel skids glued underneath
     }
     bow_rake_cut();
   }

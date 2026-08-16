@@ -560,14 +560,21 @@ skid_len        = 550;    // each skid fore-aft length  (Z)  -- default shares t
 skid_t          = 80;     // each skid thickness (Y)  ~8 cm  (Patrick 2026-08-16) -- deck_t+skid_t = float_thickness
 skid_r          = 20;     // skid plan corner radius (stern; the bow is raked)
 // --- 4-BOX layout on the deck (Patrick 2026-08-16): TWO boxes per hull -- a BACK box (pylon + prop) and a FRONT box
-//     (bare, for other hardware).  Each hull carries one SET of two parallel fore-aft mounting rails (two sets total). ---
-box_pitch       = 210;    // fore-aft centre-to-centre of the two boxes on a hull
-box_back_z      = -box_pitch/2;   // BACK box centre (toward the stern, -Z) -- carries the drive
-box_front_z     =  box_pitch/2;   // FRONT box centre (toward the bow, +Z) -- bare
-rail_gap        = 62;     // athwartship spacing of the two parallel mounting rails under a box (~ the box's lug pitch)
-rail_w          = 8;      // rail width (X)
-rail_h          = 6;      // rail height proud of the deck (Y)
-rail_len        = 470;    // rail fore-aft length (runs under both boxes)
+//     (bare, for other hardware), aligned to the RECESSED rail's 40 mm grid (rail_pitch). ---
+box_pitch       = 240;    // fore-aft centre-to-centre = 6 x rail_pitch -> both boxes' lugs (Z=+/-100) land on the 40 mm grid
+                          // with a distinct hole each; the box bodies then leave an automatic ~54 mm gap between the rows.
+box_group_z     = 40;     // fore-aft centre of the two-box group (= deck_center_z; kept a literal to avoid a forward ref)
+box_back_z      = box_group_z - box_pitch/2;   // BACK box centre (toward the stern, -Z) -- carries the drive
+box_front_z     = box_group_z + box_pitch/2;   // FRONT box centre (toward the bow, +Z) -- bare
+rail_x          = mm_pad_w/2 + hd_inset;   // the two mounting rails sit under the box lugs (X = +/-31); their gap tracks the lugs
+rail_disp_w     = 14;     // preview rail width  (matches rail.scad rail_w) -- the real recessed dovetail rail
+rail_disp_h     = 10;     // preview rail height (matches rail.scad rail_h)
+rail_end_inset  = 20;     // rail ends stop ~2 cm past the outer lugs -- contained in the skid, NOT running off the stern
+// --- V-KEEL SKID (Patrick 2026-08-16): each skid is sanded into a boat hull -- full-width top, the bottom keel_frac
+//     tapers to a central KEEL running the whole length, and the bow tapers to a prow. ---
+keel_frac       = 1/3;    // bottom fraction of the skid depth that tapers in to the keel
+keel_w          = 12;     // keel width (X) at the very bottom -- a small flat, not a knife edge
+bow_taper_len   = 140;    // how far aft of the bow tip the skid plan-tapers to the prow
 deck_center_z   = 40;     // deck centre fore-aft vs the enclosures (+ = more FOREdeck, props aft)
 // Raked bow: a single inclined cut across the whole foam front -- the underside
 // sweeps UP toward a forward top point (ski-tip / raked stem): finer water entry,
