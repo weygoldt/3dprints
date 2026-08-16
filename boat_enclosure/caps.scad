@@ -308,6 +308,20 @@ for (f = cap_families) {
            min(min_gland_pitch - fl/2 - port_ftp/2, min_gland_pitch - fl) >= 2
              ? "OK (>=2)" : "  << tight: a cap crowds its neighbour -- shrink cap_flange_over"));
 }
+// -- CROSS-PART: body.scad bells the cable-port OUTER mouth by port_edge_r so a wire cannot chafe on a
+//    square edge.  That bell eats into the flat wall the cap's flange seats on, so the two are coupled. --
+for (f = cap_families) {
+  seat_ir  = cap_tor(f[1]) + cap_relief;          // cap flange SEATING ring, inner radius
+  mouth_r  = f[1][0]/2 + port_edge_r;             // belled cable-port mouth (common.scad)
+  echo(str("  ", f[0], " seat vs belled port mouth: flange ring starts r", cap_r2(seat_ir),
+           ", mouth opens to r", cap_r2(mouth_r), " -> margin ", cap_r2(seat_ir - mouth_r), " ",
+           seat_ir - mouth_r >= 0.3
+             ? "OK (>=0.3, the flange still lands on flat wall)"
+             : "  << WARNING: the bell has eaten the cap's seat -- shrink port_edge_r or raise cap_relief"));
+}
+// the bead hooks the bore's INNER edge, so that edge must stay SQUARE -- flag it if it ever gets rounded
+echo(str("  NB the caps' retention depends on the cable port's INNER edge staying square (body.scad rounds",
+         " the OUTER mouth only).  Rounding the inner edge would let the bead cam straight back out."));
 echo(str("  print FLANGE-DOWN, supportless ; insert from OUTSIDE, pry the flange lip to remove"));
 echo(str("  splash: the ", cap_base, " mm closed base + the seated flange ring block the bore; the relief groove is"));
 echo("  a blind annulus behind that ring, not a leak path.  Silicone / a foam washer if you want it watertight.");

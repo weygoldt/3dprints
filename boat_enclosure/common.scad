@@ -416,6 +416,17 @@ fwd_gusset_gap  = 0.15;  // clearance under the bearing foot so it never fights 
 port_gland_d   = 12;    // gland panel-mount hole -- MEASURED (every gland is the same)
 port_ftp       = 19;    // installed gland hex/dome OD on the wall (MEASURED) -- the spacing check uses THIS
 port_y         = 24;    // Y of the gland centers (above the on-floor components)
+// -- WIRE-CHAFE ROUND on the cable ports (Patrick, 2026-08-15) --
+// A square-cut hole leaves a 90 deg edge that saws the insulation every time the wire works
+// (prop wash, handling, the run aft to the motor).  port_edge_r bells the bore mouth out so the
+// wire bears on a RADIUS instead of a corner.  OUTER face only, and this is not fussiness:
+//   * outer is where the wire actually flexes -- inboard it is captive and the gland nut relieves it;
+//   * the INNER edge is the shelf the blanking caps' snap bead hooks behind (caps.scad).  Round that
+//     and the bead cams straight back out of a bore it is supposed to hold in.  Left sharp on purpose.
+// Capped at 0.6: bigger and the bell mouth eats into the ring the cap's flange seats on (caps.scad
+// echoes the margin).  Costs 0.6 of the 3 mm bore's straight length -- irrelevant to a gland, whose
+// 19 mm shoulder spans the whole mouth and whose nut clamps the full wall thickness further out.
+port_edge_r    = 0.6;   // wire-bearing radius at the OUTER mouth of each cable port (0 = square cut)
 rc_motor_zs    = [-72, -48]; // RC: 2 aft motor glands by the pylon (same-side + opposite-side, 3 wires each)
 rc_ctrl_z      = 55;    // RC: control-signal gland, well forward (far from the motor wires for less EMI pickup)
 stim_in_z      = 55;    // STIM: signal-in from the RC receiver (forward)
