@@ -54,7 +54,7 @@ function fwd_at(Y) = (!fwd_gusset || Y >= fg_y1) ? 0 : (Y <= fg_y0) ? -fg_reach 
 // rounded X-Z rectangle profile at height Y with corner radius r.  FIXED point count (4 corners x MSEG+1) so skin() can
 // loft between profiles of different r -- lets the rounding EASE from ~0 at the foot (sharp, matches the frozen block) to
 // full at the pad, and roll the top edge off.  Corners = the mast's 4 long edges + the pad rim, so this rounds them all.
-MSEG = 6;
+MSEG = mast_seg;   // 1 -> chamfered mast edges (rugged) ; 6 -> smooth rounded loft.  Set in common.scad.
 // The two corners on the BED-CONTACT width edge stay ~sharp (rounding a bed edge would lift it off the bed -> overhang);
 // the other two round to r.  Bed side = the width edge the mast hugs: low-Z (-h) for dir<=0, high-Z (+h) for dir>0.
 function rprof(xf, xa, z0, z1, Y, r) =
@@ -66,7 +66,7 @@ function rprof(xf, xa, z0, z1, Y, r) =
       for (k=[0:MSEG]) let(a = 90*c + 90*k/MSEG)
         [ cc.x + cx + rr*cos(a), Y, cc.y + cz + rr*sin(a) ] ];
 module pylon_mast_loft() {
-  N = 34;  rmax = 2.5;  Mtop = 6;
+  N = 34;  rmax = mast_edge;  Mtop = 6;
   fwd0 = fwd_at(flare_y);  aft0 = aft_at(flare_y);                                  // foot cross-section at flare_y
   // MAIN loft: flare_y -> pad_y1.  The X-Z shape reaches the pad profile by pad_y0 then stays constant (flat motor
   // seat over the bolt span); the corner radius eases 0 -> rmax by pad_y0 (sharp at the block, rounded up the mast).

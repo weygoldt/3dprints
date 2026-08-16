@@ -232,11 +232,44 @@ module guard_legacy() {
   }
 }
 
+// ---------------------------------------------------------------------
+//  RUGGED family (DEFAULT) -- simple / minimal / ENGINEERED to match the square housing boxes.
+//  A chamfered rectangular HUB + straight radial BARS + a chamfered mid RING + a chamfered proud RIM.
+//  Flat faces, small 45deg chamfers (box edge_ch language), crisp bed edges.  Prints FLAT, supportless
+//  (bars/rings are chamfered-top prisms; the rim is a near-vertical wall).  Mount interface unchanged.
+// ---------------------------------------------------------------------
+// a chamfered-top rectangular-section arc (mid ring / proud rim): flat crisp bed, both top corners chamfered.
+module guard_ring_rugged(r_in, w, h)
+  let(ch = min(guard_edge_ch, w/2 - 0.2, h - 0.2), ro = r_in + w, ext = guard_full_ring ? 0 : guard_shroud_ext)
+  rotate([0,0,guard_a0 - ext]) rotate_extrude(angle = guard_full_ring ? 360 : guard_arc + 2*ext, $fn = 280)
+    polygon([[r_in,0],[ro,0],[ro,h-ch],[ro-ch,h],[r_in+ch,h],[r_in,h-ch]]);
+// a straight radial BAR from ri to ro, chamfered top+sides, crisp bed.
+module guard_bar_rugged(a, ri, ro)
+  rotate([0,0,a]) translate([(ri+ro)/2, 0, 0])
+    cuboid([ro - ri, guard_spoke_w, guard_t], chamfer = guard_edge_ch, except = BOTTOM, anchor = BOTTOM);
+module guard_rugged() {
+  ri   = guard_hub_ext - 3;                         // bar inner (welds into the hub)
+  ro   = guard_r_tip + guard_rim_wall*0.6;          // bar outer (welds into the rim)
+  rmid = (guard_hub_ext + guard_r_tip)/2;           // mid ring radius
+  bars = [ for (i=[0:guard_vanes-1]) guard_a0 + (guard_a1-guard_a0)*i/(guard_vanes-1) ];
+  difference() {
+    union() {
+      cuboid([guard_hub_w, guard_hub_h, guard_t], chamfer = guard_edge_ch, except = BOTTOM, anchor = BOTTOM); // HUB
+      for (a = bars) guard_bar_rugged(a, ri, ro);                                                             // radial BARS
+      guard_ring_rugged(rmid - guard_rib_w/2, guard_rib_w, guard_t);                                          // mid RING
+      if (guard_rim) guard_ring_rugged(guard_r_tip, guard_rim_wall, guard_t + guard_rim_proud);               // proud RIM
+    }
+    translate([0,0,-1]) cylinder(h = guard_t + guard_rim_proud + 2, d = guard_bore_d);                        // boss recess
+    for (p = guard_mount_xy) translate([p[0],p[1],-1]) cylinder(h = guard_t + 2, d = guard_bolt_d);           // 4x M3
+  }
+}
+
 // dispatch
 module guard_full()
   if (guard_style == "web")         guard_web();
   else if (guard_style == "legacy") guard_legacy();
-  else                              guard_bloom();
+  else if (guard_style == "bloom")  guard_bloom();
+  else                              guard_rugged();
 
 // =====================================================================
 //  ECHO FIT-CHECK

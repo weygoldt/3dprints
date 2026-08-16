@@ -318,9 +318,11 @@ motor_body_d   = 28;    // motor can diameter (nominal A2212; pad + ghost sizing
 // pad_top_pad so a full FLAT seat sits above that screw before the round begins.  Only the top grows
 // (the bottom still merges into the buttress), so the mast + motor axis stay put.
 pad_top_pad    = 6;     // extra flat above the top "+" screw (>= pylon_fillet + ~1 keeps the screw off the round)
-pad_blossom    = 13;    // ONE-PART sculpt: the mast BLOSSOMS this far UP past the pad (Y), rounding into a nub that rises
-                        // into the guard's domed boss so the assembled pair reads as one rising form.  Purely additive
-                        // ABOVE the bolt pad (mount untouched); prints in-plane on the side-print -> supportless.  0 = off.
+pad_blossom    = 0;     // (organic ONE-PART blossom -- OFF for the rugged style; the mast ends in a clean chamfered pad that
+                        // matches the guard's chamfered hub.  >0 revives the sci-fi blossom that rose into the domed boss.)
+mast_seg       = 1;     // loft corner facets: 1 = a single 45deg CHAMFER per mast edge (rugged/machined, matches the box) ;
+                        // 6 = the old smooth rounded loft.  Feeds MSEG in pylon.scad (rprof).
+mast_edge      = 1.5;   // mast edge chamfer/round size (was rmax 2.5) -- MATCHES the box edge_ch for a rugged look
 
 // =====================================================================
 //  [Motor mount MODE] -- INTEGRATED pylon + prop-guard rev (2026-08-13, Patrick's handoff).
@@ -1015,10 +1017,12 @@ echo("---------------------------------------------------------------");
 prop_guard        = true;   // draw the guard in the assembly preview
 // VISUAL-COHESION REV (2026-08-15): restyle the guard to share the PYLON's rounded skin()-loft language so it reads as
 // ONE designed family (was a thin wire fan bolted onto a sculpted pylon).  guard_style selects the surface family.
-guard_style       = "bloom";// [bloom, web, legacy] surface FAMILY.  bloom = a pad-echo rounded-RECT hub that grows out of
-                            // the motor pad + broad SCULPTED vanes + one ROLLED rim (all edges eased ~2.5 like the pylon,
-                            // bed edges crisp) ; web = a solid arc SHELL lightened by organic cut-outs (most solid/heaviest,
-                            // closest to the pylon's mass) ; legacy = the old thin-spoke grille (kept for A/B + fallback).
+guard_style       = "rugged";// [rugged, bloom, web, legacy] surface FAMILY.  rugged (DEFAULT, 2026-08-16) = simple, minimal,
+                            // ENGINEERED to match the square rugged housing boxes: a chamfered rectangular hub + straight
+                            // radial BARS + a chamfered ring + a chamfered proud RIM, all flat faces + small 45deg chamfers
+                            // (like the box edge_ch), bed edges crisp.  bloom/web/legacy = earlier organic/experimental looks.
+guard_edge_ch     = 2;      // 45deg chamfer on the guard's aft/top edges -- box edge_ch language, a touch chunkier (machined/rugged)
+guard_spoke_w     = 9;      // rugged spoke BAR width -- beefy clean rectangular bars (engineered, takes a knock; not wires)
 guard_arc         = 135;    // kept sweep (deg): top + outboard only (360 = full ring)
 guard_arc_bias    = 45;     // lean the kept arc off TOP toward the OUTBOARD side (deg; 0 = symmetric about top,
                             // 45 = centred on the top-outboard diagonal).  In guard-local the OUTBOARD side is
