@@ -699,7 +699,10 @@ pad_h      = 2*bp_axis + 2*bp_edge;                        // pad backs the 4 X 
 // CONNECTOR (mating face X=0 + register tongue + 4x M4) and the MOTOR mount (A2212 cross + boss) are UNCHANGED.
 pylon_base_t = 24;    // fore-aft depth at the BASE (= the flat AFT face X = the motor standoff pad_aft) -- sets base stiffness
 mast_top_t   = 14;    // fore-aft depth at the mast TOP (forward face recedes 0 -> pad_aft-mast_top_t up the mast => a wedge)
-pad_w_top    = 30;    // mast WIDTH at the top (tapers straight from pylon_width at the base) -- backs the motor SHORT cross + walls
+pad_head_w   = 30;    // the mast tapers pylon_width -> pad_head_w by pad_y0, then holds CONSTANT to the top -> a rectangular
+                      // HEAD (pad_y0..mast_top_y) whose aft face EXACTLY matches the guard's rectangular hub (guard_hub_w =
+                      // pad_head_w) -> the guard base-plate aligns PERFECTLY with the pylon face.  Backs the motor SHORT cross + walls.
+pad_w_top    = pad_head_w; // (the wedge top width IS the head width)
 pylon_edge_ch = 1.5;  // 45deg chamfer on the wedge's long edges -- MATCHES the box edge_ch (rugged/machined look)
 pad_aft      = pylon_base_t;                              // pylon aft (motor) face fore-aft = the flat back-print face
 motor_zc     = pylon_width/2;                             // motor CENTRED across the width (symmetric pylon -- same part both hulls)
@@ -721,7 +724,9 @@ pad_y0     = (mount_to=="motor") ? pylon_rise - (motor_bolt_long/2 + motor_head_
                                  : pylon_rise - pad_h/2;    // pad bottom (merges into the buttress top)
 pad_y1     = (mount_to=="motor") ? pylon_rise + (motor_bolt_long/2 + motor_head_d/2 + 3)
                                  : pylon_rise + pad_h/2 + pad_top_pad; // pad top
-mast_top_y   = pad_y1 + pad_top_pad;                          // WEDGE apex Y (a touch above the top motor bolt access-bore)
+mast_top_y   = pad_y1;                                        // WEDGE apex = the pad TOP (shaved ~6 mm off the old +pad_top_pad
+                                                             // nub; still 3 mm wall above the top motor bolt access-bore).
+                                                             // The head (pad_y0..mast_top_y) == the guard hub rectangle exactly.
 pad_top_flat = pad_y1 - (pylon_rise + bp_axis) - pylon_fillet; // (plate) FLAT above the top X screws before the round
 motor_top_wall = pad_y1 - (pylon_rise + motor_bolt_long/2) - motor_head_d/2;   // (motor) top LONG bolt access-bore -> pad top
 // -- Item 3: low foot bolt now clears the base-corner fillet (counterbore bottom above the round) --
@@ -1036,8 +1041,8 @@ guard_round       = 2.5;    // aft/top edge ROLL radius -- was 1.6 ; now MATCHES
 guard_front_round = 0.8;    // small 45deg easing on the FRONTAL (bed / intake) edges -- a chamfer (printable), not a lift
 guard_fillet      = 3;      // (reserved) concave junction fillet radius in the frontal plane -- the pylon-family fillet
 // --- HUB: a pad-echo rounded RECTANGLE that grows out of the motor pad (was a pancake disc) ---
-guard_hub_w       = mast_w;            // hub width  (X)       = the mast-band width  -> the hub OVERLAYS the pad outline
-guard_hub_h       = pad_y1 - pad_y0;   // hub height (Y, up-mast) = the pad face height -> reads as the pad continued forward
+guard_hub_w       = pad_head_w;        // hub width  (X)       == the pylon HEAD width  -> the base-plate aligns PERFECTLY with the pylon face
+guard_hub_h       = pad_y1 - pad_y0;   // hub height (Y, up-mast) == the pylon head height (pad_y0..pad_y1) -> same rectangle, flush
 guard_hub_rr      = 6;                 // hub in-plane corner radius (soft, a touch fuller than the pad -> a "bloom", not a box)
 guard_hub_light   = (guard_style=="legacy"); // SOLID hub in bloom/web (it IS the bearing washer) ; drilled relief only legacy
 // --- COLLAR: a SOLID inner bloom that grows from the pad, then opens into fins.  This is what makes bloom read as the

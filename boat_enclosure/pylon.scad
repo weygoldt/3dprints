@@ -23,23 +23,22 @@
 // =====================================================================
 include <common.scad>
 
-// STRAIGHT WEDGE solid: a full-width/full-depth FOOT (the connector base) that tapers -- in width AND fore-aft --
-// up to the motor pad, with the AFT face kept FLAT (X=pad_aft) so it prints face-down and carries the motor.
-// Edges get a small 45deg CHAMFER (pylon_edge_ch, = the box edge_ch) so it reads rugged/machined like the housings.
-module pylon() color("Tan") let(cz = pylon_width/2, ch = pylon_edge_ch) {
+// a thin cross-section slab (chamfered long edges) at height Y: width w (Z, centred), fore-aft from the FLAT aft face
+// (X=pad_aft) forward to fwd_x(Y) -- the forward face recedes linearly (pad_aft depth at the base -> mast_top_t at the top).
+function fwd_x(Y) = max(0, (pad_aft - mast_top_t) * (Y - flare_y) / (mast_top_y - flare_y));  // forward-face X at height Y
+module wslab(Y, w) let(fx = fwd_x(Y), d = pad_aft - fx)
+  translate([(fx + pad_aft)/2, Y, pylon_width/2]) cuboid([d, eps, w], chamfer = pylon_edge_ch, edges = "Y", except = RIGHT);
+
+// STRAIGHT WEDGE solid, printed on the FLAT aft face.  Three ruled sections:
+//   FOOT   (0..flare_y)        full width/depth -- the connector base (4x M4 + tongue).
+//   TAPER  (flare_y..pad_y0)   width narrows pylon_width -> pad_head_w (straight edges).
+//   HEAD   (pad_y0..mast_top_y) CONSTANT width pad_head_w -- a rectangle whose aft face == the guard hub, so the guard
+//                              base-plate aligns PERFECTLY with the pylon face.  (Fore-aft still recedes to mast_top_t.)
+module pylon() color("Tan") {
   union() {
-    // FOOT: prismatic box, mating face (X=0) .. flat aft face (X=pad_aft), up to flare_y -- houses the 4 M4 + tongue.
-    // Chamfer the LONG (Y-running) edges; the mating (X=0) and aft (X=pad_aft) faces + their bed edge stay effectively flat.
-    hull() {
-      translate([pad_aft/2, eps/2,      cz]) cuboid([pad_aft, eps, pylon_width], chamfer=ch, edges="Y", except=RIGHT);
-      translate([pad_aft/2, flare_y,    cz]) cuboid([pad_aft, eps, pylon_width], chamfer=ch, edges="Y", except=RIGHT);
-    }
-    // MAST WEDGE: straight taper flare_y -> mast_top_y.  Flat AFT face (X=pad_aft) shared top+base; the FORWARD face
-    // recedes (0 -> pad_aft-mast_top_t) and the WIDTH narrows (pylon_width -> pad_w_top), both linear.  Chamfered long edges.
-    hull() {
-      translate([pad_aft/2,               flare_y,    cz]) cuboid([pad_aft,     eps, pylon_width], chamfer=ch, edges="Y", except=RIGHT);
-      translate([pad_aft - mast_top_t/2,  mast_top_y, cz]) cuboid([mast_top_t,  eps, pad_w_top],   chamfer=ch, edges="Y", except=RIGHT);
-    }
+    hull() { wslab(eps/2,   pylon_width); wslab(flare_y,    pylon_width); }  // FOOT  (full, prismatic)
+    hull() { wslab(flare_y, pylon_width); wslab(pad_y0,     pad_head_w); }   // TAPER (44 -> head width)
+    hull() { wslab(pad_y0,  pad_head_w);  wslab(mast_top_y, pad_head_w); }   // HEAD  (constant width -- matches the guard hub)
     // REGISTER TONGUE (forward, into the block slot) -- part of the frozen connector (crisp)
     translate([-reg_depth, (foot_h - reg_h)/2, 0]) cube([reg_depth + eps, reg_h, pylon_width]);
   }
