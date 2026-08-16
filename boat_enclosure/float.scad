@@ -36,11 +36,14 @@ module bow_rake_cut() {
 // of width kw -> a boat-hull section (flat top, V bottom with a small keel flat).
 module skid_section(w, kw) let(yt = foam_top_y + deck_t, yv = yt + skid_t*(1 - keel_frac), yb = yt + skid_t)
   polygon([[-w/2,yt], [w/2,yt], [w/2,yv], [kw/2,yb], [-kw/2,yb], [-w/2,yv]]);
-// one skid = a boat hull: full V-section for most of the length, PLAN-tapering to a narrow PROW at the bow (+Z).
-module skid() hull() {
+// one skid = a boat hull: full V-section for most of the length, PLAN-tapering to a narrow prow, and ROUNDED at the
+// top-front so the bow sweeps up and rounds over toward the deck (Patrick 2026-08-16).
+module skid() let(yt = foam_top_y + deck_t) hull() {
   translate([0,0,-skid_len/2])                 linear_extrude(eps) skid_section(skid_w, keel_w);          // stern (full)
   translate([0,0, skid_len/2 - bow_taper_len]) linear_extrude(eps) skid_section(skid_w, keel_w);          // start of the bow taper
-  translate([0,0, skid_len/2])                 linear_extrude(eps) skid_section(keel_w*1.6, keel_w*0.6);  // bow PROW (narrow keel point)
+  translate([0,0, skid_len/2 - bow_round])     linear_extrude(eps) skid_section(keel_w*1.8, keel_w*0.6);  // bow keel (narrow, low)
+  // ROUNDED bow crown: a cylinder (axis athwartship) tucked below the deck at the bow -> the top-front rounds over
+  translate([0, yt + bow_round, skid_len/2 - bow_round]) rotate([0,90,0]) cylinder(h = keel_w*1.8, r = bow_round, center = true);
 }
 
 module foam_body() {

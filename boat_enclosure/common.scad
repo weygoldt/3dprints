@@ -217,7 +217,8 @@ selftap_depth   = 9;         // pilot depth up from the underside
    nothing sticks up inside the housing and no bore breaches the chamber (probe-checked).  Sitting
    right at the ends (Z ~ +/-100) also gives a much WIDER hold-down base than the old +/-79 bosses,
    which the old MOUNT NOTE flagged as too narrow vs the aft mast (less pitch, less bolt tension). */
-corner_mount    = true;      // ON: the new external corner-lug hold-down (screw_mount floor bosses default OFF)
+corner_mount    = false;     // Patrick 2026-08-16: DEPRECATED -- the boxes now screw to the RECESSED RAILS, not through the
+                             // foam.  (was the external corner-lug hold-down.)  TODO: add box-floor bolt holes at the rail lugs.
 hd_post_h       = 16;        // lug height ABOVE the foam (Y) -- sets the (short) hold-down bolt length: foam + this
 hd_w            = 16;        // lug width (X): overlaps the block side for a weld AND stays INBOARD of the box's
                              // rounded corner tangent (W/2-corner_r) so it merges into the FLAT wall, no corner notch
@@ -575,6 +576,7 @@ rail_end_inset  = 20;     // rail ends stop ~2 cm past the outer lugs -- contain
 keel_frac       = 1/3;    // bottom fraction of the skid depth that tapers in to the keel
 keel_w          = 12;     // keel width (X) at the very bottom -- a small flat, not a knife edge
 bow_taper_len   = 140;    // how far aft of the bow tip the skid plan-tapers to the prow
+bow_round       = 55;     // radius of the ROUNDED bow: the prow sweeps up and rounds over toward the deck at the top-front
 deck_center_z   = 40;     // deck centre fore-aft vs the enclosures (+ = more FOREdeck, props aft)
 // Raked bow: a single inclined cut across the whole foam front -- the underside
 // sweeps UP toward a forward top point (ski-tip / raked stem): finer water entry,
@@ -1053,8 +1055,10 @@ guard_style       = "rugged";// [rugged, bloom, web, legacy] surface FAMILY.  ru
                             // (like the box edge_ch), bed edges crisp.  bloom/web/legacy = earlier organic/experimental looks.
 guard_edge_ch     = 2;      // 45deg chamfer on the guard's aft/top edges -- box edge_ch language, a touch chunkier (machined/rugged)
 guard_spoke_w     = 9;      // rugged spoke BAR width -- beefy clean rectangular bars (engineered, takes a knock; not wires)
-guard_arc         = 135;    // kept sweep (deg): top + outboard only (360 = full ring)
-guard_arc_bias    = 45;     // lean the kept arc off TOP toward the OUTBOARD side (deg; 0 = symmetric about top,
+guard_arc         = 180;    // Patrick 2026-08-16: a full HALF circle (symmetric about top) -- a full ring (360) is nicer
+                            // still but its 228 OD exceeds the 210 bed axis, so 180 is the biggest one-piece guard.  The
+                            // symmetric arc lets the spars land every 45deg -> on the mounting-square DIAGONALS + axes.
+guard_arc_bias    = 0;      // lean the kept arc off TOP toward the OUTBOARD side (deg; 0 = SYMMETRIC about top,
                             // 45 = centred on the top-outboard diagonal).  In guard-local the OUTBOARD side is
                             // -X / 180 deg (verified through the assembly transform), so the centre is 90 + this.
 guard_tip_gap     = 6;      // radial clearance: prop tip -> rim INNER (the rim must clear a flexing blade)

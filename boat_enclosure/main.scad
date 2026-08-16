@@ -117,7 +117,7 @@ module boat_box(role, with_drive=false, rot=0) {
   color("SteelBlue") body(role);
   translate([Ax, Ay, 0]) rotate([0, 0, -lid_open]) translate([-Ax, -Ay, 0]) color("Gainsboro") lid();
   if (with_drive) drive(rot);
-  if (show_ghosts) { ghost_components(); ghost_screws(); }
+  if (show_ghosts) ghost_components();   // ghost_screws (through-foam hold-down) removed -- boxes now screw to the rails
 }
 
 // =====================================================================
