@@ -82,13 +82,20 @@ Opening a file in the OpenSCAD GUI:
 Or one at a time:
 
 ```sh
-openscad -o out.stl --render -D 'x=0' -D 'part="arm100"' main.scad
+openscad -o out.stl --render=force -D 'x=0' -D 'part="arm100"' main.scad
 ```
+
+> `--render=force`, not a bare `--render`. OpenSCAD 2026.07 made `--render` take
+> an argument, so the bare flag eats the filename and you get the usage text.
+> `build.sh` funnels every render through one helper for this reason.
 
 Parts, streamlined: `gauge`, `arm50`, `arm75`, `arm100`, `arm140`, `set`,
 `section`. Simple: `sgauge`, `simple50`, `simple75`, `simple100`, `simple140`,
 `sset`, `ssection`. Plus `clamp`, `buckle` and `twist`. Arm names are
 **pivot-to-pivot** distance in mm.
+
+Not an arm at all, but it caps the pipes the clamp holds: `cap`, `capset` and
+`capgauge` — a press-fit parabolic fairing for the end of a 12 mm PVC tube.
 
 > **Print a gauge first.** It is both ends with no beam, ~10 minutes, and it
 > tells you whether the 0.10 mm clearances land right on *your* PETG before you
@@ -1104,6 +1111,149 @@ Pivot A's slots reach `pocket_r` = 11.05, and the body has to be down to the
 fork's 8.9 before it enters the mating knuckle's sweep at 7.75 from pivot B, so
 everything the body does happens in between: 16.2 mm at L = 35, 11.2 at 30, and
 by 25 the ramp is a step rather than a taper. Longer is free.
+
+## PVC pipe fairing cap (`part="cap"`)
+
+A press-fit nose cone for the end of a **12 mm PVC tube**. Nothing to do with the
+GoPro joint — it lives here because it caps the pipes the clamp holds. A
+blunt-cut tube end is the worst shape there is in water: the flow separates off
+the rim and the tube drags a wake. This replaces the rim with something the water
+can follow.
+
+> **Print `capgauge` first.** The tube measures *about* 9.9 mm ID and the press
+> fit is set from that number. The gauge is five stubs carrying this exact plug
+> at stepped crest diameters — push each into the real tube, take the tightest
+> one that still seats by hand, and put that number in `plug_crest_d`.
+
+### Why a parabola, and why *that* parabola
+
+The parabolic-series nose is `r(x)/R = (2u − K u²)/(2 − K)`, `u = x/L` from the
+tip. `K` = 0 is a cone; `K` = 1 is the one worth having, because its slope at the
+**base** is exactly zero:
+
+```
+dr/dz|base = R(2 − 2K)/(L(2 − K)) = 0   when K = 1
+```
+
+so the nose leaves the tube **tangent** — same diameter, same slope, no step and
+no corner to trip the flow. At `K` = 1 it collapses to `r(z) = R(1 − (z/L)²)`.
+
+That tangency is the whole point of the part, so it is measured rather than
+assumed (`verify_cap.py` `[7]`): mean `|dr/dz|` over the first mm off the tube
+reads **0.0186**, where a cone of the same length would read 0.3333. The full
+profile is differenced against the analytic curve over 824 samples off the mesh
+and agrees to **0.0018 mm**.
+
+`nose_l` = 18 is a **1.5 : 1** fineness ratio, a good all-rounder. If a cap goes
+on the *downstream* end, lengthen it — a trailing fairing wants 2.5–3 : 1,
+because pressure recovery at the tail is what actually sheds the wake. The
+leading end never needs more than about 1.5 : 1.
+
+**The tip is rounded**, because a `K` = 1 parabola ends in a mathematical point
+with finite slope — one extrusion wide, prints as a stringy nub, snaps off on the
+first rock. The last of it is a sphere **solved for tangency**, not eyeballed:
+
+```
+rho = r0·sqrt(1 + m²)      zc = z0 − r0·m       (m = |dr/dz| at the join)
+```
+
+bisected until `rho` lands on `tip_r`. Measured back off the mesh: **1.498** vs
+1.50 asked for. Rounding the point off necessarily *shortens* the nose — `nose_l`
+is the parabola's nominal length and the part comes out at **16.68**, total
+height **31.00**.
+
+### The press fit is three ribs, not a cylinder
+
+"About 9.9" is the problem: a plain cylinder sized for 9.9 either will not start
+in a 9.75 bore or rattles in a 10.05 one. So the plug never touches the bore
+along its length. It carries three annular ribs, like a hose barb:
+
+| | diameter | vs the 9.90 bore |
+|---|---|---|
+| rib crest | 10.10 | **+0.200** interference (0.100/side) |
+| plug body | 9.40 | −0.500 clearance — touches nothing |
+
+Only the crests touch, so insertion force stays low while interference per unit
+of contact stays high, and one part grips a bore anywhere in a ~0.4 mm band.
+
+Each rib is a **sawtooth, not a bead**: a 16.3° ramp going in (shallow enough to
+push by hand) and a square 90° step coming out (maximum bite). The asymmetry only
+works in one print orientation — the ramp faces down and the bite faces up — and
+flipping the part would quietly reverse it. That is why the gauge stubs print the
+same way up as the cap, and why the verifier checks the crest, the pitch and the
+body separately rather than just "are there ribs".
+
+Engagement is **12.82 mm = 1.07 tube diameters**; the top rib's land runs 2.0 mm
+so it sits *at the tube mouth* and stops the cap sitting cocked.
+
+### The seat, and the only overhang in the part
+
+Insertion depth needs a hard stop, or the joint ends up wherever it happened to
+stop — and a fairing standing 1 mm proud has a groove around it that undoes the
+whole exercise. So the collar butts the tube's end face on a flat annulus.
+
+That seat is a horizontal down-facing ring 12.8 mm up in the air, and **it cannot
+be designed away**: any chamfer that removes it leaves the collar rim proud by
+the full wall thickness, which is the groove again. What it *can* be is narrow —
+`seat_w` = 0.6, one perimeter, with a 40° chamfer carrying the rest of the step.
+The underside comes out rough, which is fine: it is buried in the joint and the
+roughness is friction.
+
+So the printability gate is not "no overhangs", it is **"exactly one, and it is
+that one"**. Measured: **21.48 mm²** unsupported, against 21.49 mm² of seat
+annulus, and **0.000 mm²** anywhere else in the part.
+
+### Print
+
+**PETG, 0.2 mm, no support, 4 perimeters, ~25 % infill — and a brim.** The part
+is 31 mm tall on an 8.3 mm footprint (54.1 mm² of bed contact, measured): it
+prints fine and knocks over easily. Print at least two at once — `capset` is four
+on a plate — or set a 15 s minimum layer time, because the last few mm of tip are
+a handful of seconds per layer and will slump into a blob if nothing else on the
+plate is buying them cooling time.
+
+Everything on the nose faces up and out, so a shape that is *nothing but
+overhang* printed any other way needs no support at all printed this way.
+
+### What the checks caught
+
+Three things, two of them invisible in a render:
+
+**The gauge came back genus −8.** Five separate genus-0 solids should read −4.
+The paddle handle landed exactly *on* the collar's top face — a coplanar union —
+and four of the five stubs kept the paddle's buried underside as a **degenerate
+internal shell**. It sliced into a mess and rendered without complaint. Sinking
+the paddle 0.6 mm into the collar gives the union something to cut; the verifier
+now counts connected components, which is the check that would have caught it
+first (`verify_cap.py` `[1]`).
+
+**`build.sh` had not rendered anything in a while.** OpenSCAD 2026.07 turned
+`--render` into an option that *takes an argument*, so the bare `--render` this
+script passed swallowed the `.scad` filename; openscad printed its usage and
+exited non-zero, and the `| grep … || true` on the end threw that away. Every
+part "built" and every verify ran against whatever stale STL was on disk. Renders
+now go through one helper that knows the flag and stops the build on failure.
+
+**The gauge labels came out mirrored.** `rotate([90,0,0])` stands the glyphs up
+on the +Y face, but it leaves the text's own +X pointing to the *left* of anyone
+looking at that face. `rotate([90,0,180])` — `Rz(180)·Rx(90)` — sends the
+extrusion to +Y and the text's +X to −X, which is that viewer's right. A `10.2`
+you can misread is worse on a gauge than anywhere else here, and no measurement
+of the mesh would have caught it: this one is the render's job.
+
+What the mesh *can* prove is that the labels exist at all, and that turns out to
+matter — `text()` on a machine with no fonts renders **empty**, and a silently
+unlabelled gauge is five near-identical stubs with no way back to which is which,
+while every other check still passes. So each paddle face is scanned across the
+label band: 9–12 of 57 samples land inside a stroke, cut 0.500 mm deep, with the
+rest of the face untouched at 2.000 (`verify_cap.py` `[4]`).
+
+All three are the same lesson the rest of this directory keeps learning: a gate
+whose instrument is untested is not a gate. So the cap's checks are built to be
+able to fail, and were made to — a cone (`para_k=0`) fails tangency at 0.3333, a
+55° chamfer fails printability with 35.5 mm² unsupported, a blank label fails at
+0/57, and `plug_crest_d` at or below the bore will not even render.
+
 ## Verifying
 
 ```sh
@@ -1112,6 +1262,8 @@ python3 verify.py stl/gopro_arm_100mm.stl --length 100            # measures the
 python3 verify.py stl/gopro_arm_simple_100mm.stl --length 100 --simple
 python3 verify_buckle.py stl/gopro_qr_buckle.stl                  # the buckle
 python3 verify_twist.py stl/gopro_90_twist.stl                    # the twist adapter
+python3 verify_cap.py stl/pipe_cap_12mm.stl                       # the pipe fairing cap
+python3 verify_cap.py stl/pipe_cap_12mm_gauge.stl --gauge          # its fit coupon
 python3 fitcheck.py                                               # mating interference
 python3 fitcheck.py --simple
 python3 fitcheck.py --twist              # both ends, each on its own axis

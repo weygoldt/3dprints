@@ -31,6 +31,14 @@
 //                   an M5 cap head one side, a press-fit nut the other.  Its
 //                   own print note is in buckle.scad and differs from the one
 //                   below -- it needs SUPPORT, and it prints on its y=0 face.
+//    cap            PVC pipe fairing cap -- presses into the end of a 12 mm
+//                   tube and replaces the blunt rim with a rounded parabola,
+//                   so the tube stops dragging a wake behind it.  Nothing to
+//                   do with the GoPro joint; it lives here because it caps the
+//                   pipes the clamp holds.  PRINT capgauge FIRST -- it sizes
+//                   the press fit against the tube you actually have.
+//    capset         four caps on one plate
+//    capgauge       five plug stubs at stepped crest diameters, labelled
 //    twist          90 deg twist adapter -- a short arm whose two hinge axes
 //                   are at right angles, so a chain can change its plane of
 //                   articulation.  It prints FLAT, like the arms, so its layer
@@ -54,8 +62,11 @@
 lib_t = true;
 include <twist.scad>
 use <clamp.scad>
+// cap.scad shares nothing with the arm chain -- no GoPro joint, no BOSL2 --
+// so it stays off the include chain entirely and comes in on its own.
+use <cap.scad>
 
-part = "arm100";   // [gauge, arm50, arm75, arm100, arm140, set, section, sgauge, simple50, simple75, simple100, simple140, sset, ssection, clamp, buckle, twist]
+part = "arm100";   // [gauge, arm50, arm75, arm100, arm140, set, section, sgauge, simple50, simple75, simple100, simple140, sset, ssection, clamp, buckle, twist, cap, capset, capgauge]
 
 arm_lengths = [50, 75, 100, 140];
 
@@ -76,6 +87,9 @@ else if (part == "ssection")  section_simple_demo();
 else if (part == "clamp")     pipe_clamp();
 else if (part == "buckle")    buckle();
 else if (part == "twist")     twist_adapter();
+else if (part == "cap")       pipe_cap();
+else if (part == "capset")    cap_set();
+else if (part == "capgauge")  cap_gauge();
 
 // All four arms, side by side, flat faces all on the bed.
 module arm_set() {
