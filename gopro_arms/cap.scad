@@ -66,12 +66,70 @@
 //  nothing).  The asymmetry is the whole trick and it only works in this
 //  orientation.
 //
-//  plug_crest_d IS THE KNOB, and it is not guesswork: print `capgauge`
-//  FIRST.  That is five stubs carrying this exact plug at five crest
-//  diameters, labelled, printed the same way up.  Push each into the real
-//  tube, take the tightest one that still seats by hand, type that number
-//  into plug_crest_d.  Guessing it is how you get a cap that falls off in the
-//  water or a tube you split trying to fit it.
+//  ------------------------------------------------------------------
+//  WHAT LIMITS THE INTERFERENCE IS THE TUBE, NOT THE PLUG
+//  The first cut of this shipped a 10.10 crest -- 0.20 mm into a 9.90 bore --
+//  on the reasoning that the rib crest would just crush.  That reasoning looks
+//  only at the plug, and the plug is the strong half.
+//
+//  A 12.0 OD tube with a 9.9 bore has a wall of 1.05 mm.  That is a thin-walled
+//  tube, and it takes the interference as hoop strain: eps = (delta/2)/r_mean
+//  with r_mean 5.475, so
+//
+//      crest 10.00   +0.100 diametral   0.91 % strain   ~27 MPa    55 % of yield
+//      crest 10.10   +0.200 diametral   1.83 % strain   ~55 MPa   110 % of yield
+//      crest 10.20   +0.300 diametral   2.74 % strain   ~82 MPa   164 % of yield
+//
+//  taking rigid uPVC at ~3 GPa and a ~50 MPa tensile yield.  That is a bound,
+//  not a prediction -- it assumes the tube absorbs ALL of it and the PETG rib
+//  crushes none, which is pessimistic.  But it is the right bound to design to,
+//  because the ratio survives any plausible modulus, and 0.20 mm sits AT yield.
+//  Past yield a thin PVC wall does not spring back; it creeps, and a fairing
+//  that has permanently belled its own tube cannot be re-seated.
+//
+//  So the ceiling is +0.10 mm diametral and the gauge does not offer more.
+//  verify_cap.py [4] computes this from the shipped numbers and fails above
+//  60 % of yield, so the ceiling cannot be raised by editing one line and
+//  forgetting why it was there.
+//
+//  ------------------------------------------------------------------
+//  PRINT IT NOW -- WHY THE SHIPPED SIZE IS LINE-TO-LINE AND NOT A PRESS
+//  plug_crest_d ships at 9.90: exactly the nominal bore, zero nominal
+//  interference.  That is not timidity, it is the asymmetry of the two ways
+//  this can be wrong once glue is on the table.
+//
+//      too LOOSE  -> a drop of adhesive in the rib grooves and it is fixed
+//      too TIGHT  -> it will not seat, and the tube is what yields
+//
+//  One failure is a ten-second recovery and the other wastes the print and
+//  possibly the tube, so the shipped number errs at the recoverable end.
+//
+//  And it is very unlikely to actually BE loose.  FDM lays outer diameters
+//  fat -- perimeter overlap and squish typically put a nominal 9.90 crest out
+//  at 9.95-10.05 in the hand -- so line-to-line on paper is a light press in
+//  practice, which is precisely the fit wanted.  Nominal is the one place it
+//  is safe to aim, because the printer's error only ever pushes it toward
+//  grip, and the ceiling (below) is still 0.10 mm away when it does.
+//
+//  THE RIB GROOVES ARE GLUE RESERVOIRS, which is the other reason this
+//  geometry suits a bonded joint better than a plain cylinder would.  A true
+//  interference fit on a smooth plug wipes the adhesive off on the way in and
+//  leaves a starved joint; the annular gaps between these ribs run 3.3 mm from
+//  crest to crest and 0.35 mm deep, and carry a bead all the way in.  Run
+//  cyanoacrylate or a PVC solvent cement round the second rib and press.
+//
+//  If it does end up loose and you would rather not glue, `capgauge` is still
+//  there -- five stubs at five crest diameters, labelled, printed the same way
+//  up -- and the tightest one that seats by hand is the number to type in.  It
+//  is a refinement, not a prerequisite.
+//
+//  AND WHILE THE CALIPERS ARE OUT, MEASURE A STUB'S COLLAR.  Every stub carries
+//  the same 12.00 mm collar as the cap, printed at the same time on the same
+//  machine.  Whatever it reads over 12.00 is this printer's offset on outer
+//  diameters, and it applies to the crests too -- a stub labelled 9.9 whose
+//  collar measures 12.15 is really pressing about 10.05.  That is the number
+//  the tube feels, and it is the one to check the table above against.  The
+//  labels are nominal; the collar tells you what nominal is worth here.
 //
 //  ------------------------------------------------------------------
 //  THE SEAT, AND THE ONE OVERHANG IN THE PART
@@ -110,7 +168,9 @@
 // ---------------------------------------------------------------- the pipe
 pipe_od      = 12.00;   // tube OUTSIDE diameter -- the fairing's base diameter
 pipe_id      =  9.90;   // tube INSIDE diameter, as measured
-plug_crest_d = 10.10;   // <-- SET FROM THE GAUGE.  Rib crest diameter.
+plug_crest_d =  9.90;   // Rib crest diameter -- LINE-TO-LINE with the bore.
+                        // Deliberately not an interference number: see
+                        // "PRINT IT NOW" below.  The gauge can tighten it.
 
 // ---------------------------------------------------------------- the plug
 rib_n     = 3;          // ribs along the plug
@@ -134,8 +194,12 @@ tip_r     = 1.50;       // radius of the tangent sphere at the tip
 para_k    = 1.00;       // parabolic series K.  1 = tangent to the tube. Keep it.
 
 // --------------------------------------------------------------- the gauge
-gauge_d   = [9.90, 10.00, 10.10, 10.20, 10.30];
-gauge_lbl = ["9.9", "10.0", "10.1", "10.2", "10.3"];
+// Bracketed BELOW the tube's limit, not around the nominal bore: 10.00 is the
+// top of the band because that is where the tube gives out (see press_stress
+// below), and the spread runs down from there far enough to still find the fit
+// if the printer lays outer diameters on fat.
+gauge_d   = [9.60, 9.70, 9.80, 9.90, 10.00];
+gauge_lbl = ["9.6", "9.7", "9.8", "9.9", "10.0"];
 gauge_pitch = 15.00;
 pad_w     = 11.00;      // handle paddle -- stays inside the 12 mm collar, so
 pad_t     =  4.00;      // its corners are supported and it needs no support
@@ -231,8 +295,15 @@ function nose_pts(z0) = concat(
 
 // ---------------------------------------------------------------- the part
 module pipe_cap() {
-    assert(plug_crest_d > pipe_id,
-           "plug_crest_d must exceed pipe_id or there is no interference at all");
+    // A BAND, not a floor.  The old assert demanded interference and would
+    // have rejected the line-to-line fit this now ships; the real requirement
+    // is that the crest lands near the bore from either side -- far under and
+    // it rattles even glued, far over and the tube yields before the rib does.
+    assert(plug_crest_d > pipe_id - 0.10,
+           "plug_crest_d is so far under the bore that even glue has a gap to span");
+    assert(plug_crest_d < pipe_id + 0.11,
+           "plug_crest_d presses the tube past its elastic limit -- the 1.05 mm \
+wall yields before the rib crushes.  See the hoop-strain table in the header.");
     assert(plug_crest_d/2 - 2*rib_h < pipe_id/2,
            "plug body is wider than the bore -- the ribs would never touch");
     assert(seat_r > plug_crest_d/2,

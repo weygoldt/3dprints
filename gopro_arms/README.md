@@ -1120,10 +1120,12 @@ blunt-cut tube end is the worst shape there is in water: the flow separates off
 the rim and the tube drags a wake. This replaces the rim with something the water
 can follow.
 
-> **Print `capgauge` first.** The tube measures *about* 9.9 mm ID and the press
-> fit is set from that number. The gauge is five stubs carrying this exact plug
-> at stepped crest diameters — push each into the real tube, take the tightest
-> one that still seats by hand, and put that number in `plug_crest_d`.
+> **Just print `capset` and go.** `plug_crest_d` ships at 9.90 — line-to-line
+> with the bore — which is sized to *always seat*. If it ends up loose, a drop
+> of CA or PVC cement in the rib grooves fixes it in ten seconds; if it were
+> too tight, the print is wasted and the tube is what yields. `capgauge` is
+> still there to dial in a true press fit later, but it is a refinement, not a
+> prerequisite.
 
 ### Why a parabola, and why *that* parabola
 
@@ -1160,7 +1162,7 @@ rho = r0·sqrt(1 + m²)      zc = z0 − r0·m       (m = |dr/dz| at the join)
 bisected until `rho` lands on `tip_r`. Measured back off the mesh: **1.498** vs
 1.50 asked for. Rounding the point off necessarily *shortens* the nose — `nose_l`
 is the parabola's nominal length and the part comes out at **16.68**, total
-height **31.00**.
+height **31.12** (12.0 × 12.0 × 31.1 mm, 2167.8 mm³ — about 2.8 g in PETG).
 
 ### The press fit is three ribs, not a cylinder
 
@@ -1170,11 +1172,54 @@ along its length. It carries three annular ribs, like a hose barb:
 
 | | diameter | vs the 9.90 bore |
 |---|---|---|
-| rib crest | 10.10 | **+0.200** interference (0.100/side) |
-| plug body | 9.40 | −0.500 clearance — touches nothing |
+| rib crest | 9.90 | **line-to-line** |
+| plug body | 9.20 | −0.700 clearance — touches nothing |
 
-Only the crests touch, so insertion force stays low while interference per unit
-of contact stays high, and one part grips a bore anywhere in a ~0.4 mm band.
+Only the crests touch, so insertion force stays low while contact pressure stays
+high, and one part suits a bore anywhere in a ~0.4 mm band.
+
+### Why line-to-line and not an interference number
+
+The first cut shipped a 10.10 crest — +0.200 into the bore — reasoning that the
+rib crest would simply crush. **That reasoning only looks at the plug, and the
+plug is the strong half.** A 12.0 OD tube with a 9.9 bore has a **1.05 mm wall**,
+so it takes the interference as hoop strain, `ε = (δ/2)/r_mean` with `r_mean`
+5.475:
+
+| crest | diametral | hoop strain | hoop stress | vs ~50 MPa yield |
+|---|---|---|---|---|
+| 9.90 | 0.000 | 0.00 % | 0 MPa | 0 % |
+| **10.00** | +0.100 | 0.91 % | ~27 MPa | **55 %** |
+| 10.10 | +0.200 | 1.83 % | ~55 MPa | **110 %** |
+| 10.20 | +0.300 | 2.74 % | ~82 MPa | 164 % |
+
+(uPVC at ~3 GPa, ~50 MPa yield — a *bound*, not a prediction: it assumes the tube
+absorbs all of it and the PETG rib crushes none. But it is the right bound to
+design to, because the ratio survives any plausible modulus, and +0.200 sits *at*
+yield. Past yield a thin PVC wall does not spring back — it creeps, and a fairing
+that has permanently belled its own tube cannot be re-seated.) `verify_cap.py`
+`[4]` computes this from the shipped numbers and fails above 60 % of yield, so
+the ceiling cannot be raised by editing one line and forgetting why it was there.
+
+Given a ceiling of +0.10 and glue as the fallback, the two failure directions are
+wildly asymmetric — too loose is a ten-second recovery, too tight wastes the
+print and maybe the tube — so the shipped number errs at the recoverable end. It
+is unlikely to actually *be* loose: FDM lays outer diameters fat, so a nominal
+9.90 crest measures 9.95–10.05 in the hand, which is a light press. Nominal is
+the safe place to aim precisely because the printer's error only pushes it toward
+grip, and the ceiling is still 0.10 mm away when it does.
+
+**The rib grooves are glue reservoirs** — the other reason this geometry suits a
+bonded joint better than a plain cylinder. A true interference fit on a smooth
+plug wipes the adhesive off going in and leaves a starved joint; these gaps run
+3.3 mm crest to crest and 0.35 mm deep and carry a bead all the way in.
+
+> **Calibrate for free while the calipers are out.** Every gauge stub carries the
+> same **12.00 mm collar** as the cap, printed at the same time on the same
+> machine. Whatever it reads over 12.00 is this printer's offset on outer
+> diameters, and it applies to the crests too — a stub labelled 9.9 whose collar
+> measures 12.15 is really pressing about 10.05. The labels are nominal; the
+> collar tells you what nominal is worth here.
 
 Each rib is a **sawtooth, not a bead**: a 16.3° ramp going in (shallow enough to
 push by hand) and a square 90° step coming out (maximum bite). The asymmetry only
@@ -1183,7 +1228,7 @@ flipping the part would quietly reverse it. That is why the gauge stubs print th
 same way up as the cap, and why the verifier checks the crest, the pitch and the
 body separately rather than just "are there ribs".
 
-Engagement is **12.82 mm = 1.07 tube diameters**; the top rib's land runs 2.0 mm
+Engagement is **12.94 mm = 1.08 tube diameters**; the top rib's land runs 2.0 mm
 so it sits *at the tube mouth* and stops the cap sitting cocked.
 
 ### The seat, and the only overhang in the part
@@ -1206,7 +1251,7 @@ annulus, and **0.000 mm²** anywhere else in the part.
 ### Print
 
 **PETG, 0.2 mm, no support, 4 perimeters, ~25 % infill — and a brim.** The part
-is 31 mm tall on an 8.3 mm footprint (54.1 mm² of bed contact, measured): it
+is 31 mm tall on an 8.1 mm footprint (51.5 mm² of bed contact, measured): it
 prints fine and knocks over easily. Print at least two at once — `capset` is four
 on a plate — or set a 15 s minimum layer time, because the last few mm of tip are
 a handful of seconds per layer and will slump into a blob if nothing else on the
