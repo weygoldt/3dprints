@@ -95,7 +95,12 @@ module pylon_at_stern() {
       ghost_hardware();
       // prop guard = washer in the pad sandwich, at the OFFSET motor axis (motor mode) or the pad centre (legacy).
       if (prop_guard) translate([pad_aft, pylon_rise, mount_to=="motor" ? motor_zc : pylon_width/2])
-        rotate([0,90,0]) color("DarkSeaGreen") guard_full();
+        rotate([0,90,0]) {
+          color("DarkSeaGreen") guard_full();
+          // WIRE GHOST (bright): the motor lead routing out the slot -> should point DOWN + toward the boat CENTRE.
+          if (mount_to=="motor" && wire_slot) color([1,0.35,0])
+            rotate([0,0,wire_slot_ang]) translate([6, 0, guard_t/2]) rotate([0,90,0]) cylinder(h=48, d=3.5);
+        }
     }
 }
 

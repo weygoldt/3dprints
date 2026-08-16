@@ -264,12 +264,21 @@ module guard_rugged() {
   }
 }
 
+// WIRE ROUTING SLOT: a wire_slot_w-wide gap from the hub centre out toward the INBOARD+DOWN corner (wire_slot_ang), so the
+// motor leads pass through the base-plate and route down toward the boat centre.  It sits in the 45deg diagonal GAP between
+// two screws (always clear of the + pattern), on the sheltered inboard side (the arc guards the exposed outboard side).
+module guard_wire_slot()
+  let(len = norm([guard_hub_w/2, guard_hub_h/2]) + 5)
+  rotate([0,0,wire_slot_ang]) translate([0, -wire_slot_w/2, -1]) cube([len, wire_slot_w, guard_t + guard_rim_proud + 2]);
+
 // dispatch
-module guard_full()
+module guard_full() difference() {
   if (guard_style == "web")         guard_web();
   else if (guard_style == "legacy") guard_legacy();
   else if (guard_style == "bloom")  guard_bloom();
   else                              guard_rugged();
+  if (wire_slot && mount_to == "motor") guard_wire_slot();
+}
 
 // =====================================================================
 //  ECHO FIT-CHECK

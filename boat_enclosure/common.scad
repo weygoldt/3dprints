@@ -709,8 +709,14 @@ motor_zc     = pylon_width/2;                             // motor CENTRED acros
 mast_z0      = 0; mast_z1 = pylon_width;                  // (legacy names) the wedge is full width at the base
 td_up        = 1;                                         // (unused now -- back-print bores run along the build axis, no teardrop)
 flare_y      = foot_h + flare_lift;                       // the foot stays full width/depth to here; above it the wedge tapers
-motor_holes = [ [ motor_bolt_long/2, 0], [-motor_bolt_long/2, 0],
-                [0,  motor_bolt_short/2], [0, -motor_bolt_short/2] ]; // [dY (up-mast), dZ (width)] from the centre
+// motor-cross orientation.  mount_rot=0 -> LONG axis up-mast (Y) ; =90 -> LONG across width (Z), i.e. the MOTOR turned 90deg.
+// Patrick 2026-08-16 (wire routing): the A2212 leads exit in the gap between two screws.  One hull keeps LONG vertical; the
+// OTHER turns the motor 90deg so BOTH motors' tails exit INBOARD (toward the boat centre) and route down the wire slot.
+// The pattern stays a "+" either way (long/short just swap axes), so the slot's 45deg diagonal gap is always clear of a bolt.
+mount_rot = (motor_offset_dir < 0) ? 90 : 0;   // which hull turns the motor 90deg -- VERIFY by eye in the assembly (mirror trap)
+motor_holes = (mount_rot == 90)
+  ? [ [0,  motor_bolt_long/2], [0, -motor_bolt_long/2], [ motor_bolt_short/2, 0], [-motor_bolt_short/2, 0] ]  // LONG across width (Z)
+  : [ [ motor_bolt_long/2, 0], [-motor_bolt_long/2, 0], [0,  motor_bolt_short/2], [0, -motor_bolt_short/2] ]; // LONG up-mast (Y)
 // edge walls (motor mode): the SHORT bolt + head-access counterbore vs BOTH slim-mast band edges; top LONG bolt vs pad top.
 motor_edge_wall  = min(mast_z1 - (motor_zc + motor_bolt_short/2) - motor_head_d/2,      // to the outboard (bed) band edge
                        (motor_zc - motor_bolt_short/2) - mast_z0 - motor_head_d/2);     // to the inboard band edge
@@ -1110,11 +1116,19 @@ guard_ring_radii = (guard_style=="legacy")
 // mount holes: "motor" = the A2212 cross (guard-local: LONG(19) along Y = up-mast, SHORT(16) along X = width),
 // SYMMETRIC about the hub centre (the one-sided offset is applied where the guard is PLACED, not in its pattern);
 // "plate" = the legacy pad square.
-guard_mount_xy   = (mount_to=="motor")
-   ? [ [0, motor_bolt_long/2], [0, -motor_bolt_long/2], [motor_bolt_short/2, 0], [-motor_bolt_short/2, 0] ]
-   : [ for (sx=[-1,1], sy=[-1,1]) [sx*bp_axis, sy*bp_axis] ];
+// derive the guard bolt pattern straight from motor_holes (swap [dY,dZ] -> [X=width, Y=up-mast]) so it ALWAYS matches the
+// motor cross, INCLUDING the 90deg turn (mount_rot) on the wire-routing hull.
+guard_mount_xy   = (mount_to=="motor") ? [ for (h = motor_holes) [h[1], h[0]] ]
+                                       : [ for (sx=[-1,1], sy=[-1,1]) [sx*bp_axis, sy*bp_axis] ];
 guard_shroud_ext = atan((guard_vane_tip/2) / guard_r_tip); // extend the rim arc this far past each end vane so the full
                                                            // vane width backs it (no half-contact / dangling end vane)
+// --- WIRE ROUTING SLOT (Patrick 2026-08-16) ---
+wire_slot   = true;     // cut a gap in the guard base-plate so the motor leads route DOWN toward the boat CENTRE
+wire_slot_w = 7;        // slot width (mm)
+// direction from the hub centre to the INBOARD (toward boat centre) + DOWN (toward the deck) corner, in guard-local
+// (X=width, Y=up-mast).  INBOARD is OPPOSITE the arc lean (the arc covers the exposed OUTBOARD side); DOWN is -Y.  The sign
+// tracks motor_offset_dir -- VERIFY by eye (a mirror is probe-invisible; see the L/R memory).
+wire_slot_ang = atan2(-guard_hub_h/2, -motor_offset_dir * guard_hub_w/2); // sign set so the slot points INBOARD in the assembly (verified by eye)
 
 // =====================================================================
 //  MOTOR MOUNT (integrated) -- derived + echo (needs guard_t, so it lives after the guard block)
