@@ -264,9 +264,17 @@ module guard_rugged_body() {
 
 // WIRE ROUTING SLOT: a wire_slot_w-wide gap from the hub centre out toward the INBOARD+DOWN corner (ang), so the motor
 // leads pass through the base-plate and route down toward the boat centre.  In the 45deg gap between two screws.
+// ROUNDED for the wire (Patrick 2026-08-16): the in-plane profile is an OBROUND (genuinely round mouth corners), and BOTH
+// lips are EASED so a flexing lead bends over a broken edge, not a knife edge that saws the insulation.  The easing is cut
+// INWARD (offset_sweep insets at the faces), so the slot's in-plane footprint is UNCHANGED -> the tight PLA web to the
+// nearest M3 motor pad stays put.  SUPPORTLESS split: the AFT (motor, UP-on-the-bed) lip is a 45deg CHAMFER (a rounded roll
+// on a hole's TOP lip would droop into an overhang); the BED lip is a full ROLL (a hole that widens downward self-supports).
+// The slot runs through the guard_t-thick hub only (not the proud rim).
 module guard_wire_slot(ang = wire_slot_ang)
   let(len = norm([guard_hub_w/2, guard_hub_h/2]) + 5)
-  rotate([0,0,ang]) translate([0, -wire_slot_w/2, -1]) cube([len, wire_slot_w, guard_t + guard_rim_proud + 2]);
+  rotate([0,0,ang]) translate([len/2, 0, -eps])   // -eps + height+2eps: penetrate both faces (no coincident cut plane)
+    offset_sweep(rect([len, wire_slot_w], rounding = wire_slot_w/2 - 0.01), height = guard_t + 2*eps,
+                 top = os_chamfer(width = wire_slot_round), bottom = os_circle(r = wire_slot_round));
 
 // the central boss + the (rotated) mount holes + the wire slot -- cut AFTER any body mirror so they stay in the real frame.
 module guard_cuts(rot = mount_rot, slot_ang = wire_slot_ang) {

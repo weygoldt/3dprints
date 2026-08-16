@@ -1149,7 +1149,11 @@ guard_shroud_ext = atan((guard_vane_tip/2) / guard_r_tip); // extend the rim arc
                                                            // vane width backs it (no half-contact / dangling end vane)
 // --- WIRE ROUTING SLOT (Patrick 2026-08-16) ---
 wire_slot   = true;     // cut a gap in the guard base-plate so the motor leads route DOWN toward the boat CENTRE
-wire_slot_w = 7;        // slot width (mm)
+wire_slot_w = 7;        // slot width (mm) -- the CLEAR through-channel for the lead bundle
+wire_slot_round = 1.2;  // lip ROLL radius (mm) on the AFT face + obround mouth corners, so a flexing lead bends over a
+                        // ROUNDED edge, not a sharp 90deg corner that could saw the insulation.  The roll is cut INWARD
+                        // (a concave fillet), so it does NOT widen the slot in-plane -> the tight ~0.7 mm PLA web to the
+                        // nearest M3 motor pad is UNCHANGED (bed lip keeps the guard's crisp/chamfer face rule).
 // direction from the hub centre to the INBOARD (toward boat centre) + DOWN (toward the deck) corner, in guard-local
 // (X=width, Y=up-mast).  INBOARD is OPPOSITE the arc lean (the arc covers the exposed OUTBOARD side); DOWN is -Y.  The sign
 // tracks motor_offset_dir -- VERIFY by eye (a mirror is probe-invisible; see the L/R memory).
