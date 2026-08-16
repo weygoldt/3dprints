@@ -85,52 +85,56 @@ module ghost_screws() {
   }
 }
 
-// pylon placed against the stern block aft face, mast up (assembly view).
-// 180deg about (1,0,-1) maps pylon-local (fore-aft X, up Y, width Z) to the
-// stern pose; the pylon is width-symmetric so this rotation is exact.
-module pylon_at_stern() {
-  translate([pylon_width/2, mm_pad_yc + foot_h/2, mm_block_aft_z])
-    rotate(a=180, v=[1,0,-1]) {
-      difference() { pylon(); pylon_cut(); }
-      ghost_hardware();
-      // prop guard = washer in the pad sandwich, at the OFFSET motor axis (motor mode) or the pad centre (legacy).
-      if (prop_guard) translate([pad_aft, pylon_rise, mount_to=="motor" ? motor_zc : pylon_width/2])
-        rotate([0,90,0]) {
-          color("DarkSeaGreen") guard_full();
-          // WIRE GHOST (bright): the motor lead routing out the slot -> should point DOWN + toward the boat CENTRE.
-          if (mount_to=="motor" && wire_slot) color([1,0.35,0])
-            rotate([0,0,wire_slot_ang]) translate([6, 0, guard_t/2]) rotate([0,90,0]) cylinder(h=48, d=3.5);
-        }
+show_wire = true;   // draw the bright motor-lead ghost (down the wire slot toward the boat centre)
+
+// one SET of two parallel fore-aft mounting RAILS per hull.  The printed rail is RECESSED into the foam (a milled slot),
+// its top flush with the deck, so the boxes screw DIRECTLY down to the hull.  Drawn embedded (top at the deck top Y=D,
+// body into the foam) so it reads as a recessed rail, not a proud strip.  Runs under BOTH boxes.
+module box_rails() for (sx=[-1,1]) color([0.30,0.30,0.34])
+  translate([sx*rail_gap/2, D + rail_h/2, 0]) cube([rail_w, rail_h, rail_len], center=true);
+
+// ONE drive: pylon (motor cross rotated by `rot`) + guard (rot + wire slot) + prop-disc + wire ghost, at a box's stern.
+module drive(rot) {
+  translate([pylon_width/2, mm_pad_yc + foot_h/2, mm_block_aft_z]) rotate(a=180, v=[1,0,-1]) {
+    color("Tan") difference() { pylon(); pylon_cut(rot); }
+    ghost_hardware();
+    if (prop_guard) translate([pad_aft, pylon_rise, mount_to=="motor" ? motor_zc : pylon_width/2]) rotate([0,90,0]) {
+      color("DarkSeaGreen") guard_full(rot, wire_slot_ang, false);
+      if (show_wire && mount_to=="motor" && wire_slot) color([1,0.35,0])
+        rotate([0,0,wire_slot_ang]) translate([6, 0, guard_t/2]) rotate([0,90,0]) cylinder(h=48, d=3.5);
     }
+    if (show_ghosts) color([0.85,0.2,0.2,0.28])
+      translate([pad_aft+guard_t+guard_standoff, pylon_rise, motor_zc]) rotate([0,90,0]) cylinder(h=1.5, r=prop_radius, center=true);
+  }
+}
+
+// one box: body + hinged lid; with_drive adds the pylon/guard/prop at its stern.
+module boat_box(role, with_drive=false, rot=0) {
+  color("SteelBlue") body(role);
+  translate([Ax, Ay, 0]) rotate([0, 0, -lid_open]) translate([-Ax, -Ay, 0]) color("Gainsboro") lid();
+  if (with_drive) drive(rot);
+  if (show_ghosts) { ghost_components(); ghost_screws(); }
 }
 
 // =====================================================================
-//  SCENE
+//  SCENE -- 4 boxes: 2 per hull (BACK = drive/prop, FRONT = bare) on a set of rails; the port + starboard drives are the
+//  REAL, DIFFERENT parts (starboard's motor cross is turned 90deg so both leads exit inboard), not a mirrored fake.
 // =====================================================================
-// one hull for the named side: applies that hull's mirror AND its own gland role,
-// so the two boxes show their CORRECT, DIFFERENT bore sets (rc = 3, stim = 2).
-module hull_assembly(hull) {
+module hull_assembly(hull, rot) {
   apply_side_of(hull) {
-    color("SteelBlue") body(role_of_side(hull));
-    // lid swings about the outboard hinge axis (Ax,Ay), which runs along Z (the length)
-    translate([Ax, Ay, 0]) rotate([0, 0, -lid_open]) translate([-Ax, -Ay, 0])
-      color("Gainsboro") lid();
-    pylon_at_stern();
-    if (show_ghosts) { ghost_components(); ghost_prop_and_motor(); ghost_screws(); }
+    box_rails();
+    translate([0, 0, box_back_z])  boat_box(role_of_side(hull), true,  rot);   // BACK box + drive/prop
+    translate([0, 0, box_front_z]) boat_box(role_of_side(hull), false);        // FRONT box -- bare (other hardware)
   }
 }
 
 module assembly_scene() {
-  // the two hulls in their PHYSICAL positions (port at -X, starboard at +X), each with its own
-  // electronics role -> the preview is the real boat: one RC box + one stim box (mapping = rc_side).
-  // Independent of the global `side` (that only picks which single part body.scad/lid.scad export).
-  translate([-beam_target/2, 0, 0]) hull_assembly("port");
+  translate([-beam_target/2, 0, 0]) hull_assembly("port",      0);            // port hull: motor LONG-vertical (rot 0)
   if (show_both_hulls)
-    translate([ beam_target/2, 0, 0]) hull_assembly("starboard");
-  // the shared foam catamaran body (drawn once, shifted fore-aft by deck_center_z)
+    translate([ beam_target/2, 0, 0]) hull_assembly("starboard", 90);         // starboard hull: motor turned 90deg
   if (show_foam) translate([0, 0, deck_center_z]) foam_body();
 }
 
-// model "up" is -Y; upright view rotates it so height is world +Z (Z-up camera)
-if (preview_upright) rotate([-90,0,0]) assembly_scene();
+// model "up" is -Y.  UPRIGHT: rotate to Z-up and lift so the hull BOTTOM (foam underside) sits on the XY plane (Z=0).
+if (preview_upright) translate([0, 0, D + float_thickness]) rotate([-90,0,0]) assembly_scene();
 else assembly_scene();

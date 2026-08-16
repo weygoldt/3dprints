@@ -35,9 +35,9 @@ module bow_rake_cut() {
 module foam_body() {
   color([0.86, 0.86, 0.80]) difference() {
     union() {
-      difference() {                                  // deck (top plate) with the water cutout
+      difference() {                                  // deck (top plate); central water cutout only if enabled
         foam_slab(deck_w, deck_len, deck_t, foam_top_y, deck_r);
-        deck_cutout();
+        if (deck_cutout_on) deck_cutout();
       }
       for (s = [-1, 1]) translate([s*skid_center, 0, 0])   // two skids glued underneath
         foam_slab(skid_w, skid_len, skid_t, foam_top_y + deck_t, skid_r);

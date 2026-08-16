@@ -46,12 +46,12 @@ module pylon() color("Tan") {
 
 // bores -- all run along +X (the build axis in the back print), so plain cylinders (no teardrop needed).
 module xbore(x0, y, z, len, d) translate([x0, y, z]) rotate([0,90,0]) cylinder(h = len, d = d, $fn = 48);
-module pylon_cut() {
+module pylon_cut(rot = mount_rot) {
   cz = pylon_width/2;
-  // MOTOR CROSS on the flat aft face (X=pad_aft), CENTRED: a FRONT-access counterbore (motor_head_d, lets the
-  // socket head + driver reach from the forward side so the screw stays short) + the screw clearance through the seat.
+  // MOTOR CROSS on the flat aft face (X=pad_aft), CENTRED (pattern rotated by `rot` for the wire-routing hull): a FRONT-access
+  // counterbore (motor_head_d, lets the socket head + driver reach from the forward side so the screw stays short) + clearance.
   seat_x = pad_aft - motor_seat_t;
-  for (h = motor_holes) {
+  for (h = mholes(rot)) {
     hy = pylon_rise + h[0]; hz = motor_zc + h[1];
     xbore(-2,     hy, hz, seat_x + 2,       motor_head_d);   // front access + head counterbore
     xbore(seat_x, hy, hz, motor_seat_t + 2, motor_screw_d);  // screw clearance through the seat

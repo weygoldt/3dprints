@@ -247,37 +247,44 @@ module guard_ring_rugged(r_in, w, h)
 module guard_bar_rugged(a, ri, ro)
   rotate([0,0,a]) translate([(ri+ro)/2, 0, 0])
     cuboid([ro - ri, guard_spoke_w, guard_t], chamfer = guard_edge_ch, except = BOTTOM, anchor = BOTTOM);
-module guard_rugged() {
+// rugged BODY only (no boss / mount holes / slot) -- so the assembly can MIRROR the body per hull while cutting the
+// (rotated) mount holes + the wire slot SEPARATELY (see guard_full).
+module guard_rugged_body() {
   ri   = guard_hub_ext - 3;                         // bar inner (welds into the hub)
   ro   = guard_r_tip + guard_rim_wall*0.6;          // bar outer (welds into the rim)
   rmid = (guard_hub_ext + guard_r_tip)/2;           // mid ring radius
   bars = [ for (i=[0:guard_vanes-1]) guard_a0 + (guard_a1-guard_a0)*i/(guard_vanes-1) ];
-  difference() {
-    union() {
-      cuboid([guard_hub_w, guard_hub_h, guard_t], chamfer = guard_edge_ch, except = BOTTOM, anchor = BOTTOM); // HUB
-      for (a = bars) guard_bar_rugged(a, ri, ro);                                                             // radial BARS
-      guard_ring_rugged(rmid - guard_rib_w/2, guard_rib_w, guard_t);                                          // mid RING
-      if (guard_rim) guard_ring_rugged(guard_r_tip, guard_rim_wall, guard_t + guard_rim_proud);               // proud RIM
-    }
-    translate([0,0,-1]) cylinder(h = guard_t + guard_rim_proud + 2, d = guard_bore_d);                        // boss recess
-    for (p = guard_mount_xy) translate([p[0],p[1],-1]) cylinder(h = guard_t + 2, d = guard_bolt_d);           // 4x M3
+  union() {
+    cuboid([guard_hub_w, guard_hub_h, guard_t], chamfer = guard_edge_ch, except = BOTTOM, anchor = BOTTOM); // HUB
+    for (a = bars) guard_bar_rugged(a, ri, ro);                                                             // radial BARS
+    guard_ring_rugged(rmid - guard_rib_w/2, guard_rib_w, guard_t);                                          // mid RING
+    if (guard_rim) guard_ring_rugged(guard_r_tip, guard_rim_wall, guard_t + guard_rim_proud);               // proud RIM
   }
 }
 
-// WIRE ROUTING SLOT: a wire_slot_w-wide gap from the hub centre out toward the INBOARD+DOWN corner (wire_slot_ang), so the
-// motor leads pass through the base-plate and route down toward the boat centre.  It sits in the 45deg diagonal GAP between
-// two screws (always clear of the + pattern), on the sheltered inboard side (the arc guards the exposed outboard side).
-module guard_wire_slot()
+// WIRE ROUTING SLOT: a wire_slot_w-wide gap from the hub centre out toward the INBOARD+DOWN corner (ang), so the motor
+// leads pass through the base-plate and route down toward the boat centre.  In the 45deg gap between two screws.
+module guard_wire_slot(ang = wire_slot_ang)
   let(len = norm([guard_hub_w/2, guard_hub_h/2]) + 5)
-  rotate([0,0,wire_slot_ang]) translate([0, -wire_slot_w/2, -1]) cube([len, wire_slot_w, guard_t + guard_rim_proud + 2]);
+  rotate([0,0,ang]) translate([0, -wire_slot_w/2, -1]) cube([len, wire_slot_w, guard_t + guard_rim_proud + 2]);
 
-// dispatch
-module guard_full() difference() {
+// the central boss + the (rotated) mount holes + the wire slot -- cut AFTER any body mirror so they stay in the real frame.
+module guard_cuts(rot = mount_rot, slot_ang = wire_slot_ang) {
+  translate([0,0,-1]) cylinder(h = guard_t + guard_rim_proud + 2, d = guard_bore_d);              // boss recess
+  for (p = gmxy(rot)) translate([p[0],p[1],-1]) cylinder(h = guard_t + 2, d = guard_bolt_d);      // 4x M3 (rotated pattern)
+  if (wire_slot && mount_to == "motor") guard_wire_slot(slot_ang);
+}
+// body dispatch: rugged is split; the other styles carry their own cuts (they are not the wire-routed default).
+module guard_body_only()
   if (guard_style == "web")         guard_web();
   else if (guard_style == "legacy") guard_legacy();
   else if (guard_style == "bloom")  guard_bloom();
-  else                              guard_rugged();
-  if (wire_slot && mount_to == "motor") guard_wire_slot();
+  else                              guard_rugged_body();
+
+// FULL guard.  rot = motor 90deg turn (0/90) ; slot_ang = wire slot direction ; mir = mirror the BODY (starboard hull).
+module guard_full(rot = mount_rot, slot_ang = wire_slot_ang, mir = false) difference() {
+  if (mir) mirror([1,0,0]) guard_body_only(); else guard_body_only();
+  guard_cuts(rot, slot_ang);
 }
 
 // =====================================================================

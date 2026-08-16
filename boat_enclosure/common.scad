@@ -61,7 +61,7 @@ print_ready = true;
 lid_open   = 0;      // assembly preview only: degrees the lid is swung open
 show_ghosts = true;  // assembly preview: draw components + float + prop discs
 show_both_hulls = true; // assembly preview: draw the mirror hull too
-preview_upright = false; // assembly preview: rotate so box HEIGHT is vertical (Z-up)
+preview_upright = true;  // assembly preview: Z-UP with the hull bottom ON the XY plane (Patrick 2026-08-16: easy to navigate)
 show_hardware = true; // assembly preview: import the real BasePlate.stl + Motor.stl phantoms
 
 $fn  = 64;           // dev speed; bump to 128 for final STL export (-D '$fn=128')
@@ -277,7 +277,7 @@ thread_slop = 0.1;    // BOSL2 internal-thread clearance ($slop): adds ~4*slop t
    and the required pylon height falls out.  Default 8x4.5 (203 mm): shorter,
    stiffer, ~450 g static thrust/motor.  1045 (254 mm) is a one-line change. */
 prop_diameter        = 203;   // 8x4.5 = 203 (SETTLED), 1045 = 254
-float_thickness      = 60;    // styrofoam float thickness
+float_thickness      = 110;   // total foam thickness = deck_t 30 + skid_t 80 (Patrick 2026-08-16); keep in sync if those change
 float_freeboard      = 42;    // float top above the waterline at ~2 kg all-up
 prop_clearance_margin= 10;    // disc lowest point above the float top
 prop_z_offset        = 65;    // how far AFT of the stern wall the prop disc sweeps
@@ -548,16 +548,26 @@ block_fil_r  = 4;     // vertical block-side <-> stern-wall concave fillet radiu
 show_foam       = true;   // assembly preview: draw the foam catamaran body
 deck_w          = 350;    // deck athwartship width  (X, the beam)      ~35 cm
 deck_len        = 550;    // deck fore-aft length    (Z)                ~55 cm
-deck_t          = 25;     // deck (top plate) thickness (Y)   -- deck_t+skid_t = float_thickness
+deck_t          = 30;     // deck (top plate) thickness (Y)  ~3 cm  (Patrick 2026-08-16)
 deck_r          = 15;     // deck plan corner radius (stern corners; the bow is raked)
-deck_cut_w      = 120;    // central water-access cutout, athwartship (X)   ~12 cm
-deck_cut_len    = 300;    // central water-access cutout, fore-aft   (Z)   ~30 cm
-deck_cut_r      = 30;     // cutout corner radius
+deck_cutout_on  = false;  // central water-access cutout -- Patrick 2026-08-16: NO cutout (solid deck)
+deck_cut_w      = 120;    // (unused when deck_cutout_on=false) central cutout athwartship (X)
+deck_cut_len    = 300;    // (unused) central cutout fore-aft (Z)
+deck_cut_r      = 30;     // (unused) cutout corner radius
 skid_w          = 100;    // each skid athwartship width (X)  ~10 cm -- matches the enclosure box (96 mm)
                           // so the skids sit UNDER the boxes and don't overshoot the deck (was 150 = overhang)
 skid_len        = 550;    // each skid fore-aft length  (Z)  -- default shares the deck bow/stern
-skid_t          = 35;     // each skid thickness (Y)         -- deck_t+skid_t = float_thickness (60)
+skid_t          = 80;     // each skid thickness (Y)  ~8 cm  (Patrick 2026-08-16) -- deck_t+skid_t = float_thickness
 skid_r          = 20;     // skid plan corner radius (stern; the bow is raked)
+// --- 4-BOX layout on the deck (Patrick 2026-08-16): TWO boxes per hull -- a BACK box (pylon + prop) and a FRONT box
+//     (bare, for other hardware).  Each hull carries one SET of two parallel fore-aft mounting rails (two sets total). ---
+box_pitch       = 210;    // fore-aft centre-to-centre of the two boxes on a hull
+box_back_z      = -box_pitch/2;   // BACK box centre (toward the stern, -Z) -- carries the drive
+box_front_z     =  box_pitch/2;   // FRONT box centre (toward the bow, +Z) -- bare
+rail_gap        = 62;     // athwartship spacing of the two parallel mounting rails under a box (~ the box's lug pitch)
+rail_w          = 8;      // rail width (X)
+rail_h          = 6;      // rail height proud of the deck (Y)
+rail_len        = 470;    // rail fore-aft length (runs under both boxes)
 deck_center_z   = 40;     // deck centre fore-aft vs the enclosures (+ = more FOREdeck, props aft)
 // Raked bow: a single inclined cut across the whole foam front -- the underside
 // sweeps UP toward a forward top point (ski-tip / raked stem): finer water entry,
@@ -713,10 +723,11 @@ flare_y      = foot_h + flare_lift;                       // the foot stays full
 // Patrick 2026-08-16 (wire routing): the A2212 leads exit in the gap between two screws.  One hull keeps LONG vertical; the
 // OTHER turns the motor 90deg so BOTH motors' tails exit INBOARD (toward the boat centre) and route down the wire slot.
 // The pattern stays a "+" either way (long/short just swap axes), so the slot's 45deg diagonal gap is always clear of a bolt.
-mount_rot = (motor_offset_dir < 0) ? 90 : 0;   // which hull turns the motor 90deg -- VERIFY by eye in the assembly (mirror trap)
-motor_holes = (mount_rot == 90)
+function mholes(rot) = (rot == 90)                          // A2212 cross [dY (up-mast), dZ (width)] rotated by `rot`
   ? [ [0,  motor_bolt_long/2], [0, -motor_bolt_long/2], [ motor_bolt_short/2, 0], [-motor_bolt_short/2, 0] ]  // LONG across width (Z)
   : [ [ motor_bolt_long/2, 0], [-motor_bolt_long/2, 0], [0,  motor_bolt_short/2], [0, -motor_bolt_short/2] ]; // LONG up-mast (Y)
+mount_rot   = (motor_offset_dir < 0) ? 90 : 0; // which hull turns the motor 90deg (right hull) -- VERIFY by eye
+motor_holes = mholes(mount_rot);               // global (for the standalone part export); main.scad passes per-hull rot
 // edge walls (motor mode): the SHORT bolt + head-access counterbore vs BOTH slim-mast band edges; top LONG bolt vs pad top.
 motor_edge_wall  = min(mast_z1 - (motor_zc + motor_bolt_short/2) - motor_head_d/2,      // to the outboard (bed) band edge
                        (motor_zc - motor_bolt_short/2) - mast_z0 - motor_head_d/2);     // to the inboard band edge
@@ -1118,8 +1129,9 @@ guard_ring_radii = (guard_style=="legacy")
 // "plate" = the legacy pad square.
 // derive the guard bolt pattern straight from motor_holes (swap [dY,dZ] -> [X=width, Y=up-mast]) so it ALWAYS matches the
 // motor cross, INCLUDING the 90deg turn (mount_rot) on the wire-routing hull.
-guard_mount_xy   = (mount_to=="motor") ? [ for (h = motor_holes) [h[1], h[0]] ]
-                                       : [ for (sx=[-1,1], sy=[-1,1]) [sx*bp_axis, sy*bp_axis] ];
+function gmxy(rot) = (mount_to=="motor") ? [ for (h = mholes(rot)) [h[1], h[0]] ]    // guard bolt pattern [X=width, Y=up-mast]
+                                         : [ for (sx=[-1,1], sy=[-1,1]) [sx*bp_axis, sy*bp_axis] ];
+guard_mount_xy   = gmxy(mount_rot);                                                  // global (standalone); main passes per-hull rot
 guard_shroud_ext = atan((guard_vane_tip/2) / guard_r_tip); // extend the rim arc this far past each end vane so the full
                                                            // vane width backs it (no half-contact / dangling end vane)
 // --- WIRE ROUTING SLOT (Patrick 2026-08-16) ---
@@ -1128,7 +1140,10 @@ wire_slot_w = 7;        // slot width (mm)
 // direction from the hub centre to the INBOARD (toward boat centre) + DOWN (toward the deck) corner, in guard-local
 // (X=width, Y=up-mast).  INBOARD is OPPOSITE the arc lean (the arc covers the exposed OUTBOARD side); DOWN is -Y.  The sign
 // tracks motor_offset_dir -- VERIFY by eye (a mirror is probe-invisible; see the L/R memory).
-wire_slot_ang = atan2(-guard_hub_h/2, -motor_offset_dir * guard_hub_w/2); // sign set so the slot points INBOARD in the assembly (verified by eye)
+// slot angle (guard-local): -Y is DOWN; the X sign puts it toward the INBOARD corner.  wsa(dir) for the standalone part;
+// main.scad passes each hull its own tuned angle (the assembly then shows the REAL routing, not a mirrored fake).
+function wsa(dir) = atan2(-guard_hub_h/2, dir * guard_hub_w/2);
+wire_slot_ang = wsa(motor_offset_dir);
 
 // =====================================================================
 //  MOTOR MOUNT (integrated) -- derived + echo (needs guard_t, so it lives after the guard block)
