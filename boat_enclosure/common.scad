@@ -1058,9 +1058,11 @@ guard_spoke_w     = 9;      // rugged spoke BAR width -- beefy clean rectangular
 guard_arc         = 180;    // Patrick 2026-08-16: a full HALF circle (symmetric about top) -- a full ring (360) is nicer
                             // still but its 228 OD exceeds the 210 bed axis, so 180 is the biggest one-piece guard.  The
                             // symmetric arc lets the spars land every 45deg -> on the mounting-square DIAGONALS + axes.
-guard_arc_bias    = 0;      // lean the kept arc off TOP toward the OUTBOARD side (deg; 0 = SYMMETRIC about top,
-                            // 45 = centred on the top-outboard diagonal).  In guard-local the OUTBOARD side is
-                            // -X / 180 deg (verified through the assembly transform), so the centre is 90 + this.
+guard_arc_bias    = 45;     // Patrick 2026-08-16: lean the HALF circle 45deg so the OUTBOARD side gets the most
+                            // protection -- the arc centre sits on the top-outboard diagonal (135 deg) and the open
+                            // side faces down-INBOARD, where the wire slot already exits toward the boat centre.
+                            // In guard-local the OUTBOARD side is -X / 180 deg (a_ctr = 90 + this*motor_offset_dir);
+                            // the per-hull mirror carries it to the right side on each hull -- VERIFY by eye.
 guard_tip_gap     = 6;      // radial clearance: prop tip -> rim INNER (the rim must clear a flexing blade)
 guard_t           = 5;      // frontal-plate thickness (Z / axial) -- ALSO the washer thickness (its flat aft face bears the motor)
 // --- edge language (matches the pylon: round EVERYTHING ~2.5 EXCEPT bed-contact edges, which stay crisp) ---
