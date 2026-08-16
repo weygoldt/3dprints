@@ -106,30 +106,12 @@ module screw_boss_cut(p) {   // blind bore UP from the underside; method sets in
 // =====================================================================
 //  TASK 3 -- CABLE PORTS  (inboard +X wall; PLAIN through-holes, item 4)
 //  No external boss: the cable gland's own threaded body + nut form the
-//  shoulder and seal.  Just a clean hole through the wall, sized for the
-//  gland's panel-mount diameter.
-//
-//  The OUTER mouth is BELLED by port_edge_r so a wire bears on a radius, not on
-//  a square edge that saws its insulation as it works (see common.scad).  The
-//  INNER edge stays sharp -- that is the shelf the blanking caps snap behind.
-//  Built as one solid of revolution about the bore axis: straight bore from the
-//  inner face, then a quarter-round out to (dia/2 + port_edge_r) at the outer
-//  face.  Prints as-is: the flare only widens the bore's existing bridged top,
-//  so it eases that bridge rather than adding an overhang.
+//  shoulder and seal.  Just a clean hole through the 2.5 mm wall, sized for
+//  the gland's panel-mount diameter.
 // =====================================================================
 module cable_port_cut(z, dia) {
-  a = dia/2;
-  R = port_edge_r;
-  n = 8;                                  // quarter-round segments (small feature; 8 is smooth)
-  // profile is [radius, u] with u measured from the INNER face outward
-  translate([W/2-wall, port_y, z]) rotate([0,90,0])
-    rotate_extrude($fn = max($fn, 96))
-      polygon(concat(
-        [[0, -eps], [a, -eps], [a, wall - R]],            // plain bore up to where the bell starts
-        [ for (i = [0:n]) let (th = i*90/n)               // quarter-round: (a, wall-R) -> (a+R, wall)
-            [a + R - R*cos(th), wall - R + R*sin(th)] ],
-        [[a + R, wall + eps], [0, wall + eps]]            // out past the outer face
-      ));
+  translate([W/2-wall-eps, port_y, z]) rotate([0,90,0])
+    cylinder(h=2*wall+2*eps, d=dia);
 }
 
 // =====================================================================

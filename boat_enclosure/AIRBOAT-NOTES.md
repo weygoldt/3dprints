@@ -511,35 +511,3 @@ fitted gland by 4 mm and an adjacent cap by 3 mm on the 24 mm gland pitch.
 still cuts every gland at `port_gland_d`=12. If future housings should print those bores at 16, that's a
 per-gland diameter in `common.scad` + `body.scad`, not here. Ask Patrick whether he opened printed parts by
 hand or wants the model changed.
-
-## Cable ports — belled mouth so a working wire cannot chafe (`body.scad`, 2026-08-15)
-
-**Patrick:** *"round the edges of the wire cutout, so that when the wire moves, sharp corners do not cut the
-insulation."* `cable_port_cut()` was a plain cylinder — a square 90° edge at both faces of the wall, and those
-bores are the only place a wire crosses the enclosure.
-
-**`port_edge_r` = 0.6** (common.scad) bells the **OUTER** mouth: the cut is now a solid of revolution — straight
-bore from the inner face, then a quarter-round out to `dia/2 + port_edge_r` at the outer face. Measured on the
-export: **12.000** dia through the straight bore, tangent at u=2.4, **13.200** at the outer face.
-
-**Outer face only, and that is not laziness:**
-- Outboard is where the wire actually works — prop wash, handling, the run aft to the motor. Inboard it is
-  captive and the gland nut takes the strain.
-- **The inner edge is the shelf the blanking caps' snap bead hooks behind.** Round it and the bead cams
-  straight back out of a bore it is meant to hold in. `caps.scad` now echoes a standing note to that effect.
-
-**Capped at 0.6 by the caps, not by the wire.** The bell eats into the flat ring the cap's flange seats on:
-mouth `r = d/2 + port_edge_r` vs seating ring inner `r = tor + cap_relief` (7.0 SMALL / 9.0 BIG). At 0.6 the
-margin is **0.4** both families; at 0.8 it falls to 0.1 and at 1.0 the cap has no seat left. `caps.scad` echoes
-this margin per family — a genuine cross-file invariant, so neither part can drift into the other.
-
-Costs 0.6 of the 3 mm bore's straight length, which is irrelevant to a gland: its 19 mm shoulder spans the
-whole mouth and its nut clamps the full wall thickness well outside the bell. Prints as-is — the flare only
-widens the horizontal bore's existing bridged top, easing that bridge rather than adding an overhang.
-
-**Verified:** both hulls (`side=port` / `starboard`) and `main.scad` render NoError + manifold; bore profile
-measured at three depths as above; caps still pass every check with 0 warnings.
-
-> **This only helps housings printed from now on.** Existing boxes have square-cut ports — regenerate with
-> `openscad -o stl/airboat_housing_<...>.stl -D 'side="port"' -D '$fn=128' body.scad` and reprint, or break the
-> edge by hand with a countersink bit / scalpel if you would rather not.
