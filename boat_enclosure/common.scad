@@ -692,17 +692,20 @@ bp_bolt    = bp_pitch*sqrt(2);                             // across-axis / diag
 // (LONG=19 up-mast) fits comfortably inside it -- what "shrinks" is the mount FOOTPRINT (cross < 39.5 plate), not
 // the pad solid.  (A future rev could shrink the pad IF the forward gusset is allowed to move; the freeze wins now.)
 pad_h      = 2*bp_axis + 2*bp_edge;                        // pad backs the 4 X bolts + edge -- FROZEN (both modes)
-pad_aft    = pylon_root_t + motor_pad_t;                   // pylon pad aft (motor) face, fore-aft
-// motor-cross pattern on the pad face (Y = up-mast about pylon_rise, Z = width): LONG up-mast, SHORT across, one-sided.
-// SLENDER MAST: a slim band hugging ONE width edge; the motor is centred in it and the unused inboard-top slab is removed.
-// dir>0 = the band hugs the FAR (Z=pylon_width) edge = the motor OUTBOARD (props apart); the part prints FLIPPED (oriented)
-// so that far face lies on the bed, and the teardrop bores are pre-inverted (td_up=-1) so they end up apex-up after the flip.
-// dir<=0 = the MIRROR: band on the Z=0 bed edge, prints AS-IS (td_up=+1).  Print one per hull.
-mast_z0    = (motor_offset_dir>0) ? (pylon_width - mast_w) : 0; // mast band near edge (removed slab is on the other side)
-mast_z1    = mast_z0 + mast_w;                                  // mast band far edge
-motor_zc   = (mast_z0 + mast_z1)/2;                            // motor cross centred in the slim mast band
-td_up      = (mount_to=="motor" && motor_offset_dir>0) ? -1 : 1; // teardrop apex sign: -Z pre-flip so it is +Z (up) once printed
-flare_y    = foot_h + flare_lift;                              // width steps full(44) -> mast_w here (foot stays full width)
+// --- WEDGE PYLON (2026-08-16, Patrick): a STRAIGHT symmetric taper, motor CENTRED, printed on the AFT (back) face.
+// The old smooth side-print loft with a one-sided outboard offset is gone.  The rugged straight wedge has a FLAT AFT face
+// that carries the motor CENTRED (motor_zc = pylon_width/2) and lies ON the bed for printing (build up = fore-aft, +X).
+// The layers still run along the mast length (Y) so the bending strength is comparable to the side print.  The HOUSING
+// CONNECTOR (mating face X=0 + register tongue + 4x M4) and the MOTOR mount (A2212 cross + boss) are UNCHANGED.
+pylon_base_t = 24;    // fore-aft depth at the BASE (= the flat AFT face X = the motor standoff pad_aft) -- sets base stiffness
+mast_top_t   = 14;    // fore-aft depth at the mast TOP (forward face recedes 0 -> pad_aft-mast_top_t up the mast => a wedge)
+pad_w_top    = 30;    // mast WIDTH at the top (tapers straight from pylon_width at the base) -- backs the motor SHORT cross + walls
+pylon_edge_ch = 1.5;  // 45deg chamfer on the wedge's long edges -- MATCHES the box edge_ch (rugged/machined look)
+pad_aft      = pylon_base_t;                              // pylon aft (motor) face fore-aft = the flat back-print face
+motor_zc     = pylon_width/2;                             // motor CENTRED across the width (symmetric pylon -- same part both hulls)
+mast_z0      = 0; mast_z1 = pylon_width;                  // (legacy names) the wedge is full width at the base
+td_up        = 1;                                         // (unused now -- back-print bores run along the build axis, no teardrop)
+flare_y      = foot_h + flare_lift;                       // the foot stays full width/depth to here; above it the wedge tapers
 motor_holes = [ [ motor_bolt_long/2, 0], [-motor_bolt_long/2, 0],
                 [0,  motor_bolt_short/2], [0, -motor_bolt_short/2] ]; // [dY (up-mast), dZ (width)] from the centre
 // edge walls (motor mode): the SHORT bolt + head-access counterbore vs BOTH slim-mast band edges; top LONG bolt vs pad top.
@@ -718,6 +721,7 @@ pad_y0     = (mount_to=="motor") ? pylon_rise - (motor_bolt_long/2 + motor_head_
                                  : pylon_rise - pad_h/2;    // pad bottom (merges into the buttress top)
 pad_y1     = (mount_to=="motor") ? pylon_rise + (motor_bolt_long/2 + motor_head_d/2 + 3)
                                  : pylon_rise + pad_h/2 + pad_top_pad; // pad top
+mast_top_y   = pad_y1 + pad_top_pad;                          // WEDGE apex Y (a touch above the top motor bolt access-bore)
 pad_top_flat = pad_y1 - (pylon_rise + bp_axis) - pylon_fillet; // (plate) FLAT above the top X screws before the round
 motor_top_wall = pad_y1 - (pylon_rise + motor_bolt_long/2) - motor_head_d/2;   // (motor) top LONG bolt access-bore -> pad top
 // -- Item 3: low foot bolt now clears the base-corner fillet (counterbore bottom above the round) --
@@ -804,7 +808,7 @@ if (motor_pad_t < 5) echo("  WARNING: motor pad < 5 mm");
 if (pylon_root_t < 4) echo("  WARNING: pylon root wall < 4 mm");
 echo(str("  stern block ", mm_pad_w, " x ", mm_pad_h, " x ", mm_block_depth,
          " aft ; M4 x4 depth ", mm_bolt_depth, " (reg tongue ", reg_depth, " deep x ", reg_h, " tall) ; bolt envelope ",
-         round(mm_bolt_envelope), " mm ", mm_bolt_envelope >= 33 ? "OK (fwd gusset + deep tongue carry the moment; bolts clamp)" : "  << WARNING: bolt spread small"));
+         round(mm_bolt_envelope), " mm ", mm_bolt_envelope >= 33 ? "OK (deep wedge base + tongue carry the moment; bolts clamp)" : "  << WARNING: bolt spread small"));
 echo(str("  motor-mount bolt cavity margin = ", mm_cavity_margin, " mm (need >= 3) ",
          mm_cavity_margin >= 3 ? "OK" : "  << WARNING: fastener enters the sealed cavity"));
 echo(str("  stern-block fastener method = ", mm_bolt_method, " ; bore ",
@@ -814,19 +818,16 @@ echo(str("  stern-block fastener method = ", mm_bolt_method, " ; bore ",
 echo(str("  bore <-> register-slot PLA web = ", round(10*mm_bolt_slot_wall)/10, " mm ",
          mm_bolt_slot_wall >= 1.5 ? "OK -- insert has PLA to grip; won't reflow into the slot"
                                   : "  << WARNING: bore fouls the register slot -- widen mm_bolt_y or shrink reg_h"));
-echo(str("  pylon: ONE extrude, ", pylon_width, " wide -> flat supportless; FULL-HEIGHT buttress ",
-         base_aft, "->", pylon_root_t, " fore-aft (base->tip); prints bed ", round(pad_y1),
-         "(Y, mast->pad tip) x ", round(base_aft + fg_reach), "(X, gusset tip->base) x ", pylon_width, " build"));
-echo(str("  pylon foot-bolt counterbore edge wall = ", round(10*foot_cbore_wall)/10,
-         " mm (need >= 3) ", foot_cbore_wall >= 3 ? "OK" : "  << WARNING: narrow mm_bolt_x or foot_cbore_d"));
-echo(str("  (item 3) low foot-bolt counterbore clears the base fillet by ", round(10*foot_bolt_base_clear)/10,
-         " mm ", foot_bolt_base_clear >= 1 ? "OK -- foot bolts on flat" : "  << WARNING: raise the bolt group / shrink pylon_fillet"));
-if (fwd_gusset)
-  echo(str("  (item 2) FORWARD SLOPE: bears on the block top, reaches ", fg_reach,
-           " mm fwd to the stern wall, climbs ", round(fg_rise), " mm up the mast (FULL-HEIGHT taper; apex Y=",
-           round(fg_y1), " vs pad Y0=", round(pad_y0), ") ",
-           fg_y1 <= pad_y0 + eps ? "OK -- tops out just below the motor pad" : "<< WARNING: slope overruns the pad"));
-else echo("  (item 2) forward slope OFF");
+echo(str("  pylon: WEDGE (rugged straight taper), motor CENTRED (Z ", pylon_width/2, ") -> SYMMETRIC, ONE part both hulls.",
+         " fore-aft ", pad_aft, "(base)->", mast_top_t, "(top) ; width ", pylon_width, "(base)->", pad_w_top, "(top)."));
+echo(str("  prints on the AFT (back) face: bed ", pylon_width, "(width) x ", round(mast_top_y), "(length) x ",
+         pad_aft + reg_depth, " build ; layers run along the mast (Y) -> bending strength ~ the old side print.",
+         " Foot M4 heads sit PROUD on the flat aft face (no down-facing counterbore -> supportless; exposed = rugged)."));
+echo(str("  moment path: deep wedge base + 4x M4 (spread ", mm_bolt_y, "x", mm_bolt_x, ") + register tongue -- no forward",
+         " gusset needed (thrust moment ~ tens of N at the bolts).  CONNECTOR (mating face + tongue + 4x M4) + MOTOR mount",
+         " (A2212 cross + boss + washer face) UNCHANGED -- same block, same motor."));
+echo(str("  << centring the motor gives the design-baseline cross-hull prop clearance (beam ", beam_target, " - prop ",
+         prop_diameter, " = ", beam_target - prop_diameter, " mm); the old outboard offset had ~13 mm more -- confirm OK."));
 echo(str("  OVERALL STACK (waterline -> prop top) = ", round(stack_height), " mm"));
 // prop is a FREE constant: warn when a big prop makes the mast tall enough that the
 // stern joint (fixed block/gussets/2.5 mm wall), not the mast, becomes the weak link.
@@ -1119,12 +1120,10 @@ if (mount_to=="motor") {
   echo("=== MOTOR MOUNT (integrated: bolt to the A2212 cross; guard = washer) ===");
   echo(str("  A2212 cross: LONG ", motor_bolt_long, " up-mast (Y) x SHORT ", motor_bolt_short,
            " across width (Z) -- Patrick's REAL motor (the Motor/BasePlate STLs are ILLUSTRATIVE only).  4x M3 clearance ", motor_screw_d));
-  echo(str("  SLENDER MAST: BOSL2 skin() loft (smoothstep) from the housing block up to the ", mast_w,
-           "-wide motor pad -- pretty smooth transition.  Motor centred at width ", round(10*motor_zc)/10,
-           motor_offset_dir>0 ? " -- OUTBOARD (props swing wide; prints FLIPPED so the slim mast lies on the bed)."
-                              : " -- the MIRROR variant for the other hull (prints as-is)."));
-  echo(str("  print BOTH dir=+1 and dir=-1 (one per hull) -- or two of one and flip (the foot is width-symmetric).",
-           " CONFIRM outboard by eye in the assembly; a mirror is probe-invisible."));
+  echo(str("  WEDGE MAST: rugged straight taper, motor CENTRED at width ", round(10*motor_zc)/10,
+           " (= pylon_width/2) -> the pylon is SYMMETRIC: the SAME part fits both hulls (only the guard's arc leans L/R)."));
+  echo(str("  prints on the AFT (back) face (not on the side) -- one pose for both hulls; the mast length (Y) stays in the",
+           " layers so bending strength is ~ the old side print.  No mirror to get wrong."));
   echo(str("  pad face ", round(10*(pad_y1-pad_y0))/10, "(Y) x ", mast_w, "(Z) -- TRIMMED to the ", motor_bolt_long,
            " cross + walls (was the full ", pylon_width, " slab); pad top cut to +3 above the highest hole."));
   echo(str("  edge walls: bolt access-bore -> mast edge ", round(100*motor_edge_wall)/100,
@@ -1148,7 +1147,7 @@ if (mount_to=="motor") {
            " guard bore then need a radial slot -- flag it, the guard hub can carry one."));
   echo(str("  motor breathes OPEN aft (no can wrap -- cooling) ; guard is a FRONTAL debris screen, NOT a side/aft safety",
            " guard at the disc ; STAINLESS + rinse/grease the counterbores (motor base is exposed at the waterline)."));
-  echo(str("  the FOOT (buttress+tongue+fwd gusset+4x M4) is FROZEN (byte-identical to origin/main)."));
+  echo(str("  the CONNECTOR (mating face X=0 + register tongue + 4x M4 pattern) is unchanged -- bolts to the same block."));
   echo("---------------------------------------------------------------");
 }
 
@@ -1215,9 +1214,9 @@ module oriented(p) {
   // pylon: the slim mast must lie ON the bed.  dir>0 puts the band on the FAR (Z=pylon_width) edge -> flip about the
   // fore-aft (X) axis so that face is on the bed (a PROPER rotation, not a mirror -> handedness kept; the teardrops were
   // pre-inverted via td_up so they come out apex-UP).  dir<=0 already has the band on the Z=0 bed edge -> identity.
-  else if (p=="pylon" && mount_to=="motor" && motor_offset_dir>0)
-    translate([0, pad_y1, pylon_width]) rotate([180,0,0]) children();
-  else if (p=="pylon") children();
+  // WEDGE pylon: print on the AFT (back) face -- rotate the flat X=pad_aft face onto the bed, build up = fore-aft (+X).
+  // Symmetric (motor centred) so the pose is the same for both hulls; the mast length (Y) lies in the layers.
+  else if (p=="pylon") translate([0,0,pad_aft]) rotate([0,90,0]) children();
   else children();
 }
 
