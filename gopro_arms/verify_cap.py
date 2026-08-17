@@ -73,14 +73,14 @@ LABEL_D   =  0.50
 CORD_D     =  4.00
 BODY_D     = 14.00
 FLARE_H    =  6.00
-LAND_H     = 11.00
+LAND_H     = 15.00
 THR_D      = 11.50
 THR_PITCH  =  2.00
 THR_SLOP   =  0.10
-SOCK_THR_L =  5.00
+SOCK_THR_L =  8.50
 BAY_D      = 12.00
-BAY_L      =  6.00
-SPIG_THR_L =  4.50
+BAY_L      =  6.50
+SPIG_THR_L =  8.00
 SPIG_W     =  1.00
 DOME_L     = 20.00
 DOME_W     =  1.40
@@ -432,6 +432,71 @@ def shell_checks(tris, want_genus, what):
           f"({'a through bore' if want_genus else 'no through bore'})")
 
 
+
+def overhang_report(tris, lo_z, allowed, name):
+    """Down-facing area steeper than the budget, bucketed by named zone.
+
+    `allowed` is {label: (z0, z1, cap_mm2, cap_deg)}.  cap_mm2 may be None,
+    which means "report the area, gate on the ANGLE instead" -- that is the
+    right shape of gate for a thread, where the underside flanks are 60 deg off
+    the axis by definition of the profile and the area is simply however much
+    thread there is.  What would actually be a bug there is a 90 deg ledge, and
+    the angle cap catches that while an area budget would just be a number
+    guessed to fit.  Anything steep OUTSIDE every named zone fails outright.
+
+    Naming the exceptions is the point: "no overhangs" is not true of any part
+    with a shoulder or a thread, and a gate that only prints the worst number
+    teaches you nothing about whether it is the shoulder you designed or a wall
+    you did not mean to lean over.
+    """
+    lim = math.sin(math.radians(OH_ANG + FACET_TOL))
+    zones = {k: [0.0, 0.0] for k in allowed}
+    stray, stray_worst, bed = 0.0, 0.0, 0.0
+    for t in tris:
+        n, a = normal(t)
+        if n is None or n[2] >= -1e-6:
+            continue
+        if max(p[2] for p in t) < lo_z + 1e-4:
+            bed += a
+            continue
+        ang = math.degrees(math.asin(min(1, -n[2])))
+        z = min(p[2] for p in t)
+        hit = None
+        for k, (z0, z1, _, _a) in allowed.items():
+            if z0 <= z <= z1:
+                hit = k
+                break
+        if hit is None:
+            zones  # noqa
+            if -n[2] > lim:
+                stray += a
+            stray_worst = max(stray_worst, ang)
+        else:
+            zones[hit][1] = max(zones[hit][1], ang)
+            if -n[2] > lim:
+                zones[hit][0] += a
+    print(f"     bed contact {bed:.1f} mm^2")
+    for k, (ar, w) in zones.items():
+        print(f"     {k:24s} {ar:7.2f} mm^2 unsupported, steepest {w:5.1f} deg")
+    print(f"     {'anywhere else':24s} {stray:7.2f} mm^2 unsupported, "
+          f"steepest {stray_worst:5.1f} deg")
+    for k, (z0, z1, cap, cap_deg) in allowed.items():
+        if cap is not None:
+            check(zones[k][0] <= cap + 0.5,
+                  f"{name}: {k} carries {zones[k][0]:.2f} mm^2 of overhang "
+                  f"(budget {cap})")
+        check(zones[k][1] <= cap_deg,
+              f"{name}: {k} leans {zones[k][1]:.1f} deg, budget {cap_deg} "
+              f"-- steeper than the profile allows means a ledge, not a flank")
+    check(stray < 0.5,
+          f"{name}: nothing outside the named zones is unsupported "
+          f"({stray:.3f} mm^2)")
+    check(stray_worst <= OH_ANG + FACET_TOL,
+          f"{name}: steepest overhang away from those zones "
+          f"{stray_worst:.1f} <= {OH_ANG} deg")
+    return bed
+
+
 def bore_geom():
     """Key z stations of the anchor cap, from the spec."""
     sz = seat_z(PLUG_CREST_D)
@@ -495,6 +560,23 @@ def borecap(tris, lo, hi):
               f"the major diameter leaves a smooth hole with a 0.2 mm helical "
               f"scratch in it, and that still looks like a thread in a render")
         print(f"     entry choke {2*crestr:.3f} mm -- the knot is pushed past this")
+
+    print(f"\n[6] printability -- and the thread is the interesting one")
+    print("    (a 60 deg profile puts its underside flanks 60 deg off the axis,")
+    print("     over the 45 deg budget.  That is true of EVERY vertical-axis")
+    print("     thread, it is what thr_slop exists to absorb, and support is")
+    print("     not the answer -- you could never get it out of an 11.5 bore)")
+    bed = overhang_report(tris, 0.0, {
+        "seat on the tube end": (sz - 0.2, sz + 0.2, 22.0, 90.1),
+        "bay/funnel junction":  (floor + BAY_L - 2.0, top - SOCK_THR_L,
+                                 1.0, 90.1),
+        # area is however much thread there is; 62 deg is the profile's own
+        # flank plus the helix's lead angle, and anything past it is a ledge
+        "socket thread":        (top - SOCK_THR_L - 0.2, top + 0.1, None, 62.0),
+    }, "anchor cap")
+    print(f"     NOTE {top:.1f} mm tall on {bed:.0f} mm^2 of bed -- "
+          f"the cord bore makes the footprint a RING.  Brim.")
+    check(bed > 15, f"bed contact {bed:.1f} mm^2")
     return report()
 
 
@@ -527,16 +609,42 @@ def domecap(tris, lo, hi):
         check(slope < 0.05, f"dome leaves the {BODY_D} body tangent ({slope:.4f})")
         check(abs(seg[0][1] - BODY_R) < 0.03, "and flush with it")
 
-    print("\n[3] the spigot thread")
-    thr = [o for z, i, o in radial_profile(tris, -SPIG_THR_L + 0.7, -1.0, 0.04) if o]
+    print("\n[3] the spigot thread -- and how much of it is really thread")
+    full = radial_profile(tris, -SPIG_THR_L - 0.1, 0.0, 0.02)
+    thr = [o for z, i, o in full if o and -SPIG_THR_L + 0.7 <= z <= -1.0]
     if thr:
         core, major = min(thr), max(thr)
         print(f"     core r {core:.3f}, major r {major:.3f}, depth {major-core:.3f}")
         check(abs(2*major - THR_D) < 0.10, f"major {2*major:.3f} == {THR_D}")
         check(major - core > 0.8*THR_DEPTH, f"depth {major-core:.3f} is a thread")
+    # SPIG_THR_L is not the engagement.  The lead-in eats the bottom and the rim
+    # chamfer buries the top, so count the band where the crests actually stand
+    # at the major diameter -- dividing the nominal length by the pitch would
+    # have called the first cut 2.25 turns when the part had about one.
+    at_major = [z for z, i, o in full if o and o >= THR_D/2 - 0.06]
+    if at_major:
+        span = max(at_major) - min(at_major)
+        turns = span/THR_PITCH
+        print(f"     crests reach {THR_D/2:.2f} over z {min(at_major):+.2f}"
+              f"..{max(at_major):+.2f} = {span:.2f} mm = {turns:.1f} full turns")
+        check(turns >= 2.5,
+              f"{turns:.1f} turns of real engagement -- nominal length over "
+              f"pitch would have claimed {SPIG_THR_L/THR_PITCH:.1f}")
     check(SPIG_THR_L < SOCK_THR_L,
           f"spigot thread {SPIG_THR_L} is shorter than the socket's {SOCK_THR_L}, "
           f"so the RIM is the stop and the joint actually closes")
+
+    print(f"\n[4] printability")
+    print("    the hollow dome is the part that looks like it needs support and")
+    print("    does not: the cavity follows the parabola in, so its ceiling")
+    print("    never leans past ~32 deg")
+    bed = overhang_report(tris, lo[2], {
+        "spigot thread": (-SPIG_THR_L - 0.1, -0.9, None, 62.0),
+        "rim seat":      (-0.01, 0.01, 26.0, 90.1),
+    }, "dome")
+    print(f"     NOTE {hi[2]-lo[2]:.1f} mm tall on {bed:.0f} mm^2 of bed -- the")
+    print(f"     footprint is only the spigot's end ring.  BRIM IS NOT OPTIONAL.")
+    check(bed > 10, f"bed contact {bed:.1f} mm^2")
     return report()
 
 

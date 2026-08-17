@@ -223,15 +223,15 @@ cord_d     =  4.00;   // through bore for the bungee
 cord_flare =  0.80;   // radial trumpet where the cord leaves for the tube
 body_d     = 14.00;   // the assembled body's greatest diameter
 flare_h    =  6.00;   // length of the 12 -> 14 cone.  9.5 deg half-angle.
-land_h     = 11.00;   // straight 14.0 band; the socket lives inside it
+land_h     = 15.00;   // straight 14.0 band; the socket lives inside it
 thr_d      = 11.50;   // thread nominal (major) diameter
 thr_pitch  =  2.00;   // coarse on purpose -- see the note
 thr_slop   =  0.10;   // BOSL2 $slop; internal threads gain 4*$slop
-sock_thr_l =  5.00;   // threaded depth of the socket
+sock_thr_l =  8.50;   // threaded depth of the socket
 bay_d      = 12.00;   // knot bay, bored WIDER than the thread, BELOW it
-bay_l      =  6.00;   // and out of the dome's reach, so the knot is never
+bay_l      =  6.50;   // and out of the dome's reach, so the knot is never
                       // squeezed by the part screwing down over it
-spig_thr_l =  4.50;   // male thread on the dome (< sock_thr_l so the rim seats)
+spig_thr_l =  8.00;   // male thread on the dome (< sock_thr_l so the rim seats)
 spig_w     =  1.00;   // dome spigot wall, at the thread core
 dome_l     = 20.00;   // dome's nominal parabola length
 dome_w     =  1.40;   // dome wall, radial
@@ -445,6 +445,20 @@ module cap_gauge() {
 //  one surface that is supposed to be smooth.  A thread has no strain budget at
 //  all, it is serviceable -- the knot can be retied -- and BOSL2 already has
 //  the geometry.
+//
+//  HOW MUCH THREAD IS ACTUALLY THREAD.  spig_thr_l is not the engagement: the
+//  spigot's lead-in eats 0.65 mm at the bottom, and at the top the thread is
+//  buried wherever the rim chamfer has grown past the thread's major diameter,
+//  which costs another ~0.78.  Worse, BOSL2's blunt_start tapers the profile out
+//  over roughly a pitch at each end, so a nominal 7.00 measured only 2.3 full
+//  turns of crest at the major diameter.  The first cut ran spig_thr_l = 4.50 --
+//  "2.25 turns" by nominal length over pitch -- and came out with about ONE
+//  usable turn on the part.
+//
+//  It is now 8.00, which measures ~2.8 real turns, and verify_cap.py [3] counts
+//  them OFF THE MESH (the band where the crests actually reach thr_d/2) instead
+//  of dividing a nominal length by the pitch.  Those two numbers disagree by
+//  more than a turn, and only one of them is the thing you screw together.
 //
 //  thr_pitch is 2.00, which is coarse for an 11.5 thread and deliberately so:
 //  fewer, fatter threads survive FDM's rounding, and the flanks of a 60 deg
