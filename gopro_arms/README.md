@@ -102,7 +102,7 @@ Parts, streamlined: `gauge`, `arm50`, `arm75`, `arm100`, `arm140`, `set`,
 
 Not an arm at all, but they cap the pipes the clamp holds: `cap`, `capset` and
 `capgauge` — a press-fit parabolic fairing for the end of a 12 mm PVC tube — and
-`borecap` + `domecap`, a two-part version that takes a 4 mm bungee through the
+`borecap` + `domecap`, a two-part version that takes a 5.5 mm bungee through the
 end and screws a fairing over the knot — or `cordcap`, the same bore with
 neither thread nor dome.
 
@@ -1398,7 +1398,7 @@ able to fail, and were made to — a cone (`para_k=0`) fails tangency at 0.3333,
 
 ## Two-part bungee cap (`part="borecap"` + `part="domecap"`)
 
-A 4 mm bungee has to pass through the tube end and be knotted so it cannot pull
+A 5.5 mm bungee has to pass through the tube end and be knotted so it cannot pull
 back, and the end still has to be hydrodynamic. Those two jobs fight — the knot
 wants a big open pocket, the fairing wants a smooth point — so they are two
 parts that screw together.
@@ -1441,11 +1441,19 @@ Measured off the two meshes, on the shared rim datum:
 
 | | crest | root/major | depth |
 |---|---|---|---|
-| female socket | 4.872 | 5.955 | 1.083 |
+| female socket | 5.072 | 6.155 | 1.083 |
 | male spigot | 4.667 | 5.749 | 1.082 |
 
-against BOSL2's own profile depth of 1.082 — and **+0.205 mm radial clearance on
-both flanks**, which is `4 × $slop` split two ways. `verify_cap.py --mate`
+against BOSL2's own profile depth of 1.082 — and **+0.405 mm radial clearance on
+both flanks**, which is `4 × $slop` split two ways.
+
+> **`thr_slop` is 0.20, doubled from 0.10 after the printed pair would not
+> close.** It bound before the rim seated and came apart only with pliers. Being
+> generous here is nearly free — the *rim* is the stop, not the thread, and the
+> joint is glued, so slop costs nothing while binding costs the part. What it
+> does cost is wall: the socket's thread root now leaves **0.845 mm** outside it,
+> and `verify_cap.py --bore` fails under 0.8, because past that any further slop
+> has to be bought from somewhere other than the wall. `verify_cap.py --mate`
 checks both clearances are positive, because a thread that fits nothing is just
 a decorative helix and it looks perfect in a render.
 
@@ -1471,9 +1479,15 @@ Measured off both meshes:
 | | |
 |---|---|
 | bay | **12.00 mm** dia |
-| entry, dome off | 9.74 mm — the socket thread's crests, what the knot is pushed past |
+| entry, dome off | **10.14 mm** — the socket thread's crests, what the knot is pushed past |
 | spigot bore, assembled | 7.33 mm — sits *above* the bay, so it caps the sphere, not the entry |
-| **largest sphere that fits** | **8.74 mm** = 2.2 cord diameters |
+| **largest sphere that fits** | **10.30 mm** = 1.9 cord diameters |
+
+`bay_l` is matched to the entry rather than maximised. At 6.5 the chamber took a
+9.11 mm ball against a 10.14 entry, and every 1.5 mm of extra bay buys ~1.2 mm of
+ball until it saturates at `bay_d`. 8.0 puts the chamber level with the entry;
+past that the depth is height you cannot fill, because the knot cannot be pushed
+through the thread to reach it.
 
 Check your actual knot against those numbers, not against a sentence in a
 comment. Both halves take the same plug, so `capgauge` sizes these too.
@@ -1502,21 +1516,24 @@ end and a countersink for the knot — no thread, nothing to screw on. **16.9 mm
 tall** against the pair's 54, for the ends where the cord has to pass through and
 nobody cares what the wake looks like.
 
-It is still not a square-cut rim. The end rolls over on **R2.0**, which costs
+It is still not a square-cut rim. The end rolls over on **R1.5**, which costs
 nothing to print — the radius shrinks going up, so every facet on it faces up —
 and is the difference between a bluff face and something the water goes round.
-Measured, the end plane is an annulus from r2.890 (the countersink) to r4.000
-(where the radius takes over), leaving **1.11 mm of flat** for the knot to bear
-on.
+Measured, the end plane is an annulus from r3.640 (the countersink) to r4.500
+(where the radius takes over), leaving **0.86 mm of flat** for the knot to bear
+on. (`end_r` came down from 2.0 when the bore grew to 5.5 — the countersink now
+reaches r3.65 and the flat has to outlive it.)
 
 Both ends of the bore are opened out, because a tensioned bungee will saw
-through itself on a square edge given time: a trumpet to Ø5.39 where the cord
-leaves for the tube, and a 45° countersink to Ø5.67 at the outer face, which the
+through itself on a square edge given time: a trumpet to Ø6.69 where the cord
+leaves for the tube, and a 45° countersink to Ø7.17 at the outer face, which the
 knot beds into rather than bearing on the rim of a drilled hole.
 
-It is the only one of the caps flush at 12.0 — it has no 14 mm body to fair
-into — and the only one short enough that the brim is optional (16.9 mm on
-27.6 mm² of bed, though that bed contact is a *ring*, not a disc).
+It is the only one of the caps flush at 12.0 — it has no 14 mm body to fair into.
+**Use a brim on this one too**: 16.9 mm tall on 17.0 mm² of bed, and that bed
+contact is a *ring*, not a disc, because the bore runs right through. (`cord_flare`
+was trimmed 0.80 → 0.60 when the bore went to 5.5 for exactly this reason — at
+0.80 the ring was down to 12.6 mm².)
 
 ## Verifying
 

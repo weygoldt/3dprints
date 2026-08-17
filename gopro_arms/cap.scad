@@ -219,17 +219,27 @@ label_d   =  0.50;      // debossed, so nothing on the handle sticks out
 label_sz  =  3.20;
 
 // ------------------------------------------- two-part bungee cap (see below)
-cord_d     =  4.00;   // through bore for the bungee
-cord_flare =  0.80;   // radial trumpet where the cord leaves for the tube
+cord_d     =  5.50;   // through bore for the bungee
+cord_flare =  0.60;   // radial trumpet where the cord leaves for the tube.
+                      // Trimmed from 0.80 when the bore went 4.0 -> 5.5: the
+                      // bed contact of both bored caps is the RING between this
+                      // flare and the plug's lead-in disc, and at 0.80 the 5.5
+                      // bore left only 12.6 mm^2 of it.
 body_d     = 14.00;   // the assembled body's greatest diameter
 flare_h    =  6.00;   // length of the 12 -> 14 cone.  9.5 deg half-angle.
-land_h     = 15.00;   // straight 14.0 band; the socket lives inside it
+land_h     = 16.50;   // straight 14.0 band; the socket lives inside it
 thr_d      = 11.50;   // thread nominal (major) diameter
 thr_pitch  =  2.00;   // coarse on purpose -- see the note
-thr_slop   =  0.10;   // BOSL2 $slop; internal threads gain 4*$slop
+thr_slop   =  0.20;   // BOSL2 $slop; internal threads gain 4*$slop.
+                      // Was 0.10 = 0.40 diametral, and the printed pair would
+                      // not close: it bound before the rim seated and came
+                      // apart only with pliers.  0.20 doubles it to 0.80.
+                      // Cheap to be generous here -- the RIM is the stop, not
+                      // the thread, and the joint is glued, so slop costs
+                      // nothing while binding costs the part.
 sock_thr_l =  8.50;   // threaded depth of the socket
 bay_d      = 12.00;   // knot bay, bored WIDER than the thread, BELOW it
-bay_l      =  6.50;   // and out of the dome's reach, so the knot is never
+bay_l      =  8.00;   // and out of the dome's reach, so the knot is never
                       // squeezed by the part screwing down over it
 spig_thr_l =  8.00;   // male thread on the dome (< sock_thr_l so the rim seats)
 spig_w     =  1.00;   // dome spigot wall, at the thread core
@@ -239,7 +249,9 @@ rim_w      =  0.60;   // flat seat at the dome's rim, same trick as the plug's
 
 // ------------------------------------------- plain cord cap (no thread)
 end_h      =  4.00;   // how far the cord cap stands out of the tube
-end_r      =  2.00;   // rim rolled over on this radius -- no square edge
+end_r      =  1.50;   // rim rolled over on this radius -- no square edge.
+                      // 2.00 before the bore grew; the countersink for a 5.5
+                      // bore reaches r3.65 and the flat has to outlive it.
 csk_d      =  0.90;   // countersink at the outer mouth: seats the knot and
                       // takes the edge off where the cord turns
 
@@ -483,8 +495,13 @@ module cap_gauge() {
 //  into that bay and the dome screws down over the top of it, touching nothing.
 //
 //  The one number to check against a real knot is the ENTRY: the thread's minor
-//  diameter, ~thr_d - 2*0.541*thr_pitch, is the narrowest thing the knot has to
-//  be pushed past on its way in.  verify_cap.py [3] measures the assembled
+//  diameter plus the slop, ~thr_d - 2*0.541*thr_pitch + 4*thr_slop, is the
+//  narrowest thing the knot has to be pushed past on its way in.  bay_l is
+//  matched to it rather than maximised: at 6.50 the chamber took a 9.11 mm ball
+//  against a 10.14 entry, and every 1.5 mm of extra bay buys ~1.2 mm of ball
+//  until it saturates at bay_d.  8.00 puts the chamber (10.30) level with the
+//  entry, and past that the depth is height you cannot fill -- the knot simply
+//  cannot be pushed through the thread to reach it.  verify_cap.py [3] measures the assembled
 //  chamber off both meshes and prints that choke, the bay, and the largest
 //  sphere that actually fits -- check your knot against those, not against a
 //  number in this comment.

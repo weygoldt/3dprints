@@ -70,24 +70,24 @@ PAD_H     = 14.00
 LABEL_D   =  0.50
 
 # ---- two-part bungee cap (mirrors cap.scad) --------------------------
-CORD_D     =  4.00
-CORD_FLARE =  0.80
+CORD_D     =  5.50
+CORD_FLARE =  0.60
 BODY_D     = 14.00
 FLARE_H    =  6.00
-LAND_H     = 15.00
+LAND_H     = 16.50
 THR_D      = 11.50
 THR_PITCH  =  2.00
-THR_SLOP   =  0.10
+THR_SLOP   =  0.20
 SOCK_THR_L =  8.50
 BAY_D      = 12.00
-BAY_L      =  6.50
+BAY_L      =  8.00
 SPIG_THR_L =  8.00
 SPIG_W     =  1.00
 DOME_L     = 20.00
 DOME_W     =  1.40
 RIM_W      =  0.60
 END_H      =  4.00
-END_R      =  2.00
+END_R      =  1.50
 CSK_D      =  0.90
 
 THR_DEPTH  = 0.5412*THR_PITCH          # BOSL2's own profile
@@ -568,6 +568,14 @@ def borecap(tris, lo, hi):
               f"the major diameter leaves a smooth hole with a 0.2 mm helical "
               f"scratch in it, and that still looks like a thread in a render")
         print(f"     entry choke {2*crestr:.3f} mm -- the knot is pushed past this")
+        # More slop cuts the socket deeper, and what it cuts into is the wall.
+        wall = BODY_R - root
+        print(f"     wall left outside the thread root {wall:.3f} mm "
+              f"(4*slop = {4*THR_SLOP:.2f} diametral comes out of this)")
+        check(wall > 0.8,
+              f"{wall:.3f} mm of wall at the thread root -- under ~0.8 and it "
+              f"is fewer than two perimeters, so raising thr_slop further has "
+              f"to buy the room from somewhere else")
 
     print(f"\n[6] printability -- and the thread is the interesting one")
     print("    (a 60 deg profile puts its underside flanks 60 deg off the axis,")
@@ -616,14 +624,19 @@ def cordcap(tris, lo, hi):
     if mid:
         print(f"     bore {2*min(mid):.3f} mm through the plug (want {CORD_D})")
         check(abs(2*min(mid) - CORD_D) < 0.08, f"bore == {CORD_D}")
-    # the trumpet at the tube end
-    lowr = [i for z, i, o in prof if z < 0.3 and i]
-    if lowr:
-        print(f"     opens to {2*max(lowr):.3f} mm at the tube end "
+    # The trumpet at the tube end, measured ON the bed face rather than a
+    # sample taken part-way up it -- the cone narrows as it climbs, so a probe
+    # 0.2 mm in reads 6.49 on a mouth that is really 6.70, which is how this
+    # check first failed a correct part.  Same lesson as the end plane below.
+    mouth = [math.hypot(p[0], p[1]) for t in tris for p in t
+             if abs(p[2]) < 1e-3]
+    if mouth:
+        print(f"     opens to {2*min(mouth):.3f} mm at the tube end "
               f"(want {CORD_D + 2*CORD_FLARE:.2f}) so the cord turns on a "
               f"radius, not an edge")
-        check(2*max(lowr) > CORD_D + 1.0,
-              f"the tube-end mouth is flared ({2*max(lowr):.3f})")
+        check(abs(2*min(mouth) - (CORD_D + 2*CORD_FLARE)) < 0.08,
+              f"tube-end mouth {2*min(mouth):.3f} == "
+              f"{CORD_D + 2*CORD_FLARE:.2f}")
     # the countersink at the outer end
     csk = [i for z, i, o in prof if top - 0.15 < z and i]
     if csk:
