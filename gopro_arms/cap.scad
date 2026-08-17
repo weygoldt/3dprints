@@ -237,6 +237,12 @@ dome_l     = 20.00;   // dome's nominal parabola length
 dome_w     =  1.40;   // dome wall, radial
 rim_w      =  0.60;   // flat seat at the dome's rim, same trick as the plug's
 
+// ------------------------------------------- plain cord cap (no thread)
+end_h      =  4.00;   // how far the cord cap stands out of the tube
+end_r      =  2.00;   // rim rolled over on this radius -- no square edge
+csk_d      =  0.90;   // countersink at the outer mouth: seats the knot and
+                      // takes the edge off where the cord turns
+
 // --------------------------------------------------------------- faceting
 cap_fn    = 160;        // rotate_extrude segments.  160/4 = 40, so there is a
                         // vertex exactly on the +Y axis: the verifier's probe
@@ -484,6 +490,11 @@ module cap_gauge() {
 //  number in this comment.
 //
 //  ------------------------------------------------------------------
+//  AND IF YOU DO NOT WANT THE DOME: `cordcap` is the anchor's job alone -- the
+//  same plug, the same 4 mm bore, a rounded end and a countersink for the knot
+//  to bed into, and nothing to screw on.  16.9 mm tall against the pair's 54.
+//
+//  ------------------------------------------------------------------
 //  PRINT.  Both stand up the same way as `cap`: plug (or spigot) on the bed,
 //  no support, brim.  The dome's footprint is only the spigot's end ring, so
 //  the brim is not optional there.  The rim seats on the anchor cap's shoulder
@@ -595,6 +606,47 @@ module dome_cap() {
                              bevel1 = true, blunt_start = true, $fn = 72);
         }
         rotate_extrude($fn = cap_fn) polygon(dome_cav_pts());
+    }
+}
+
+// ---------------------------------------------------- plain cord cap
+// The bungee cap without the bungee cap: the same plug, a 4 mm cord bore, and
+// a rounded end.  No thread, no dome, nothing to screw on -- the knot is tied
+// outside and simply sits in the countersink.  For the ends where the cord has
+// to pass through and nobody cares what the wake looks like.
+//
+// It is still not a square-cut rim: the end rolls over on end_r, which costs
+// nothing to print (the radius shrinks going up, so every facet faces up) and
+// is the difference between a bluff face and something the water goes round.
+function cord_pts(d) =
+    let (sz = seat_z(d), top = sz + end_h, fr = base_r - end_r)
+    concat(
+        plug_pts(d),                          // ends at [base_r, sz + collar_h]
+        [[base_r, top - end_r]],
+        [ for (j = [1 : arc_seg])
+            let (a = 90*j/arc_seg)
+                [fr + end_r*cos(a), top - end_r + end_r*sin(a)] ],
+        [[0, top]]
+    );
+
+module cord_cap() {
+    assert(cord_d/2 + csk_d < base_r - end_r,
+           "the countersink runs off the flat and into the rolled rim");
+    sz = seat_z(plug_crest_d);
+    difference() {
+        rotate_extrude($fn = cap_fn) polygon(cord_pts(plug_crest_d));
+        translate([0, 0, -1])
+            cylinder(d = cord_d, h = sz + end_h + 2, $fn = 96);
+        // trumpet at the tube end so a working cord cannot saw on a square edge
+        translate([0, 0, -0.01])
+            cylinder(d1 = cord_d + 2*cord_flare, d2 = cord_d,
+                     h = 2*cord_flare, $fn = 96);
+        // countersink at the outer mouth.  Opens UPWARD, so it is a free
+        // surface to print, and the knot beds into the cone instead of
+        // bearing on the rim of a drilled hole.
+        translate([0, 0, sz + end_h - csk_d])
+            cylinder(d1 = cord_d, d2 = cord_d + 2*csk_d,
+                     h = csk_d + 0.01, $fn = 96);
     }
 }
 

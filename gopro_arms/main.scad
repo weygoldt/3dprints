@@ -45,6 +45,9 @@
 //    domecap        half 2: screws onto borecap and is the parabola.  The
 //                   assembly cones 12 -> 14 mm, so it is a body of revolution
 //                   rather than a cylinder with a hat on.
+//    cordcap        the anchor's job WITHOUT the dome: same plug, same 4 mm
+//                   cord bore, a rounded end and a countersink for the knot.
+//                   No thread, nothing to screw on, 16.9 mm tall.
 //    capstack       both, assembled.  For looking at, NOT a print plate.
 //    capcut         the same assembly, halved, so you can see where the
 //                   knot actually sits.  Also not a print plate.
@@ -80,7 +83,7 @@ use <clamp.scad>
 // opening cap.scad on its own is fine, it includes BOSL2 at its own top level.
 use <cap.scad>
 
-part = "arm100";   // [gauge, arm50, arm75, arm100, arm140, set, section, sgauge, simple50, simple75, simple100, simple140, sset, ssection, double50, double75, double100, double140, dset, clamp, buckle, twist, cap, capset, capgauge, borecap, domecap, capstack, capcut]
+part = "arm100";   // [gauge, arm50, arm75, arm100, arm140, set, section, sgauge, simple50, simple75, simple100, simple140, sset, ssection, double50, double75, double100, double140, dset, clamp, buckle, twist, cap, capset, capgauge, borecap, domecap, capstack, capcut, cordcap]
 
 arm_lengths = [50, 75, 100, 140];
 
@@ -113,6 +116,7 @@ else if (part == "borecap")   bore_cap();
 else if (part == "domecap")   dome_cap();
 else if (part == "capstack")  cap_stack();
 else if (part == "capcut")    cap_cut();
+else if (part == "cordcap")   cord_cap();
 
 // All four arms, side by side, flat faces all on the bed.
 module arm_set() {

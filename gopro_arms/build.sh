@@ -104,6 +104,10 @@ echo "--- bungee cap: screw-on dome"
 scad "stl/pipe_cap_12mm_dome.stl" "domecap"
 python3 verify_cap.py "stl/pipe_cap_12mm_dome.stl" --dome | tail -4
 
+echo "--- plain cord cap (no thread, no dome)"
+scad "stl/pipe_cap_12mm_cord.stl" "cordcap"
+python3 verify_cap.py "stl/pipe_cap_12mm_cord.stl" --cord | tail -4
+
 echo "--- bungee cap: do the two halves actually go together"
 python3 verify_cap.py "stl/pipe_cap_12mm_bore.stl" \
         --mate "stl/pipe_cap_12mm_dome.stl" | tail -6

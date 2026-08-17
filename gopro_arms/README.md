@@ -103,7 +103,8 @@ Parts, streamlined: `gauge`, `arm50`, `arm75`, `arm100`, `arm140`, `set`,
 Not an arm at all, but they cap the pipes the clamp holds: `cap`, `capset` and
 `capgauge` — a press-fit parabolic fairing for the end of a 12 mm PVC tube — and
 `borecap` + `domecap`, a two-part version that takes a 4 mm bungee through the
-end and screws a fairing over the knot.
+end and screws a fairing over the knot — or `cordcap`, the same bore with
+neither thread nor dome.
 
 > **Print a gauge first.** It is both ends with no beam, ~10 minutes, and it
 > tells you whether the 0.10 mm clearances land right on *your* PETG before you
@@ -1406,6 +1407,7 @@ parts that screw together.
 |---|---|
 | `borecap` | the **anchor**: the same plug as every other cap here, but a 4 mm cord bore and a threaded socket instead of a nose |
 | `domecap` | the **dome**: screws onto it and is the parabola |
+| `cordcap` | the anchor's job **without** the dome — see below |
 | `capstack` / `capcut` | both assembled, whole and halved. For looking at, **not** print plates |
 
 ### Why 14 mm, and why that is better than 12
@@ -1493,6 +1495,29 @@ interpenetrate. `verify_cap.py` now counts edge incidence on every part, because
 the slicer eats the STL, not OpenSCAD's opinion of it.
 
 
+### Plain cord cap (`part="cordcap"`)
+
+The bungee cap without the bungee cap. Same plug, same 4 mm cord bore, a rounded
+end and a countersink for the knot — no thread, nothing to screw on. **16.9 mm
+tall** against the pair's 54, for the ends where the cord has to pass through and
+nobody cares what the wake looks like.
+
+It is still not a square-cut rim. The end rolls over on **R2.0**, which costs
+nothing to print — the radius shrinks going up, so every facet on it faces up —
+and is the difference between a bluff face and something the water goes round.
+Measured, the end plane is an annulus from r2.890 (the countersink) to r4.000
+(where the radius takes over), leaving **1.11 mm of flat** for the knot to bear
+on.
+
+Both ends of the bore are opened out, because a tensioned bungee will saw
+through itself on a square edge given time: a trumpet to Ø5.39 where the cord
+leaves for the tube, and a 45° countersink to Ø5.67 at the outer face, which the
+knot beds into rather than bearing on the rim of a drilled hole.
+
+It is the only one of the caps flush at 12.0 — it has no 14 mm body to fair
+into — and the only one short enough that the brim is optional (16.9 mm on
+27.6 mm² of bed, though that bed contact is a *ring*, not a disc).
+
 ## Verifying
 
 ```sh
@@ -1506,6 +1531,7 @@ python3 verify_cap.py stl/pipe_cap_12mm.stl                       # the pipe fai
 python3 verify_cap.py stl/pipe_cap_12mm_gauge.stl --gauge          # its fit coupon
 python3 verify_cap.py stl/pipe_cap_12mm_bore.stl --bore            # bungee cap, anchor
 python3 verify_cap.py stl/pipe_cap_12mm_dome.stl --dome            # bungee cap, dome
+python3 verify_cap.py stl/pipe_cap_12mm_cord.stl --cord            # plain cord cap
 python3 verify_cap.py stl/pipe_cap_12mm_bore.stl \
         --mate stl/pipe_cap_12mm_dome.stl        # do the two halves GO TOGETHER
 python3 fitcheck.py                                               # mating interference

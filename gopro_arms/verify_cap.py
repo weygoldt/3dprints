@@ -71,6 +71,7 @@ LABEL_D   =  0.50
 
 # ---- two-part bungee cap (mirrors cap.scad) --------------------------
 CORD_D     =  4.00
+CORD_FLARE =  0.80
 BODY_D     = 14.00
 FLARE_H    =  6.00
 LAND_H     = 15.00
@@ -85,6 +86,9 @@ SPIG_W     =  1.00
 DOME_L     = 20.00
 DOME_W     =  1.40
 RIM_W      =  0.60
+END_H      =  4.00
+END_R      =  2.00
+CSK_D      =  0.90
 
 THR_DEPTH  = 0.5412*THR_PITCH          # BOSL2's own profile
 THR_MINOR  = THR_D - 2*THR_DEPTH
@@ -395,6 +399,8 @@ def main():
                     help="the bungee cap's anchor half")
     ap.add_argument('--dome', action='store_true',
                     help="the bungee cap's screw-on dome")
+    ap.add_argument('--cord', action='store_true',
+                    help='the plain cord cap -- bore, no thread, no dome')
     ap.add_argument('--mate', metavar='DOME_STL',
                     help='pass the anchor as <stl> and the dome here: checks '
                          'that the threads fit and measures the assembled '
@@ -413,6 +419,8 @@ def main():
         return gauge(tris, lo, hi)
     if args.bore:
         return borecap(tris, lo, hi)
+    if args.cord:
+        return cordcap(tris, lo, hi)
     if args.dome:
         return domecap(tris, lo, hi)
     return cap(tris, lo, hi)
@@ -576,6 +584,84 @@ def borecap(tris, lo, hi):
     }, "anchor cap")
     print(f"     NOTE {top:.1f} mm tall on {bed:.0f} mm^2 of bed -- "
           f"the cord bore makes the footprint a RING.  Brim.")
+    check(bed > 15, f"bed contact {bed:.1f} mm^2")
+    return report()
+
+
+def cordcap(tris, lo, hi):
+    sz = seat_z(PLUG_CREST_D)
+    top = sz + END_H
+    print(f"\nspec: seat {sz:.2f}, end face {top:.2f}, rim rolled on R{END_R}")
+
+    print("\n[1] shell")
+    shell_checks(tris, 1, "cord cap")
+    check(abs(hi[2] - top) < 0.03, f"end face at {hi[2]:.3f} == {top:.3f}")
+    rad = max(math.hypot(p[0], p[1]) for t in tris for p in t)
+    check(abs(rad - PIPE_OD/2) < 0.02,
+          f"greatest radius {rad:.3f} == the tube's {PIPE_OD/2} -- this one is "
+          f"flush, it has no 14 mm body to fair into")
+
+    prof = radial_profile(tris, 0.2, top - 0.05, 0.05)
+
+    print("\n[2] it is still the same plug")
+    crest = max((o for z, i, o in prof if z < sz - 0.6 and o), default=0)
+    check(abs(crest - PLUG_CREST_D/2) < 0.03,
+          f"rib crest {2*crest:.3f} == {PLUG_CREST_D}")
+    eng = sz
+    print(f"     engagement {eng:.2f} mm = {eng/PIPE_OD:.2f} tube diameters")
+    check(eng > PIPE_OD, f"buried {eng:.2f} mm, more than one diameter")
+
+    print("\n[3] the cord bore, end to end")
+    mid = [i for z, i, o in prof if 3 < z < sz - 1 and i]
+    if mid:
+        print(f"     bore {2*min(mid):.3f} mm through the plug (want {CORD_D})")
+        check(abs(2*min(mid) - CORD_D) < 0.08, f"bore == {CORD_D}")
+    # the trumpet at the tube end
+    lowr = [i for z, i, o in prof if z < 0.3 and i]
+    if lowr:
+        print(f"     opens to {2*max(lowr):.3f} mm at the tube end "
+              f"(want {CORD_D + 2*CORD_FLARE:.2f}) so the cord turns on a "
+              f"radius, not an edge")
+        check(2*max(lowr) > CORD_D + 1.0,
+              f"the tube-end mouth is flared ({2*max(lowr):.3f})")
+    # the countersink at the outer end
+    csk = [i for z, i, o in prof if top - 0.15 < z and i]
+    if csk:
+        print(f"     countersunk to {2*max(csk):.3f} mm at the outer face "
+              f"(want {CORD_D + 2*CSK_D:.2f}) -- the knot beds in this")
+        check(2*max(csk) > CORD_D + 1.0,
+              f"the knot seat is a cone, not a drilled edge "
+              f"({2*max(csk):.3f})")
+
+    print("\n[4] the end is rolled over, not cut square")
+    # Measure the flat ITSELF -- the ring of vertices sitting exactly on the end
+    # plane -- rather than the widest radius within a band below it.  A band
+    # catches the rim's arc on its way up (0.08 down from the face it is already
+    # out at 4.56) and reads that as the flat, which is how the first cut of
+    # this check "failed" a part that was correct.
+    ring = [math.hypot(p[0], p[1]) for t in tris for p in t
+            if abs(p[2] - top) < 1e-3]
+    if ring:
+        f_in, f_out = min(ring), max(ring)
+        print(f"     end plane is an annulus r {f_in:.3f}..{f_out:.3f}: "
+              f"countersink out to {f_in:.3f}, flat to {f_out:.3f},")
+        print(f"     then R{END_R} rolls it down to the tube's {PIPE_OD/2}")
+        check(abs(f_out - (PIPE_OD/2 - END_R)) < 0.06,
+              f"flat stops at {f_out:.3f} == {PIPE_OD/2 - END_R} -- everything "
+              f"outboard of it is radius, which is what stops it being a bluff "
+              f"face")
+        check(abs(f_in - (CORD_D/2 + CSK_D)) < 0.06,
+              f"countersink opens to r{f_in:.3f} == {CORD_D/2 + CSK_D}")
+        check(f_out - f_in > 0.6,
+              f"and {f_out - f_in:.2f} mm of flat is left between them for the "
+              f"knot to bear on")
+
+    print("\n[5] printability")
+    bed = overhang_report(tris, 0.0, {
+        "seat on the tube end": (sz - 0.2, sz + 0.2, 22.0, 90.1),
+    }, "cord cap")
+    print(f"     {top:.1f} mm tall on {bed:.0f} mm^2 -- short enough not to "
+          f"need the brim the others do, but it is a RING (the bore)")
     check(bed > 15, f"bed contact {bed:.1f} mm^2")
     return report()
 
