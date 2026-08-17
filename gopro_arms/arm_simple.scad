@@ -393,10 +393,16 @@ sb_blend = 10;               // sharp knuckle section -> chamfered/rounded secti
 sb_stn   = 20;               // loft stations per transition
 
 // Station half-width along the arm.  Additive ramps, same shape as arm.scad.
-function sb_hw(x, L) =
+//
+// `e2` and `t2` are THE FAR END's half-width and the length of the transition
+// that reaches it, and they exist so arm_double() can ask for a 3-prong stack
+// there instead of a 2-prong one.  Defaulting them to w2_half and sb_neck is
+// what keeps arm_simple() the part it already was -- the same expression, the
+// same numbers, byte-identical output.
+function sb_hw(x, L, e2 = w2_half, t2 = sb_neck, t1 = sb_flare) =
       w3_half
-    + (sb_t/2 - w3_half) * sstep(pocket_r, pocket_r + sb_flare, x)
-    + (w2_half - sb_t/2) * sstep(L - pocket_r - sb_neck, L - pocket_r, x);
+    + (sb_t/2 - w3_half) * sstep(pocket_r, pocket_r + t1, x)
+    + (e2 - sb_t/2)      * sstep(L - pocket_r - t2, L - pocket_r, x);
 
 // 0 at both knuckles -> the section is a plain rectangle matching the
 // knuckle prism exactly.  1 through the middle -> chamfered and rounded.
@@ -404,11 +410,11 @@ function sb_s(x, L) =
       sstep(pocket_r, pocket_r + sb_blend, x)
     * (1 - sstep(L - pocket_r - sb_blend, L - pocket_r, x));
 
-function sb_tA()   = pocket_r + max(sb_flare, sb_blend);
-function sb_tB(L)  = L - pocket_r - max(sb_neck, sb_blend);
+function sb_tA(t1 = sb_flare) = pocket_r + max(t1, sb_blend);
+function sb_tB(L, t2 = sb_neck) = L - pocket_r - max(t2, sb_blend);
 
-function sb_station_xs(L) =
-    let (tA = sb_tA(), tB = sb_tB(L))
+function sb_station_xs(L, t2 = sb_neck, t1 = sb_flare) =
+    let (tA = sb_tA(t1), tB = sb_tB(L, t2))
     concat(
         [0],
         [for (i = [0:sb_stn]) pocket_r + i/sb_stn * (tA - pocket_r)],
@@ -418,8 +424,8 @@ function sb_station_xs(L) =
 
 // One 0.01 mm station slab at x.  rotate([90,0,90]) maps the 2D (y, z)
 // profile onto the model's YZ plane and extrudes along +X, as in arm.scad.
-module sb_slab(x, L) {
-    hw = sb_hw(x, L);
+module sb_slab(x, L, e2 = w2_half, t2 = sb_neck, t1 = sb_flare) {
+    hw = sb_hw(x, L, e2, t2, t1);
     s  = sb_s(x, L);
     translate([x, 0, 0]) rotate([90, 0, 90])
         linear_extrude(height = 0.01)
@@ -428,10 +434,10 @@ module sb_slab(x, L) {
                  anchor   = FRONT);
 }
 
-module sb_loft(L) {
-    xs = sb_station_xs(L);
+module sb_loft(L, e2 = w2_half, t2 = sb_neck, t1 = sb_flare) {
+    xs = sb_station_xs(L, t2, t1);
     for (i = [0 : len(xs) - 2])
-        hull() { sb_slab(xs[i], L); sb_slab(xs[i+1], L); }
+        hull() { sb_slab(xs[i], L, e2, t2, t1); sb_slab(xs[i+1], L, e2, t2, t1); }
 }
 
 // ------------------------------------------------------------- the boss
@@ -562,6 +568,86 @@ module arm_simple(L) {
         pocket(L,  0, s_pivot_z, true);   // 2-prong: central gap, same width as a slot
         spkt_nut( nut_side);
         spkt_head(-nut_side);
+    }
+}
+
+// ------------------------------------------------- 3-prong at BOTH ends
+// An arm with the 3-PRONG connector on both ends, so it joins two MALE parts
+// instead of a male to a female.  Every GoPro chain alternates 2-prong into
+// 3-prong; that is fine until both things you want to join present a 2-prong
+// end -- two camera mounts, a mount and a buckle, a mount and this project's
+// own clamp -- and then nothing in the standard set will couple them.  This is
+// the part that does.
+//
+// It is arm_simple() with its far end replaced, NOT a new arm.  The knuckle,
+// the slots, the 0.10 clearances, the flat slot floor, the centred pivot, the
+// round bore, both pockets and both boss rims are the same modules called with
+// the same numbers, which is what makes it chain with everything else here.
+// Three things follow from the second connector, and all three are real costs:
+//
+//   FOUR BOSSES, not two.  Each 3-prong end takes its own M5 cap and its own
+//   press-fit nut, so each needs a nut trap and a head seat, and each pays
+//   boss_nut + boss_hd.  The stack is sw3_max wide at BOTH ends.  arm_simple's
+//   mass advantage over the streamlined arm was already mostly gone because
+//   the two bosses are a fixed cost paid at one end; pay it twice and a short
+//   one of these is the heaviest arm in the project.  Pick it because you need
+//   to join two males, never for weight.
+//
+//   NUTS ON THE SAME SIDE.  Both ends put the nut on `nut_side` and the screw
+//   head on the other, rather than mirroring end to end.  A press fit is
+//   something you do once and forget, so what matters is that there is ONE
+//   answer to "which way round does it go" -- nuts to -Y, keys from +Y.
+//
+//   THE FLARE HAS TO SHARE THE BODY.  arm_simple flares 15.9 -> 8.9 over
+//   sb_flare and then necks 8.9 -> 8.9 (nil, they are the same number).  Here
+//   the far end flares back out to 15.9, so BOTH transitions are sb_flare long
+//   and they have only L - 2*pocket_r of body to live in.  At L = 50 that is
+//   27.9 mm against the 28 two full flares want, which would trip
+//   arm_simple(L)'s own overlap assert by 0.1 mm -- so the flare is capped at
+//   half the available run.  A 50 gets 13.95 a side and no straight section in
+//   the middle; 75 and up get the full 14 and a waist.  Nothing about the
+//   taper is an overhang question either way: it changes the WIDTH of a slab
+//   whose walls are vertical, so shortening it costs stiffness, not printability.
+function ad_flare(L) = min(sb_flare, (L - 2*pocket_r)/2);
+
+// L = pivot-to-pivot, same convention as every other arm here.
+module arm_double(L) {
+    fl = ad_flare(L);
+    // BOTH transitions get the capped length, not just the far one.  Be
+    // honest about the size of this: at L = 50 the uncapped near end ramps
+    // over 14 against the far end's 13.95, which is 2 MICRONS of half-width at
+    // the mirrored station -- verify.py [0b] cannot see it and should not
+    // pretend to.  What is worth fixing is that sb_tA() then lands 0.05 PAST
+    // sb_tB(), so the station list runs backwards across the middle; the loft
+    // still closes, but a part whose whole claim is that its two ends are the
+    // same should not be built out of two different ramps.
+    assert(sb_tA(fl) <= sb_tB(L, fl),
+           str("arm_double(", L, "): too short -- the transitions overlap, ",
+               sb_tA(fl), " > ", sb_tB(L, fl)));
+    difference() {
+        union() {
+            tab_solid(-w3_half, w3_half, s_pivot_z);            // 3-prong, end A
+            sboss();
+            translate([L, 0, 0]) {
+                tab_solid(-w3_half, w3_half, s_pivot_z);        // 3-prong, end B
+                sboss();
+            }
+            // e2 = w3_half and t2 = fl: the far transition flares back out to
+            // the full stack instead of necking down to a 2-prong one.
+            sb_loft(L, w3_half, fl, fl);
+        }
+        sbore(0, 6*sw3_max);
+        sbore(L, 6*sw3_max);
+        pocket(0,  u, s_pivot_z, true);       // end A: slots on +/- 3.00
+        pocket(0, -u, s_pivot_z, true);
+        pocket(L,  u, s_pivot_z, true);       // end B: the same two slots
+        pocket(L, -u, s_pivot_z, true);
+        spkt_nut( nut_side);
+        spkt_head(-nut_side);
+        translate([L, 0, 0]) {
+            spkt_nut( nut_side);              // same side at both ends, so
+            spkt_head(-nut_side);             // there is one way round to learn
+        }
     }
 }
 

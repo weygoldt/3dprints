@@ -80,7 +80,7 @@ use <clamp.scad>
 // opening cap.scad on its own is fine, it includes BOSL2 at its own top level.
 use <cap.scad>
 
-part = "arm100";   // [gauge, arm50, arm75, arm100, arm140, set, section, sgauge, simple50, simple75, simple100, simple140, sset, ssection, clamp, buckle, twist, cap, capset, capgauge, borecap, domecap, capstack, capcut]
+part = "arm100";   // [gauge, arm50, arm75, arm100, arm140, set, section, sgauge, simple50, simple75, simple100, simple140, sset, ssection, double50, double75, double100, double140, dset, clamp, buckle, twist, cap, capset, capgauge, borecap, domecap, capstack, capcut]
 
 arm_lengths = [50, 75, 100, 140];
 
@@ -98,6 +98,11 @@ else if (part == "simple100") arm_simple(100);
 else if (part == "simple140") arm_simple(140);
 else if (part == "sset")      simple_set();
 else if (part == "ssection")  section_simple_demo();
+else if (part == "double50")  arm_double(50);
+else if (part == "double75")  arm_double(75);
+else if (part == "double100") arm_double(100);
+else if (part == "double140") arm_double(140);
+else if (part == "dset")      double_set();
 else if (part == "clamp")     pipe_clamp();
 else if (part == "buckle")    buckle();
 else if (part == "twist")     twist_adapter();
@@ -121,6 +126,15 @@ module simple_set() {
     pitch = 2*sw3_max + 6;
     for (i = [0 : len(arm_lengths) - 1])
         translate([0, i*pitch, 0]) arm_simple(arm_lengths[i]);
+}
+
+// Same again, for the 3-prong-both-ends arm.  Same pitch as the simple set:
+// its stack is sw3_max at BOTH ends now, not just one, but that is the number
+// simple_set() was already spacing on.
+module double_set() {
+    pitch = 2*sw3_max + 6;
+    for (i = [0 : len(arm_lengths) - 1])
+        translate([0, i*pitch, 0]) arm_double(arm_lengths[i]);
 }
 
 // 10 mm of the mid-beam strut section, to look at the profile alone.

@@ -54,6 +54,18 @@ python3 verify.py "stl/gopro_fit_gauge_simple.stl" --length 21 --gauge --simple 
 echo "--- simple set (all four on one plate)"
 scad "stl/gopro_arms_simple_set.stl" "sset"
 
+# 3-prong at BOTH ends.  --double is --simple plus a second connector, so the
+# far end is held to the SAME grid checks as the near one rather than to a
+# relaxed copy of them.
+for L in 50 75 100 140; do
+    echo "--- double${L}"
+    scad "stl/gopro_arm_double_${L}mm.stl" "double${L}"
+    python3 verify.py "stl/gopro_arm_double_${L}mm.stl" --length "${L}" --double | tail -4
+done
+
+echo "--- double set (all four on one plate)"
+scad "stl/gopro_arms_double_set.stl" "dset"
+
 echo "--- pipe clamp"
 scad "stl/gopro_pipe_clamp_12mm.stl" "clamp"
 python3 verify_clamp.py "stl/gopro_pipe_clamp_12mm.stl" | tail -4
@@ -107,5 +119,9 @@ python3 fitcheck.py --twist
 # the connector is raised exactly far enough to free a half turn, so a check
 # that only asked "does it fit collinear" would pass the unraised part too.
 python3 fitcheck.py --buckle
+# Both of arm_double's ends are female, so both are swung against the reference
+# MALE and there is no arm-to-arm case to run: two females cannot couple, which
+# is the reason that part exists.
+python3 fitcheck.py --double
 
 ls -la stl/

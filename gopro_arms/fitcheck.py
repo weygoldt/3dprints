@@ -9,6 +9,7 @@ nothing.
   python3 fitcheck.py                 the streamlined arm (arm.scad)
   python3 fitcheck.py --simple        the simple variant (arm_simple.scad)
   python3 fitcheck.py --twist         the 90 deg twist adapter (twist.scad)
+  python3 fitcheck.py --double        arm_double() -- 3-prong at both ends
   python3 fitcheck.py --buckle        a simple arm on the quick-release
                                       buckle's hinge (buckle.scad)
   python3 fitcheck.py --chain         also swing one of our arms against
@@ -177,13 +178,23 @@ def main():
                     help='test twist.scad -- both ends, each on its own axis')
     ap.add_argument('--buckle', action='store_true',
                     help="the simple arm on the quick-release buckle's hinge")
+    ap.add_argument('--double', action='store_true',
+                    help='arm_double() -- both ends 3-prong, each swung on its '
+                         'own against the reference male')
     ap.add_argument('--chain', action='store_true',
                     help='also swing one of our arms against another')
     args = ap.parse_args()
     armL = 100
     if args.buckle:
         return buckle_main(armL)
-    if args.twist:
+    if args.double:
+        ctrl = 'ctrl_double'
+        tests = ['male_in_double_a', 'male_in_double_b']
+        # No chain case, and not from laziness: both of this arm's ends are
+        # FEMALE, so two of them cannot couple to each other at all.  That is
+        # the reason the part exists, so there is nothing there to measure.
+        chain = None
+    elif args.twist:
         ctrl = 'ctrl_twist'
         tests = ['male_in_twist', 'twist_in_female']
         chain = None
@@ -199,6 +210,7 @@ def main():
         tests.append(chain)
 
     what = ('90 deg TWIST adapter, each end on its own axis' if args.twist
+            else '3-prong BOTH ENDS, each end swung on its own' if args.double
             else f"{'SIMPLE' if args.simple else 'streamlined'} arm, L={armL}")
     print(f"interference volume vs hinge angle   "
           f"({what}, ang=0 is collinear / fully extended)\n")

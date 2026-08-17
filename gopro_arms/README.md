@@ -22,6 +22,11 @@ pockets and the bore:
 | articulation | −100…+90° into a GoPro mount | −90…+90°; **arm-to-arm ±105** |
 | support | **none** | pockets, bottom edges, bores, knuckle undersides |
 
+There is a **third**, and it is not a third body: `arm_double()` is the simple
+arm with its 2-prong end replaced by a second 3-prong one, so it joins two
+MALES instead of a male to a female — the coupling the standard set does not
+have. Same body, same joint, same pockets, twice. See *3-prong at both ends*.
+
 PETG · Prusa MK3S · 0.4 nozzle · 0.2 mm layers. The streamlined arm and the
 clamp are supportless by construction and should have support turned off
 explicitly. **The simple arm is the one part that wants it** — it trades its
@@ -91,8 +96,9 @@ openscad -o out.stl --render=force -D 'x=0' -D 'part="arm100"' main.scad
 
 Parts, streamlined: `gauge`, `arm50`, `arm75`, `arm100`, `arm140`, `set`,
 `section`. Simple: `sgauge`, `simple50`, `simple75`, `simple100`, `simple140`,
-`sset`, `ssection`. Plus `clamp`, `buckle` and `twist`. Arm names are
-**pivot-to-pivot** distance in mm.
+`sset`, `ssection`. Simple with a **3-prong connector at both ends**:
+`double50`, `double75`, `double100`, `double140`, `dset`. Plus `clamp`,
+`buckle` and `twist`. Arm names are **pivot-to-pivot** distance in mm.
 
 Not an arm at all, but they cap the pipes the clamp holds: `cap`, `capset` and
 `capgauge` — a press-fit parabolic fairing for the end of a 12 mm PVC tube — and
@@ -643,6 +649,91 @@ The mount cases stay at ±90 because the flat floor does not help there — what
 stops them is the synthetic reference's own body, a solid 15 mm block whose near
 face is tangent to R7.5, not anything on our part. Every range is now
 **symmetric**, which is what a mirror-symmetric body must do.
+
+## 3-prong at both ends (`double50` … `double140`, `dset`)
+
+Every GoPro chain alternates: a 2-prong male into a 3-prong female, all the way
+along. That is fine until **both** things you want to join present a male end —
+two camera mounts, a mount and this project's own pipe clamp, a mount and the
+quick-release buckle — and then nothing in the standard set will couple them.
+This is the part that does: `arm_simple` with the 3-prong connector at *both*
+ends, so it joins two males instead of a male to a female.
+
+**It is `arm_simple` with its far end replaced, not a new arm.** The knuckle,
+the slots, the 0.10 mm clearances, the flat slot floor, the centred pivot, the
+round bore, both pockets and both boss rims are the same modules called with
+the same numbers — which is what makes it chain with everything else here. The
+body loft gained two optional arguments (the far end's half-width and the
+length of the transition that reaches it) and nothing else; the streamlined
+arms, the simple arms, the gauges, the buckle and the twist adapter all export
+**byte-identical** across the change.
+
+Three things follow from the second connector, and all three are real costs:
+
+| | |
+|---|---|
+| **four bosses, not two** | each 3-prong end takes its own M5 cap and its own press-fit nut, so each needs a nut trap *and* a head seat. Stack is **21.70 mm at both ends**. |
+| **nuts on the same side** | both ends put the nut on −Y and the screw head on +Y rather than mirroring end to end, so there is one answer to "which way round does it go". |
+| **the flare is shared** | `arm_simple` flares 15.9 → 8.9 once; here the far end flares back out, so both transitions live in the `L − 2·pocket_r` of body between the slots. |
+
+### What it weighs
+
+**A flat ~2000 mm³ more than the simple arm at every length**, which is the
+second connector and nothing else:
+
+| arm | simple | double | |
+|---|---|---|---|
+| 50 mm | 8663 mm³ | 10657 | +1994 |
+| 75 mm | 11864 | 13863 | +1999 |
+| 100 mm | 15065 | 17064 | +1999 |
+| 140 mm | 20188 | 22187 | +1999 |
+
+That the difference is the *same number* at every length is the useful part: a
+connector is an end feature, so it costs what it costs and the beam between
+does not care. **Do not pick this arm for weight** — at 50 mm it is the
+heaviest thing in the project. Pick it because you need to join two males.
+
+### The flare at 50 mm
+
+At `L = 50` there is only `50 − 2×11.05 = 27.9 mm` of body between where the
+two slots stop, and two full `sb_flare` transitions want 28. So the flare is
+**capped at half the available run** — 13.95 a side at 50 mm, the full 14 at 75
+and up — and *both* transitions get the capped length, not just the far one.
+
+Nothing about the taper is a printability question either way: it changes the
+**width** of a slab whose walls are vertical, so a shorter flare costs
+stiffness, not overhang. What it does buy is that the part is actually
+symmetric. Leaving the near end on the full 14 is worth 2 µm of half-width at
+the mirrored station — below anything the harness resolves, and the file says
+so rather than pretending otherwise — but it also puts the near transition
+0.05 mm *past* the far one, so the loft's station list runs backwards across
+the middle. A part whose whole claim is that its two ends are the same should
+not be built out of two different ramps.
+
+### Articulation, and what to print it on
+
+Measured with `fitcheck.py --double`, each end swung separately against an
+exactly-nominal GoPro male: **−90 … +90° at both ends**, identical, which is
+`arm_simple`'s own 3-prong figure. There is no arm-to-arm case and cannot be —
+both ends are female, so two of these will not couple to each other, which is
+the reason the part exists.
+
+Print it exactly like the simple arm: flat on its underside, **support on** at
+a 55° threshold, brim. The bill, measured on the 100 mm:
+
+| | double | simple | |
+|---|---|---|---|
+| screw pockets | 112.97 mm² | 56.49 | two ends' worth |
+| body bottom edges | 262.89 | 262.89 | unchanged — same body, same length |
+| knuckle flank | 188.30 | 127.72 | two 3-prong ends expose more than one plus a 2-prong |
+| pivot bores | 47.1 | 48.80 | |
+| boss rims | 35.18 | 17.59 | four rims, not two |
+| **unclassified** | **0.00** | 0.00 | |
+| bed contact | 667.60 | 575.16 | the wider far end is worth 92 mm² |
+
+**No separate fit gauge.** `sgauge` already tunes everything this arm needs —
+the joint, both clearances, the press fit and the head seat are the *same*
+features, and a second coupon would only be a second chance for them to drift.
 
 ## Pipe clamp (`part="clamp"`)
 
@@ -1408,6 +1499,7 @@ the slicer eats the STL, not OpenSCAD's opinion of it.
 python3 verify.py --selftest                                      # the LOADER first
 python3 verify.py stl/gopro_arm_100mm.stl --length 100            # measures the MESH
 python3 verify.py stl/gopro_arm_simple_100mm.stl --length 100 --simple
+python3 verify.py stl/gopro_arm_double_100mm.stl --length 100 --double
 python3 verify_buckle.py stl/gopro_qr_buckle.stl                  # the buckle
 python3 verify_twist.py stl/gopro_90_twist.stl                    # the twist adapter
 python3 verify_cap.py stl/pipe_cap_12mm.stl                       # the pipe fairing cap
@@ -1420,6 +1512,7 @@ python3 fitcheck.py                                               # mating inter
 python3 fitcheck.py --simple
 python3 fitcheck.py --twist              # both ends, each on its own axis
 python3 fitcheck.py --buckle             # a REAL arm on the buckle's hinge
+python3 fitcheck.py --double             # both ends, each swung on its own
 python3 fitcheck.py --simple --chain     # also arm-to-arm, which is slower
 ```
 
@@ -1461,6 +1554,51 @@ exists to catch. Restoring the bug turns the suite red in four places.
 `--simple` swaps in the slab-section and two-pocket expectations. Everything
 about the GoPro interface is checked identically either way, because it *is*
 identical — that is the claim the shared checks exist to defend.
+
+`--double` is `--simple` **plus a second connector**, and it is written that
+way rather than as a third spec: the mode passes `simple=True` through to the
+same `configure()`, so every number the mating joint can feel stays the simple
+arm's by construction. What changes is that the far end is a 3-prong, so:
+
+- the 3-prong grid check became a **function and runs twice**, at both ends,
+  against the same numbers. A relaxed copy for end B would be a second chance
+  to drift, and the whole claim of the part is that the two ends are the same;
+- the bore probe and the prong-free-length walk look for a **middle prong** at
+  end B instead of a central gap;
+- the overhang classifier keys the pocket and rim classes on *whichever pivot
+  the facet is nearer*, not on end A's. Keyed on end A alone, end B's four
+  pocket ceilings land in the unclassified bucket and the part reads as having
+  58 mm² of unsupported overhang that is in fact supported;
+- the predicted areas that counted one connector now count two — pocket roofs,
+  boss rims, and the knuckle-flank width, where the 2-prong end's term is not
+  doubled but **replaced**.
+
+And one check exists only in this mode, `[0b]`: **both ends are the same
+connector, so the whole arm is a mirror about its own middle** — `x → L−x` with
+Y *left alone*, because the nut sits on the same side at both ends. It probes
+at the knuckles, through the flare and in the body, and matches to 3 µm.
+
+> **That check is not a formality, it is the only thing that sees a missing
+> pocket.** Leave end B's two pockets uncut and the supported-roof area barely
+> moves — 112.97 → 111.38 — because the bore roof the missing pocket *uncovers*
+> lands in the pocket class and pays for it almost exactly. The area classes
+> cannot tell those apart. The mirror does, by 5.437 mm.
+
+Five mutants aimed at the second connector, all caught:
+
+| mutant | caught by |
+|---|---|
+| end B given a 2-prong central gap instead of two slots | 6 checks — 2 solid spans where 3 are owed, at three stations and in the grid check |
+| end B's bosses omitted, pockets kept | 6 checks; the mirror reads 3.400 mm out, both outer faces sit at ±7.950 |
+| end B's pockets never cut | **the mirror alone**, by 5.437 mm — see the note above |
+| the nut mirrored end to end instead of same-side | the mirror: 3 solid spans one way, 4 the other |
+| the body left necking to 8.9 under a 15.9 knuckle | the mirror, and 3 spans against 1 at the flare |
+
+And one that **did not bite**, which is worth recording: leaving the near flare
+uncapped at `L = 50` changes the mesh, but by 2 µm of half-width. `[0b]`'s
+tolerance is 0.02 mm and it passed the mutant — correctly. A mutation that does
+not really change the part tests nothing, and the fix for it was made for the
+station ordering rather than for a number anyone can measure.
 
 `verify_clamp.py` does the same for the clamp, and its most useful check is not
 a dimension: it computes the flange travel and resulting bore closure and fails

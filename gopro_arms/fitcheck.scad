@@ -22,6 +22,14 @@
 //  joint is identical between the two variants, so any difference in the
 //  measured range is the BODY getting in the way and nothing else.
 //
+//  ... and three against arm_double(), the 3-prong-BOTH-ENDS arm:
+//    male_in_double_a  ideal GoPro 2-prong into its near end
+//    male_in_double_b  ... and into its far one, swung separately
+//    ctrl_double       the usual off-axis control
+//  There is no arm-to-arm case for that part and cannot be: both of its ends
+//  are female, so two of them will not couple -- which is the whole reason
+//  it exists.
+//
 //  ... and three more against the 90 deg TWIST adapter:
 //    male_in_twist    ideal GoPro 2-prong into its 3-prong end (pivot A)
 //    twist_in_female  its 2-prong end into an ideal GoPro 3-prong (pivot B)
@@ -238,6 +246,38 @@ else if (test == "show_twist")
         twist_adapter();
         at_ref_pivot(0, ang, s_pivot_z) ref_2prong();
         at_twist_B(ang) ref_3prong();
+    }
+// ---- 3-prong at BOTH ends -------------------------------------------
+// Both of arm_double's ends are FEMALE, so both take the reference MALE -- and
+// they are swung SEPARATELY, for the same reason the twist adapter's are: one
+// sweep would measure a pose.  Here it would also measure the wrong thing, in
+// that the two ends articulate in the SAME plane but against different halves
+// of the body, and the body is not symmetric about its own middle until the
+// flare at each end has finished.
+//
+// End B's reference is mirrored in X so its body points away from the arm at
+// ang = 0, exactly as ours_in_female does.  Both references are symmetric
+// across their own hinge axis, so that mirror is a rotation in effect and the
+// reference stays the handedness a real GoPro part is.
+else if (test == "male_in_double_a")
+    intersection() { arm_double(armL); at_ref_pivot(0, ang, s_pivot_z) ref_2prong(); }
+else if (test == "male_in_double_b")
+    intersection() {
+        arm_double(armL);
+        at_ref_pivot(armL, ang, s_pivot_z) mirror([1, 0, 0]) ref_2prong();
+    }
+// CONTROL: 1.0 mm off-axis along the hinge, the direction that closes the slot
+// clearance -- the same control the arms use, and it must read non-zero.
+else if (test == "ctrl_double")
+    intersection() {
+        arm_double(armL);
+        translate([0, 1.0, 0]) at_ref_pivot(0, ang, s_pivot_z) ref_2prong();
+    }
+else if (test == "show_double")
+    {
+        arm_double(armL);
+        at_ref_pivot(0, ang, s_pivot_z) ref_2prong();
+        at_ref_pivot(armL, ang, s_pivot_z) mirror([1, 0, 0]) ref_2prong();
     }
 // ---- the quick-release buckle ---------------------------------------
 else if (test == "simple_in_buckle")

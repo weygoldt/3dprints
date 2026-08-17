@@ -127,6 +127,10 @@ SYMMETRIC   = False      # pivot centred in the part: every wall around it is
 SLOT_FLAT   = False      # slot floor is a plane at POCKET_R rather than a
                          # cylinder about the pivot, so the slot is that deep
                          # at every height instead of only at the pivot
+DOUBLE      = False      # 3-prong at BOTH ends: end B is a second 3-prong with
+                         # its own two slots and its own two pockets, so every
+                         # end-keyed check has to run twice and every predicted
+                         # area that counted one connector now counts two
 
 
 def boss_of(side):
@@ -142,7 +146,7 @@ def pkt_radius(kind, size):
     return size/math.sqrt(3) if kind == 'hex' else size/2
 
 
-def configure(simple):
+def configure(simple, double=False):
     """Point the spec at one variant or the other.
 
     The body section, the screw pockets and the PIVOT HEIGHT move.  Every
@@ -152,7 +156,8 @@ def configure(simple):
     """
     global PKT_SPEC, PKT_PEAK, PKT_PRESS, SECTION, XPROBE, BODY_FILLET
     global BORE_ROUND, HEAD_CS, PKT_FLOOR_MIN, PIVOT_Z, TAB_TOP, SB_H
-    global SYMMETRIC, SLOT_FLAT, BOSS_RIM_R
+    global SYMMETRIC, SLOT_FLAT, BOSS_RIM_R, DOUBLE
+    DOUBLE = double
     if not simple:
         return
     SYMMETRIC = abs(S_PIVOT_Z - TAB_R) < 1e-9
@@ -472,6 +477,10 @@ def main():
     ap.add_argument('--gauge', action='store_true')
     ap.add_argument('--simple', action='store_true',
                     help='expect arm_simple.scad: slab body, pocket both sides')
+    ap.add_argument('--double', action='store_true',
+                    help='expect arm_double(): the SIMPLE arm with a 3-prong '
+                         'connector at both ends, so end B is a second 3-prong '
+                         'and carries its own two pockets')
     ap.add_argument('--selftest', action='store_true',
                     help='test load() itself; needs no STL')
     args = ap.parse_args()
@@ -479,7 +488,11 @@ def main():
         return selftest()
     if args.stl is None or args.length is None:
         ap.error('need <stl> and --length (or --selftest)')
-    configure(args.simple)
+    # --double is --simple plus a second connector: every number the mating
+    # joint can feel is arm_simple's, so the spec is the same one and only the
+    # far END changes shape.  Passing simple=True here rather than having the
+    # double branch restate it is what keeps that true by construction.
+    configure(args.simple or args.double, args.double)
     L = args.length
 
     tris = load(args.stl)
@@ -496,6 +509,38 @@ def main():
               f"part is {hi[2]-lo[2]:.3f} tall == 2 x the {PIVOT_Z:.3f} pivot "
               f"-- as much knuckle under the bore as over it")
 
+    if DOUBLE:
+        # THE CLAIM OF THIS PART IN ONE MEASUREMENT.  Both ends are the same
+        # connector, so the whole arm is a mirror about its own middle -- and
+        # x -> L-x with Y LEFT ALONE, because the nut sits on the same side at
+        # both ends.  Mirror the nut side end to end instead and the two halves
+        # stop matching here, which is the point: that decision is a fact about
+        # the part, not a comment.  Probed at the knuckles, through the flare,
+        # and in the body.
+        print(f"\n[0b] the two ends are the same connector -- a mirror about "
+              f"x={L/2:.3f}, Y unflipped")
+        worst = 0.0
+        for dx in (3.0, 6.0, 9.0, 14.0, 0.30*L, 0.45*L):
+            # 0.013 off round numbers for the same reason [3] and [4c] do it:
+            # a ray on an exact geometric plane grazes coincident facets.
+            xa, xb = dx + 0.013, L - dx - 0.013
+            ia = [(a-50, b-50) for a, b in
+                  ray_intervals(near_axis(tris, 0, xa), (xa, -50.0, PIVOT_Z), 1)]
+            ib = [(a-50, b-50) for a, b in
+                  ray_intervals(near_axis(tris, 0, xb), (xb, -50.0, PIVOT_Z), 1)]
+            if len(ia) != len(ib):
+                check(False, f"x={dx:.1f} in from each end: {len(ia)} solid "
+                             f"spans one way, {len(ib)} the other")
+                continue
+            d = max((max(abs(p[0]-q[0]), abs(p[1]-q[1]))
+                     for p, q in zip(ia, ib)), default=0.0)
+            worst = max(worst, d)
+            print(f"     {dx:6.2f} mm in from each end: {len(ia)} spans, "
+                  f"matching to {d:.4f} mm")
+        check(worst < 0.02,
+              f"every station matches its mirror to {worst:.4f} mm -- the far "
+              f"end is the near end, pockets, bosses and all")
+
     # ---------------------------------------------------------------- 1
     # The probe X sits inside the R7.5 knuckle but outboard of both the 2.65
     # bore radius and the pocket's across-corners radius, so the ray sees
@@ -503,46 +548,65 @@ def main():
     # wall reads as the whole outer prong -- see configure().
     XP = XPROBE
     face_meas = {}      # measured outer face of each stack side, for [6]
-    print(f"\n[1] GoPro prong grid -- 3-prong end, probed along Y at x={XP}, z={PIVOT_Z:.3f}")
-    tA = near_axis(tris, 0, XP)
-    iv = ray_intervals(tA, (XP, -50.0, PIVOT_Z), 1)
-    iv = [(a-50, b-50) for a, b in iv]
-    print("     solid spans:", ", ".join(f"[{a:+.3f},{b:+.3f}]={b-a:.3f}" for a, b in iv))
-    check(len(iv) == 3, f"3-prong end has exactly 3 prongs (got {len(iv)})")
-    if len(iv) == 3:
-        (o1a, o1b), (mA, mB), (o2a, o2b) = iv
-        slot1 = mA - o1b
-        slot2 = o2a - mB
-        check(abs(slot1-SLOT_W) < TOL, f"slot 1 width {slot1:.3f} == {SLOT_W}")
-        check(abs(slot2-SLOT_W) < TOL, f"slot 2 width {slot2:.3f} == {SLOT_W}")
-        check(abs((o1b+mA)/2 + U) < TOL, f"slot 1 centred on {-U} (got {(o1b+mA)/2:+.3f})")
-        check(abs((mB+o2a)/2 - U) < TOL, f"slot 2 centred on {+U} (got {(mB+o2a)/2:+.3f})")
-        check(abs((mB-mA)-FING_W) < TOL, f"middle prong {mB-mA:.3f} == {FING_W} (enters a 3.00 slot)")
-        face_meas[-1], face_meas[+1] = o1a, o2b
-        boss_m, boss_p = boss_of(-1), boss_of(+1)
-        check(abs((o1b-o1a)-(PRONG_OUT_T+boss_m)) < TOL,
-              f"-Y outer prong {o1b-o1a:.3f} == {PRONG_OUT_T}+{boss_m} boss")
-        check(abs((o2b-o2a)-(PRONG_OUT_T+boss_p)) < TOL,
-              f"+Y outer prong {o2b-o2a:.3f} == {PRONG_OUT_T}+{boss_p} boss "
-              f"(reinforced from the original's 2.70)")
-        check(abs(o2b - (W3_HALF+boss_p)) < TOL,
-              f"+Y outer face at {o2b:+.3f} == {W3_HALF+boss_p:.2f}")
-        check(abs(o1a + W3_HALF + boss_m) < TOL,
-              f"-Y outer face at {o1a:+.3f} == {-(W3_HALF+boss_m):.2f}")
-        print(f"     stack width {o2b-o1a:.3f} mm "
-              f"(the {2*W3_HALF:.1f} GoPro stack plus {boss_m}+{boss_p} of boss)")
-        # the real acceptance test: does a nominal 3.00 GoPro finger fit?
-        check(slot1 >= U and slot2 >= U, "a 3.00 mm GoPro finger enters both slots")
-        warn(slot1-U <= 0.35 and slot2-U <= 0.35,
-             f"slot slop on a 3.00 finger is {slot1-U:.2f}/{slot2-U:.2f} mm (want <=0.35)")
 
-    XQ = L - 5.0
-    print(f"\n[2] GoPro prong grid -- 2-prong end, probed along Y at x={XQ}, z={PIVOT_Z:.3f}")
-    tB = near_axis(tris, 0, XQ)
-    iv = ray_intervals(tB, (XQ, -50.0, PIVOT_Z), 1)
-    iv = [(a-50, b-50) for a, b in iv]
-    print("     solid spans:", ", ".join(f"[{a:+.3f},{b:+.3f}]={b-a:.3f}" for a, b in iv))
-    check(len(iv) == 2, f"2-prong end has exactly 2 fingers (got {len(iv)})")
+    # One 3-prong end, measured.  A function rather than a block because
+    # arm_double() has TWO of them and the second must be held to the same
+    # numbers by the same code -- a copy would be a second chance to drift.
+    # `record` keeps face_meas the near end's, which is the one [6] and [7]
+    # go on to measure the pockets in.
+    def grid_3prong(xp, tag, record):
+        print(f"\n[1] GoPro prong grid -- {tag}, probed along Y at x={xp}, "
+              f"z={PIVOT_Z:.3f}")
+        tA = near_axis(tris, 0, xp)
+        iv = ray_intervals(tA, (xp, -50.0, PIVOT_Z), 1)
+        iv = [(a-50, b-50) for a, b in iv]
+        print("     solid spans:", ", ".join(f"[{a:+.3f},{b:+.3f}]={b-a:.3f}" for a, b in iv))
+        check(len(iv) == 3, f"{tag} has exactly 3 prongs (got {len(iv)})")
+        if len(iv) == 3:
+            (o1a, o1b), (mA, mB), (o2a, o2b) = iv
+            slot1 = mA - o1b
+            slot2 = o2a - mB
+            check(abs(slot1-SLOT_W) < TOL, f"slot 1 width {slot1:.3f} == {SLOT_W}")
+            check(abs(slot2-SLOT_W) < TOL, f"slot 2 width {slot2:.3f} == {SLOT_W}")
+            check(abs((o1b+mA)/2 + U) < TOL, f"slot 1 centred on {-U} (got {(o1b+mA)/2:+.3f})")
+            check(abs((mB+o2a)/2 - U) < TOL, f"slot 2 centred on {+U} (got {(mB+o2a)/2:+.3f})")
+            check(abs((mB-mA)-FING_W) < TOL, f"middle prong {mB-mA:.3f} == {FING_W} (enters a 3.00 slot)")
+            if record:
+                face_meas[-1], face_meas[+1] = o1a, o2b
+            boss_m, boss_p = boss_of(-1), boss_of(+1)
+            check(abs((o1b-o1a)-(PRONG_OUT_T+boss_m)) < TOL,
+                  f"-Y outer prong {o1b-o1a:.3f} == {PRONG_OUT_T}+{boss_m} boss")
+            check(abs((o2b-o2a)-(PRONG_OUT_T+boss_p)) < TOL,
+                  f"+Y outer prong {o2b-o2a:.3f} == {PRONG_OUT_T}+{boss_p} boss "
+                  f"(reinforced from the original's 2.70)")
+            check(abs(o2b - (W3_HALF+boss_p)) < TOL,
+                  f"+Y outer face at {o2b:+.3f} == {W3_HALF+boss_p:.2f}")
+            check(abs(o1a + W3_HALF + boss_m) < TOL,
+                  f"-Y outer face at {o1a:+.3f} == {-(W3_HALF+boss_m):.2f}")
+            print(f"     stack width {o2b-o1a:.3f} mm "
+                  f"(the {2*W3_HALF:.1f} GoPro stack plus {boss_m}+{boss_p} of boss)")
+            # the real acceptance test: does a nominal 3.00 GoPro finger fit?
+            check(slot1 >= U and slot2 >= U, "a 3.00 mm GoPro finger enters both slots")
+            warn(slot1-U <= 0.35 and slot2-U <= 0.35,
+                 f"slot slop on a 3.00 finger is {slot1-U:.2f}/{slot2-U:.2f} mm (want <=0.35)")
+
+    grid_3prong(XP, "3-prong end", True)
+
+    # END B.  On every other arm here it is a 2-prong male; on arm_double it is
+    # a second 3-prong, and it is checked by the SAME function rather than a
+    # relaxed copy -- the whole claim of the part is that both ends are the same
+    # connector, so both ends owe the same numbers.
+    if DOUBLE:
+        grid_3prong(L - XP, "3-prong end B", False)
+        iv = []
+    else:
+        XQ = L - 5.0
+        print(f"\n[2] GoPro prong grid -- 2-prong end, probed along Y at x={XQ}, z={PIVOT_Z:.3f}")
+        tB = near_axis(tris, 0, XQ)
+        iv = ray_intervals(tB, (XQ, -50.0, PIVOT_Z), 1)
+        iv = [(a-50, b-50) for a, b in iv]
+        print("     solid spans:", ", ".join(f"[{a:+.3f},{b:+.3f}]={b-a:.3f}" for a, b in iv))
+        check(len(iv) == 2, f"2-prong end has exactly 2 fingers (got {len(iv)})")
     if len(iv) == 2:
         (f1a, f1b), (f2a, f2b) = iv
         check(abs((f1b-f1a)-FING_W) < TOL, f"finger 1 {f1b-f1a:.3f} == {FING_W}")
@@ -557,8 +621,10 @@ def main():
     print("\n[3] pivot bores")
     for name, px in (("A", 0.0), ("B", L)):
         # probe across the bore in Z at the pivot, inside a prong
-        # end A: +/-3.0 is a slot -- probe the middle prong.  end B: it is a finger.
-        yprobe = 0.0 if name == "A" else -U
+        # end A: +/-3.0 is a slot -- probe the middle prong.  end B: it is a
+        # finger, UNLESS both ends are 3-prong, in which case y=0 is the middle
+        # prong there too and -U would land the ray straight down a slot.
+        yprobe = 0.0 if (name == "A" or DOUBLE) else -U
         tY = near_axis(tris, 1, yprobe)
         # 0.013 off the pivot's own X, for the same reason [4c] samples off
         # x=7.500: a ray on an exact geometric plane grazes coincident facets
@@ -663,18 +729,28 @@ def main():
         r0 = math.hypot(cen[0]-0.0, cen[2]-PIVOT_Z)
         r1 = math.hypot(cen[0]-L,   cen[2]-PIVOT_Z)
         yb = SLOT_W/2 + 0.05
+        # End B's slot band depends on what end B IS: a 2-prong male has one
+        # central gap on y=0, a second 3-prong has two slots on +/-U.
         in_slot = ((r0 <= POCKET_R + 0.15 and abs(abs(cen[1]) - U) <= yb) or
-                   (r1 <= POCKET_R + 0.15 and abs(cen[1]) <= yb))
+                   (r1 <= POCKET_R + 0.15
+                    and (abs(abs(cen[1]) - U) <= yb if DOUBLE
+                         else abs(cen[1]) <= yb)))
         # The screw pocket's flat roof, when it is printed with support
         # instead of bridging itself.  Same trap as the slot roofs: an XZ
         # radius test alone excuses an infinite cylinder in Y, so the facet
         # also has to lie in the pocket's own Y band.
+        # Both ends carry the pockets on arm_double, so the radius test is
+        # against whichever pivot the facet is nearer.  min(r0, r1) and not r0:
+        # keyed on r0 alone, end B's four pocket roofs land in the unclassified
+        # bucket and the part reads as having 58 mm^2 of unsupported overhang
+        # that is in fact the same supported ceiling as end A's.
+        rp = min(r0, r1) if DOUBLE else r0
         in_pkt = False
         if not PKT_PEAK:
             for side, kind, size, depth, boss in PKT_SPEC:
                 y_out = side*(W3_HALF + boss)
                 lo_y, hi_y = sorted((y_out, y_out - side*depth))
-                if (r0 <= pkt_radius(kind, size) + 0.15
+                if (rp <= pkt_radius(kind, size) + 0.15
                         and lo_y - 0.05 <= cen[1] <= hi_y + 0.05):
                     in_pkt = True
         # The boss's rounded outer RIM.  It is tested BEFORE the flank on
@@ -689,7 +765,7 @@ def main():
                 y_out = side*(W3_HALF + boss)
                 lo_y, hi_y = sorted((y_out, y_out - side*BOSS_RIM_R))
                 if (lo_y - 0.05 <= cen[1] <= hi_y + 0.05
-                        and TAB_R - BOSS_RIM_R - 0.20 <= r0 <= TAB_R + 0.15):
+                        and TAB_R - BOSS_RIM_R - 0.20 <= rp <= TAB_R + 0.15):
                     in_rim = True
         # The knuckle flank, on the strip between the 45 deg tangent and the
         # bed.  Tested on the RADIUS from the pivot, so it cannot excuse
@@ -782,9 +858,13 @@ def main():
         # off the full radius and is classified above.  Both places a boss
         # appears in this width have to lose it.
         fb = lambda s: max(0.0, boss_of(s) - BOSS_RIM_R)
-        flank_wid = ((2*W3_HALF + fb(-1) + fb(+1) - 2*SLOT_W)
-                     + (fb(-1) + fb(+1))
-                     + (2*W2_HALF - SLOT_W))
+        # One 3-prong end owes its free half less both slots, plus the two
+        # bosses standing proud of the body on the other half.  arm_double has
+        # TWO of those and no 2-prong end at all, so the third term is not
+        # merely doubled -- it is replaced.
+        end3 = ((2*W3_HALF + fb(-1) + fb(+1) - 2*SLOT_W)
+                + (fb(-1) + fb(+1)))
+        flank_wid = 2*end3 if DOUBLE else end3 + (2*W2_HALF - SLOT_W)
         flank_exp = flank_arc*flank_wid
         shape = "full circle, tangent to the bed" if SYMMETRIC else "cut circle"
         print(f"     knuckle-FLANK area         {flank_area:8.2f} mm^2  "
@@ -815,11 +895,13 @@ def main():
                     continue
                 if -math.cos(aa)*math.sin(th) > lim:
                     rim_exp += rad*dT*BOSS_RIM_R*dA
-        rim_exp *= sum(1 for s, _k, _sz, _d, b in PKT_SPEC if b > 0)
+        # Bosses, not pockets: arm_double repeats the whole PKT_SPEC at end B,
+        # so it has four rims to pay for and not two.
+        n_boss = sum(1 for s, _k, _sz, _d, b in PKT_SPEC if b > 0)*(2 if DOUBLE else 1)
+        rim_exp *= n_boss
         print(f"     boss RIM-round area        {rim_area:8.2f} mm^2  "
               f"(vs {rim_exp:.2f} predicted -- r{BOSS_RIM_R} rolled round "
-              f"{sum(1 for s, _k, _sz, _d, b in PKT_SPEC if b > 0)} bosses, "
-              f"steepest {rim_worst:.2f} deg)")
+              f"{n_boss} bosses, steepest {rim_worst:.2f} deg)")
         RIM_EXP = rim_exp
         RIM_MEAS = rim_area
     print(f"     unclassified overhang area {sum(bad.values()):8.2f} mm^2")
@@ -960,10 +1042,16 @@ def main():
         for _s, kind, size, depth, _b in PKT_SPEC:
             exp += (size/math.sqrt(3) if kind == 'hex'
                     else math.pi*size/4) * depth
+        # PKT_SPEC describes ONE connector.  arm_double has two, so it owes two
+        # of every pocket ceiling -- measured 112.97 against the 56.49 a single
+        # end owes, which is the doubling and not a surprise.
+        n_end = 2 if DOUBLE else 1
+        exp *= n_end
+        n_pkt = len(PKT_SPEC)*n_end
         print(f"     ... against {exp:.2f} mm^2 predicted by the pocket shapes")
         check(0.65*exp <= pkt_area <= 1.35*exp,
               f"supported roof area {pkt_area:.2f} mm^2 is the {exp:.2f} these "
-              f"two pockets owe (+/-35%) -- not more, and not nothing")
+              f"{n_pkt} pockets owe (+/-35%) -- not more, and not nothing")
     check(worst_oh <= OH_ANG + FACET_TOL,
           f"steepest non-slot overhang {worst_oh:.2f} deg <= {OH_ANG} deg (+faceting)")
 
@@ -984,7 +1072,9 @@ def main():
     print("\n[4c] prong free length -- how far the slots run past the mating knuckle")
     for name, px, sgn in (("A", 0.0, +1), ("B", L, -1)):
         # walk +x from the pivot along a slot and find where it closes up
-        yslot = U if name == "A" else 0.0
+        # end A walks a slot at +U; end B's slot is the central gap on a
+        # 2-prong male, but +U again once both ends are 3-prong.
+        yslot = U if (name == "A" or DOUBLE) else 0.0
         reach = 0.0
         shut = 0
         for i in range(1, 400):
