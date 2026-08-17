@@ -165,12 +165,16 @@
 //  will slump into a blob if nothing else on the plate is buying them time.
 // =====================================================================
 
+include <../BOSL2/std.scad>
+include <../BOSL2/threading.scad>
+
 // ---------------------------------------------------------------- the pipe
 pipe_od      = 12.00;   // tube OUTSIDE diameter -- the fairing's base diameter
 pipe_id      =  9.90;   // tube INSIDE diameter, as measured
-plug_crest_d =  9.90;   // Rib crest diameter -- LINE-TO-LINE with the bore.
-                        // Deliberately not an interference number: see
-                        // "PRINT IT NOW" below.  The gauge can tighten it.
+plug_crest_d =  9.95;   // Rib crest diameter.  +0.05 over the bore: nominally a
+                        // whisker of interference, and with the printer's usual
+                        // positive bias a light press.  Still only 27% of the
+                        // tube's yield -- see "WHAT LIMITS THE INTERFERENCE".
 
 // ---------------------------------------------------------------- the plug
 rib_n     = 3;          // ribs along the plug
@@ -214,12 +218,32 @@ pad_sink  =  0.60;      // how far the paddle is buried in the collar.  NOT
 label_d   =  0.50;      // debossed, so nothing on the handle sticks out
 label_sz  =  3.20;
 
+// ------------------------------------------- two-part bungee cap (see below)
+cord_d     =  4.00;   // through bore for the bungee
+cord_flare =  0.80;   // radial trumpet where the cord leaves for the tube
+body_d     = 14.00;   // the assembled body's greatest diameter
+flare_h    =  6.00;   // length of the 12 -> 14 cone.  9.5 deg half-angle.
+land_h     = 11.00;   // straight 14.0 band; the socket lives inside it
+thr_d      = 11.50;   // thread nominal (major) diameter
+thr_pitch  =  2.00;   // coarse on purpose -- see the note
+thr_slop   =  0.10;   // BOSL2 $slop; internal threads gain 4*$slop
+sock_thr_l =  5.00;   // threaded depth of the socket
+bay_d      = 12.00;   // knot bay, bored WIDER than the thread, BELOW it
+bay_l      =  6.00;   // and out of the dome's reach, so the knot is never
+                      // squeezed by the part screwing down over it
+spig_thr_l =  4.50;   // male thread on the dome (< sock_thr_l so the rim seats)
+spig_w     =  1.00;   // dome spigot wall, at the thread core
+dome_l     = 20.00;   // dome's nominal parabola length
+dome_w     =  1.40;   // dome wall, radial
+rim_w      =  0.60;   // flat seat at the dome's rim, same trick as the plug's
+
 // --------------------------------------------------------------- faceting
 cap_fn    = 160;        // rotate_extrude segments.  160/4 = 40, so there is a
                         // vertex exactly on the +Y axis: the verifier's probe
                         // reads the true radius, not a chord.
 nose_seg  = 48;         // parabola samples
 arc_seg   = 16;         // tip arc samples
+cav_seg   = 40;         // dome cavity samples
 
 // ---------------------------------------------------------------- derived
 base_r   = pipe_od/2;
@@ -235,27 +259,44 @@ function seat_z(d)   = top_land_end + (seat_r - d/2)/tan(seat_ang);
 function collar_z(d) = seat_z(d) + collar_h;
 
 // ------------------------------------------------------- parabolic series
+// Parameterised on (R, L) because there are now TWO of these domes: the plain
+// cap fairs the 12 mm tube directly, and the screw-on dome of the bungee cap
+// fairs the 14 mm body it sits on.  One implementation, solved twice.
 // u runs from 1 at the base to 0 at the tip.
-function pk_r(u)     = base_r*(2*u - para_k*u*u)/(2 - para_k);
-function pk_slope(u) = base_r*(2 - 2*para_k*u)/(nose_l*(2 - para_k));
-function pk_rho(u)   = pk_r(u)*sqrt(1 + pk_slope(u)*pk_slope(u));
+function pk_r(u, R)      = R*(2*u - para_k*u*u)/(2 - para_k);
+function pk_slope(u,R,L) = R*(2 - 2*para_k*u)/(L*(2 - para_k));
+function pk_rho(u, R, L) = pk_r(u,R)*sqrt(1 + pow(pk_slope(u,R,L), 2));
 
-// rho is monotonic in u (0 at the point, base_r at the base for K = 1), so a
-// plain bisection lands it.  48 halvings of [0,1] is ~3.6e-15 -- exact for our
+// rho is monotonic in u (0 at the point, R at the base for K = 1), so a plain
+// bisection lands it.  48 halvings of [0,1] is ~3.6e-15 -- exact for our
 // purposes, and it costs nothing at render time.
-function solve_u(t, lo, hi, n) =
+function solve_u(t, R, L, lo, hi, n) =
     n <= 0 ? (lo + hi)/2
-           : (pk_rho((lo + hi)/2) < t ? solve_u(t, (lo + hi)/2, hi, n - 1)
-                                      : solve_u(t, lo, (lo + hi)/2, n - 1));
+           : (pk_rho((lo + hi)/2, R, L) < t
+                ? solve_u(t, R, L, (lo + hi)/2, hi, n - 1)
+                : solve_u(t, R, L, lo, (lo + hi)/2, n - 1));
 
-tip_u   = solve_u(tip_r, 0, 1, 48);
-tip_z0  = nose_l*(1 - tip_u);        // where the parabola hands over to the arc
-tip_r0  = pk_r(tip_u);
-tip_m   = pk_slope(tip_u);
-tip_rho = tip_r0*sqrt(1 + tip_m*tip_m);
-tip_zc  = tip_z0 - tip_r0*tip_m;     // sphere centre, on the axis
-tip_phi = atan2(tip_z0 - tip_zc, tip_r0);
-nose_h  = tip_zc + tip_rho;          // the ACTUAL nose length
+// Everything the tip blend needs, solved once and carried as a vector:
+//   [0] u at the join   [1] z of the join   [2] r of the join   [3] |dr/dz|
+//   [4] sphere radius   [5] sphere centre   [6] join angle      [7] nose height
+function nose_solve(R, L, t) =
+    let (u   = solve_u(t, R, L, 0, 1, 48),
+         z0  = L*(1 - u),
+         r0  = pk_r(u, R),
+         m   = pk_slope(u, R, L),
+         rho = r0*sqrt(1 + m*m),
+         zc  = z0 - r0*m)
+        [u, z0, r0, m, rho, zc, atan2(z0 - zc, r0), zc + rho];
+
+nose_s  = nose_solve(base_r, nose_l, tip_r);
+tip_u   = nose_s[0];
+tip_z0  = nose_s[1];
+tip_r0  = nose_s[2];
+tip_m   = nose_s[3];
+tip_rho = nose_s[4];
+tip_zc  = nose_s[5];
+tip_phi = nose_s[6];
+nose_h  = nose_s[7];                 // the ACTUAL nose length
 total_h = collar_z(plug_crest_d) + nose_h;
 
 // ---------------------------------------------------------------- meridian
@@ -284,14 +325,19 @@ function plug_pts(d) =
          [base_r, sz + collar_h]]                                   // collar
     );
 
-function nose_pts(z0) = concat(
+// Meridian of a nose of base radius R and nominal length L, sitting on z = z0.
+// `s` is its nose_solve() vector.  Starts at j = 1, so the caller's own base
+// point is not repeated.
+function nose_pts_of(R, L, s, z0) = concat(
     [ for (j = [1 : nose_seg])
-        let (z = tip_z0*j/nose_seg) [pk_r((nose_l - z)/nose_l), z0 + z] ],
+        let (z = s[1]*j/nose_seg) [pk_r((L - z)/L, R), z0 + z] ],
     [ for (j = [1 : arc_seg - 1])
-        let (a = tip_phi + (90 - tip_phi)*j/arc_seg)
-            [tip_rho*cos(a), z0 + tip_zc + tip_rho*sin(a)] ],
-    [[0, z0 + nose_h]]                  // forced onto the axis, not cos(90)
+        let (a = s[6] + (90 - s[6])*j/arc_seg)
+            [s[4]*cos(a), z0 + s[5] + s[4]*sin(a)] ],
+    [[0, z0 + s[7]]]                    // forced onto the axis, not cos(90)
 );
+
+function nose_pts(z0) = nose_pts_of(base_r, nose_l, nose_s, z0);
 
 // ---------------------------------------------------------------- the part
 module pipe_cap() {
@@ -302,8 +348,9 @@ module pipe_cap() {
     assert(plug_crest_d > pipe_id - 0.10,
            "plug_crest_d is so far under the bore that even glue has a gap to span");
     assert(plug_crest_d < pipe_id + 0.11,
-           "plug_crest_d presses the tube past its elastic limit -- the 1.05 mm \
-wall yields before the rib crushes.  See the hoop-strain table in the header.");
+           str("plug_crest_d presses the tube past its elastic limit -- the ",
+               "1.05 mm wall yields before the rib crushes.  See the ",
+               "hoop-strain table in the header."));
     assert(plug_crest_d/2 - 2*rib_h < pipe_id/2,
            "plug body is wider than the bore -- the ribs would never touch");
     assert(seat_r > plug_crest_d/2,
@@ -363,6 +410,184 @@ module cap_gauge() {
     for (i = [0 : len(gauge_d) - 1])
         translate([(i - (len(gauge_d) - 1)/2)*gauge_pitch, 0, 0])
             cap_stub(gauge_d[i], gauge_lbl[i]);
+}
+
+// =====================================================================
+//  TWO-PART BUNGEE CAP  --  an anchor you can knot to, and a dome over it.
+//
+//  A 4 mm bungee has to pass through the tube end and be knotted so it cannot
+//  pull back, and the end still has to be hydrodynamic.  Those two jobs fight:
+//  the knot wants a big open pocket, the fairing wants a smooth point.  So they
+//  are two parts.
+//
+//    borecap   presses into the tube exactly like `cap` does -- same plug, same
+//              ribs, same gauge sizes it -- but instead of a nose it carries a
+//              4 mm cord bore and, above it, a threaded socket.
+//    domecap   screws onto that socket and is the parabola.
+//
+//  ------------------------------------------------------------------
+//  WHY 14 mm, AND WHY THAT IS BETTER THAN 12
+//  A dome that screws over an 11.5 mm thread needs wall outside the thread, so
+//  it cannot also be 12.0 -- hence the 14.0 allowance.  Rather than step 12 ->
+//  14 at the tube (a forward-facing step, the one thing worth avoiding), the
+//  anchor cap CONES from 12.0 at the tube up to 14.0 over flare_h: a 9.5 deg
+//  half-angle, gentle enough to stay attached.
+//
+//  The assembly is then 12 -> 14 -> parabola to a point, which is a proper body
+//  of revolution rather than a cylinder with a hat on it.  It is very likely
+//  BETTER in the water than the flush 12 mm version, not a concession.
+//
+//  ------------------------------------------------------------------
+//  WHY A THREAD RATHER THAN A SNAP
+//  A snap here wanted an annular bead, and an annular bead on a 12 mm ring has
+//  to stretch its whole circumference to pass: 0.3 mm of bead is 6% hoop
+//  strain, well past PETG.  Getting under that needs slots, and slots on the
+//  one surface that is supposed to be smooth.  A thread has no strain budget at
+//  all, it is serviceable -- the knot can be retied -- and BOSL2 already has
+//  the geometry.
+//
+//  thr_pitch is 2.00, which is coarse for an 11.5 thread and deliberately so:
+//  fewer, fatter threads survive FDM's rounding, and the flanks of a 60 deg
+//  profile stand 30 deg off the axis, inside the 45 deg overhang budget, so
+//  both the male and the female print standing up with no support.
+//
+//  ------------------------------------------------------------------
+//  WHERE THE KNOT ACTUALLY LIVES, WHICH IS THE WHOLE DESIGN
+//  Not in the dome.  The dome's spigot descends into the socket as it is done
+//  up, so anything inside the socket's top gets swept by it; a knot parked
+//  there would be crushed or would jam the thread.
+//
+//  So the socket is deeper than the thread, and the bottom bay_l of it is a
+//  plain counterbore at bay_d -- bored WIDER than the thread's own major
+//  diameter, and below where the spigot ever reaches.  The knot is pushed down
+//  into that bay and the dome screws down over the top of it, touching nothing.
+//
+//  The one number to check against a real knot is the ENTRY: the thread's minor
+//  diameter, ~thr_d - 2*0.541*thr_pitch, is the narrowest thing the knot has to
+//  be pushed past on its way in.  verify_cap.py [3] measures the assembled
+//  chamber off both meshes and prints that choke, the bay, and the largest
+//  sphere that actually fits -- check your knot against those, not against a
+//  number in this comment.
+//
+//  ------------------------------------------------------------------
+//  PRINT.  Both stand up the same way as `cap`: plug (or spigot) on the bed,
+//  no support, brim.  The dome's footprint is only the spigot's end ring, so
+//  the brim is not optional there.  The rim seats on the anchor cap's shoulder
+//  and that -- not the thread bottoming out -- is the stop, which is why
+//  spig_thr_l is shorter than sock_thr_l.  Hand tight, then glue.
+// =====================================================================
+
+thr_depth  = 0.5412*thr_pitch;            // cos(30)*5/8, BOSL2's own profile
+thr_minor  = thr_d - 2*thr_depth;         // the knot's entry choke
+bay_cone_h = ((bay_d - thr_minor)/2)/tan(seat_ang);   // funnel, bay -> thread
+body_r     = body_d/2;
+bore_flare_z = seat_z(plug_crest_d) + collar_h;   // where the 12->14 cone starts
+sock_floor   = bore_flare_z + flare_h;            // socket floor: OD is 14 here
+bore_top     = sock_floor + land_h;               // the anchor cap's rim face
+sock_l       = land_h;
+
+// The dome's own parabola, solved on the 14 mm base.
+dome_s = nose_solve(body_r, dome_l, tip_r);
+dome_h = dome_s[7];
+
+// ---------------------------------------------------- the anchor cap
+module bore_cap() {
+    assert(bay_d < body_d - 1.6, "bay_d leaves under 0.8 mm of wall at 14.0");
+    assert(bay_l + sock_thr_l <= sock_l + 0.001,
+           "the thread plus the bay do not fit in the socket");
+    assert(spig_thr_l < sock_thr_l,
+           str("the dome's thread is longer than the socket's, so it would ",
+               "bottom out on the thread instead of seating its rim -- ",
+               "the joint would never close"));
+    difference() {
+        // Same plug as every other cap here, then a cone out to 14 and a band.
+        rotate_extrude($fn = cap_fn)
+            polygon(concat(plug_pts(plug_crest_d),
+                           [[body_r, bore_flare_z + flare_h],
+                            [body_r, bore_top],
+                            [0,      bore_top]]));
+
+        // knot bay -- wider than the thread, below everything the dome reaches
+        // The +0.02 OVERLAPS the funnel above.  Landing the bay's top rim
+        // exactly on the funnel's bottom rim -- same z, same 12.0 diameter --
+        // is a zero-overlap touch, and it exported 239 edges shared by FOUR
+        // triangles in a ring at z=24.819.  OpenSCAD called that "manifold,
+        // Status NoError" on the way out.  Cut solids must interpenetrate.
+        translate([0, 0, sock_floor - 0.01])
+            cylinder(d = bay_d, h = bay_l - bay_cone_h + 0.03, $fn = cap_fn);
+        // funnel from the bay up to the thread's minor diameter.  Two jobs: it
+        // guides the knot DOWN into the bay, and without it the step from
+        // bay_d to thr_minor is a 1.33 mm annular ceiling inside the socket --
+        // 45 mm^2 of unsupported area, the largest overhang in the part.
+        translate([0, 0, sock_floor + bay_l - bay_cone_h])
+            cylinder(d1 = bay_d, d2 = thr_minor, h = bay_cone_h, $fn = cap_fn);
+        // The thread mask cuts its OWN bore -- do not pre-drill to thr_d first.
+        // Boring to the major diameter removes exactly the material the inward
+        // crests are made of, and what is left is a smooth 11.5 hole with a
+        // shallow helical scratch in it: measured 0.205 mm deep instead of the
+        // 1.08 it should be, and it looked like a thread in the render.
+        translate([0, 0, bore_top - sock_thr_l/2])
+            threaded_rod(d = thr_d, l = sock_thr_l + 0.02, pitch = thr_pitch,
+                         internal = true, bevel = false, blunt_start = true,
+                         $slop = thr_slop, $fn = 72);
+        // cord bore, and a trumpet at the tube end so a working cord cannot
+        // saw itself on a square edge
+        translate([0, 0, -1])
+            cylinder(d = cord_d, h = sock_floor + 2, $fn = 96);
+        translate([0, 0, -0.01])
+            cylinder(d1 = cord_d + 2*cord_flare, d2 = cord_d,
+                     h = 2*cord_flare, $fn = 96);
+    }
+}
+
+// ------------------------------------------------------- the dome cap
+// z = 0 is the RIM, the face that lands on the anchor cap's shoulder.  The
+// spigot hangs below it and the parabola stands above, so the two parts share
+// one datum and the joint cannot drift.
+function dome_outer_pts() =
+    let (cr = thr_minor/2,                       // spigot core radius
+         ch = (body_r - rim_w - cr)/tan(seat_ang))
+    concat(
+        [[0, -spig_thr_l],
+         [cr - 0.4, -spig_thr_l],                // lead-in, 32 deg
+         [cr, -spig_thr_l + 0.65],
+         [cr, -ch],
+         [body_r - rim_w, 0],                    // chamfer up to the rim
+         [body_r, 0]],                           // THE RIM SEAT
+        nose_pts_of(body_r, dome_l, dome_s, 0)
+    );
+
+function dome_cav_pts() =
+    let (ir = thr_minor/2 - spig_w,
+         ch = (body_r - rim_w - thr_minor/2)/tan(seat_ang),
+         zc = dome_l*sqrt(1 - dome_w/body_r))    // where the cavity closes (K=1)
+    concat(
+        [[0, -spig_thr_l - 1], [ir, -spig_thr_l - 1], [ir, -ch]],
+        [[body_r - dome_w, 0]],
+        [ for (j = [1 : cav_seg - 1])
+            let (z = zc*j/cav_seg)
+                [max(0, pk_r((dome_l - z)/dome_l, body_r) - dome_w), z] ],
+        [[0, zc]]
+    );
+
+module dome_cap() {
+    assert(para_k == 1, "the cavity's closing height is solved for K = 1 only");
+    difference() {
+        union() {
+            rotate_extrude($fn = cap_fn) polygon(dome_outer_pts());
+            // The thread is added, not cut: the spigot above is a plain core.
+            translate([0, 0, -spig_thr_l/2])
+                threaded_rod(d = thr_d, l = spig_thr_l, pitch = thr_pitch,
+                             bevel1 = true, blunt_start = true, $fn = 72);
+        }
+        rotate_extrude($fn = cap_fn) polygon(dome_cav_pts());
+    }
+}
+
+// Both parts as they end up, for looking at.  NOT a print plate.
+module cap_stack() {
+    bore_cap();
+    translate([0, 0, bore_top]) dome_cap();
 }
 
 // ---------------------------------------------------------------- preview

@@ -39,6 +39,15 @@
 //                   the press fit against the tube you actually have.
 //    capset         four caps on one plate
 //    capgauge       five plug stubs at stepped crest diameters, labelled
+//    borecap        TWO-PART BUNGEE CAP, half 1: same plug, but a 4 mm cord
+//                   bore and a threaded socket instead of a nose.  Knot the
+//                   bungee and push the knot down into the bay.
+//    domecap        half 2: screws onto borecap and is the parabola.  The
+//                   assembly cones 12 -> 14 mm, so it is a body of revolution
+//                   rather than a cylinder with a hat on.
+//    capstack       both, assembled.  For looking at, NOT a print plate.
+//    capcut         the same assembly, halved, so you can see where the
+//                   knot actually sits.  Also not a print plate.
 //    twist          90 deg twist adapter -- a short arm whose two hinge axes
 //                   are at right angles, so a chain can change its plane of
 //                   articulation.  It prints FLAT, like the arms, so its layer
@@ -62,11 +71,16 @@
 lib_t = true;
 include <twist.scad>
 use <clamp.scad>
-// cap.scad shares nothing with the arm chain -- no GoPro joint, no BOSL2 --
-// so it stays off the include chain entirely and comes in on its own.
+// cap.scad has no GoPro joint, so it stays off the arm include chain and comes
+// in on its own.  It DOES need BOSL2 now (the bungee cap's threads), and `use`
+// imports modules without their file's special variables -- BOSL2 leans on
+// $transform/$anchor_override and breaks without them.  It works here only
+// because the twist->...->arm chain above already included BOSL2 into this
+// scope.  Anything else that does `use <cap.scad>` must include BOSL2 itself;
+// opening cap.scad on its own is fine, it includes BOSL2 at its own top level.
 use <cap.scad>
 
-part = "arm100";   // [gauge, arm50, arm75, arm100, arm140, set, section, sgauge, simple50, simple75, simple100, simple140, sset, ssection, clamp, buckle, twist, cap, capset, capgauge]
+part = "arm100";   // [gauge, arm50, arm75, arm100, arm140, set, section, sgauge, simple50, simple75, simple100, simple140, sset, ssection, clamp, buckle, twist, cap, capset, capgauge, borecap, domecap, capstack, capcut]
 
 arm_lengths = [50, 75, 100, 140];
 
@@ -90,6 +104,10 @@ else if (part == "twist")     twist_adapter();
 else if (part == "cap")       pipe_cap();
 else if (part == "capset")    cap_set();
 else if (part == "capgauge")  cap_gauge();
+else if (part == "borecap")   bore_cap();
+else if (part == "domecap")   dome_cap();
+else if (part == "capstack")  cap_stack();
+else if (part == "capcut")    cap_cut();
 
 // All four arms, side by side, flat faces all on the bed.
 module arm_set() {
@@ -117,5 +135,15 @@ module section_simple_demo() {
     intersection() {
         arm_simple(100);
         translate([50, 0, 0]) cube([10, 60, 60], center = true);
+    }
+}
+
+// Quarter section of the assembled bungee cap -- the knot bay, the thread and
+// the hollow dome are all interior, so the only way to look at them is to cut
+// the thing open.
+module cap_cut() {
+    difference() {
+        cap_stack();
+        translate([-30, -30, -5]) cube([60, 30, 80]);
     }
 }

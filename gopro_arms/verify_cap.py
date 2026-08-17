@@ -27,13 +27,14 @@ Run:  python3 verify_cap.py stl/pipe_cap_12mm.stl
 import argparse
 import math
 import sys
+from collections import Counter
 
 from verify import load, bbox, near_axis, ray_intervals, normal, volume  # noqa: E402
 
 # ---- spec (mirrors cap.scad) -----------------------------------------
 PIPE_OD      = 12.00
 PIPE_ID      =  9.90
-PLUG_CREST_D =  9.90
+PLUG_CREST_D =  9.95
 
 # The tube, as a structure rather than a hole.  Rigid uPVC: modulus 2.4-4.1 GPa
 # and tensile yield 40-55 MPa are the usual quoted ranges; the middle of each is
@@ -67,6 +68,27 @@ PAD_W     = 11.00
 PAD_T     =  4.00
 PAD_H     = 14.00
 LABEL_D   =  0.50
+
+# ---- two-part bungee cap (mirrors cap.scad) --------------------------
+CORD_D     =  4.00
+BODY_D     = 14.00
+FLARE_H    =  6.00
+LAND_H     = 11.00
+THR_D      = 11.50
+THR_PITCH  =  2.00
+THR_SLOP   =  0.10
+SOCK_THR_L =  5.00
+BAY_D      = 12.00
+BAY_L      =  6.00
+SPIG_THR_L =  4.50
+SPIG_W     =  1.00
+DOME_L     = 20.00
+DOME_W     =  1.40
+RIM_W      =  0.60
+
+THR_DEPTH  = 0.5412*THR_PITCH          # BOSL2's own profile
+THR_MINOR  = THR_D - 2*THR_DEPTH
+BODY_R     = BODY_D/2
 
 OH_ANG    = 45.0
 FACET_TOL = 1.5
@@ -154,6 +176,43 @@ def nose_r(z):
     return math.sqrt(max(0.0, TIP_RHO**2 - dz*dz))
 
 
+
+# ---- the same parabola, solved on whichever base is asked for -------
+# There are two domes now: the plain cap fairs the 12 mm tube, the bungee cap's
+# dome fairs the 14 mm body it screws onto.  One implementation, solved twice.
+def _pk_r(u, R):
+    return R*(2*u - PARA_K*u*u)/(2 - PARA_K)
+
+
+def _pk_m(u, R, L):
+    return R*(2 - 2*PARA_K*u)/(L*(2 - PARA_K))
+
+
+def _solve_nose(R, L, target, n=60):
+    lo, hi = 0.0, 1.0
+    for _ in range(n):
+        mid = (lo + hi)/2
+        if _pk_r(mid, R)*math.sqrt(1 + _pk_m(mid, R, L)**2) < target:
+            lo = mid
+        else:
+            hi = mid
+    u = (lo + hi)/2
+    z0 = L*(1 - u)
+    r0 = _pk_r(u, R)
+    m = _pk_m(u, R, L)
+    rho = r0*math.sqrt(1 + m*m)
+    zc = z0 - r0*m
+    return dict(u=u, z0=z0, r0=r0, m=m, rho=rho, zc=zc, h=zc + rho)
+
+
+def _nose_r(z, R, L, s):
+    """Radius of a nose of base R and nominal length L at height z above base."""
+    if z <= s['z0']:
+        return _pk_r((L - z)/L, R)
+    dz = z - s['zc']
+    return math.sqrt(max(0.0, s['rho']**2 - dz*dz))
+
+
 def plug_stations(d):
     """(r, z) meridian of the plug -- mirrors plug_pts() in cap.scad."""
     cr, br, sz = d/2, d/2 - RIB_H, seat_z(d)
@@ -222,6 +281,86 @@ def components(tris):
     return len({find(k) for k in parent})
 
 
+def edge_incidence(tris):
+    """Histogram of how many triangles share each edge.
+
+    Every edge of a closed manifold surface has exactly two.  This is here
+    because OpenSCAD exported a borecap with 239 edges shared by FOUR -- a ring
+    of pinch points where the knot bay's top rim landed exactly on the funnel's
+    bottom rim with zero overlap -- and reported "Status: NoError" and
+    "manifold" on the way out.  The slicer eats the STL, not OpenSCAD's opinion
+    of it, so the STL is what gets counted.
+    """
+    ec = Counter()
+    for tri in tris:
+        k = [tuple(p) for p in tri]
+        for i in range(3):
+            ec[frozenset((k[i], k[(i + 1) % 3]))] += 1
+    return Counter(ec.values()), len(ec)
+
+
+def euler_genus(tris):
+    """(chi, genus) of the exported mesh.  Only meaningful if it is manifold."""
+    V, ec = set(), set()
+    for tri in tris:
+        k = [tuple(p) for p in tri]
+        for a in k:
+            V.add(a)
+        for i in range(3):
+            ec.add(frozenset((k[i], k[(i + 1) % 3])))
+    chi = len(V) - len(ec) + len(tris)
+    return chi, (2 - chi)//2
+
+
+def radial_profile(tris, z0, z1, step=0.05, x=EPS):
+    """Inner and outer radius of a hollow solid of revolution, sampled in z.
+
+    Returns [(z, inner, outer)], with inner/outer None where the ray misses.
+    """
+    slab = near_axis(tris, 0, x)
+    out, z = [], z0
+    while z <= z1 + 1e-9:
+        iv = ray_intervals(slab, (x, -60.0, z), 1)
+        pos = [(a - 60, b - 60) for a, b in iv if b - 60 > 0]
+        out.append((z,
+                    min((a for a, b in pos), default=None),
+                    max((b for a, b in pos), default=None)))
+        z += step
+    return out
+
+
+def biggest_sphere(prof, lo_z, hi_z, step=0.05):
+    """Diameter of the largest sphere that fits inside a chamber profile.
+
+    `prof` is a callable z -> free radius (0 where there is no void).  Brute
+    force over centres, bisection on radius -- the chamber is only ~20 mm long
+    so this is cheap, and it is the number that actually answers "will my knot
+    go in".
+    """
+    best, best_z = 0.0, 0.0
+    zc = lo_z
+    while zc <= hi_z:
+        a, b = 0.0, 10.0
+        for _ in range(40):
+            s = (a + b)/2
+            ok = True
+            zz = zc - s
+            while zz <= zc + s:
+                d2 = s*s - (zz - zc)**2
+                if d2 > 0 and math.sqrt(d2) > prof(zz) + 1e-9:
+                    ok = False
+                    break
+                zz += step
+            if ok:
+                a = s
+            else:
+                b = s
+        if a > best:
+            best, best_z = a, zc
+        zc += step
+    return 2*best, best_z
+
+
 def sweep(tris, x, z0, z1, step):
     slab = near_axis(tris, 0, x)          # z-independent: filter once, not per ray
     out = []
@@ -252,6 +391,14 @@ def main():
     ap.add_argument('stl')
     ap.add_argument('--gauge', action='store_true',
                     help='the five-stub fit coupon rather than the cap')
+    ap.add_argument('--bore', action='store_true',
+                    help="the bungee cap's anchor half")
+    ap.add_argument('--dome', action='store_true',
+                    help="the bungee cap's screw-on dome")
+    ap.add_argument('--mate', metavar='DOME_STL',
+                    help='pass the anchor as <stl> and the dome here: checks '
+                         'that the threads fit and measures the assembled '
+                         'knot chamber')
     args = ap.parse_args()
 
     tris = load(args.stl)
@@ -260,9 +407,205 @@ def main():
     print(f"bbox  X {lo[0]:7.3f}..{hi[0]:7.3f}   Y {lo[1]:7.3f}..{hi[1]:7.3f}"
           f"   Z {lo[2]:7.3f}..{hi[2]:7.3f}")
 
+    if args.mate:
+        return mate(tris, load(args.mate))
     if args.gauge:
         return gauge(tris, lo, hi)
+    if args.bore:
+        return borecap(tris, lo, hi)
+    if args.dome:
+        return domecap(tris, lo, hi)
     return cap(tris, lo, hi)
+
+
+# =====================================================================
+def shell_checks(tris, want_genus, what):
+    """Every part gets these.  See edge_incidence() for why."""
+    hist, ne = edge_incidence(tris)
+    chi, g = euler_genus(tris)
+    print(f"     {ne} edges, incidence {dict(hist)}, chi {chi}, genus {g}")
+    check(set(hist) == {2},
+          f"{what}: every edge shared by exactly two triangles "
+          f"(got {dict(hist)}) -- anything else is a pinched, non-manifold mesh")
+    check(g == want_genus,
+          f"{what}: genus {g} == {want_genus} "
+          f"({'a through bore' if want_genus else 'no through bore'})")
+
+
+def bore_geom():
+    """Key z stations of the anchor cap, from the spec."""
+    sz = seat_z(PLUG_CREST_D)
+    flare0 = sz + COLLAR_H
+    floor = flare0 + FLARE_H
+    top = floor + LAND_H
+    return sz, flare0, floor, top
+
+
+def borecap(tris, lo, hi):
+    sz, flare0, floor, top = bore_geom()
+    print(f"\nspec: flare {flare0:.2f}..{flare0+FLARE_H:.2f} (12->{BODY_D}), "
+          f"socket floor {floor:.2f}, rim {top:.2f}")
+
+    print("\n[1] shell")
+    shell_checks(tris, 1, "anchor cap")
+    check(abs(hi[2] - top) < 0.03, f"rim face at {hi[2]:.3f} == {top:.3f}")
+    rad = max(math.hypot(p[0], p[1]) for t in tris for p in t)
+    check(abs(rad - BODY_R) < 0.02, f"greatest radius {rad:.3f} == {BODY_R}")
+
+    prof = radial_profile(tris, 0.2, top - 0.1, 0.05)
+
+    print("\n[2] it is still the same plug -- the gauge sizes this one too")
+    crest = max((o for z, i, o in prof if z < sz - 0.6 and o), default=0)
+    check(abs(crest - PLUG_CREST_D/2) < 0.03,
+          f"rib crest {2*crest:.3f} == {PLUG_CREST_D}")
+
+    print(f"\n[3] the 12 -> {BODY_D} cone -- what keeps the joint at the tube")
+    print("    from being a forward-facing step")
+    r0 = [o for z, i, o in prof if abs(z - flare0) < 0.06 and o]
+    r1 = [o for z, i, o in prof if abs(z - (flare0 + FLARE_H)) < 0.06 and o]
+    if r0 and r1:
+        half = math.degrees(math.atan2(r1[0] - r0[0], FLARE_H))
+        print(f"     {2*r0[0]:.3f} -> {2*r1[0]:.3f} over {FLARE_H} mm, "
+              f"{half:.1f} deg half-angle")
+        check(abs(2*r0[0] - PIPE_OD) < 0.05, f"cone starts at the tube's {PIPE_OD}")
+        check(abs(2*r1[0] - BODY_D) < 0.05, f"and reaches {BODY_D}")
+        check(half < 12, f"half-angle {half:.1f} deg is gentle enough to stay attached")
+
+    print("\n[4] cord bore and the knot bay")
+    cb = [i for z, i, o in prof if 3 < z < floor - 1 and i]
+    if cb:
+        print(f"     cord bore {2*min(cb):.3f} mm (want {CORD_D})")
+        check(abs(2*min(cb) - CORD_D) < 0.08, f"cord bore == {CORD_D}")
+    bay = [i for z, i, o in prof if floor + 0.3 < z < floor + BAY_L - 1.9 and i]
+    if bay:
+        print(f"     knot bay {2*max(bay):.3f} mm dia (want {BAY_D})")
+        check(abs(2*max(bay) - BAY_D) < 0.08, f"bay == {BAY_D}")
+        check(BAY_D > THR_MINOR + 1.0,
+              f"the bay is wider than the thread's {THR_MINOR:.2f} minor, so the "
+              f"knot drops clear of anything the dome sweeps")
+
+    print("\n[5] the socket thread")
+    thr = [i for z, i, o in prof if top - SOCK_THR_L + 0.4 < z < top - 0.3 and i]
+    if thr:
+        crestr, root = min(thr), max(thr)
+        print(f"     crest r {crestr:.3f}, root r {root:.3f}, "
+              f"depth {root - crestr:.3f}  (BOSL2 profile: {THR_DEPTH:.3f})")
+        check(root - crestr > 0.8*THR_DEPTH,
+              f"it is a real thread, depth {root-crestr:.3f} -- pre-boring to "
+              f"the major diameter leaves a smooth hole with a 0.2 mm helical "
+              f"scratch in it, and that still looks like a thread in a render")
+        print(f"     entry choke {2*crestr:.3f} mm -- the knot is pushed past this")
+    return report()
+
+
+def domecap(tris, lo, hi):
+    print("\n[1] shell")
+    shell_checks(tris, 0, "dome")
+    check(abs(lo[2] + SPIG_THR_L) < 0.05, f"spigot ends at {lo[2]:.3f}")
+    rad = max(math.hypot(p[0], p[1]) for t in tris for p in t)
+    print(f"     greatest radius {rad:.3f}, height {hi[2]-lo[2]:.3f}, rim datum z=0")
+    check(abs(rad - BODY_R) < 0.02, f"nothing proud of {BODY_D} ({rad:.3f})")
+
+    print("\n[2] the dome is the same parabola, solved on the 14 mm base")
+    s = _solve_nose(BODY_R, DOME_L, TIP_R)
+    prof = radial_profile(tris, 0.05, hi[2] - 0.15, 0.05)
+    worst, n = 0.0, 0
+    for z, i, o in prof:
+        if o is None:
+            continue
+        n += 1
+        worst = max(worst, abs(o - _nose_r(z, BODY_R, DOME_L, s)))
+    print(f"     height {hi[2]:.3f} (nominal {DOME_L}), {n} samples, "
+          f"worst deviation {worst:.4f} mm")
+    check(n > 300, f"the dome was actually sampled ({n} points)")
+    check(worst < 0.03, f"dome matches the parabola to {worst:.4f} mm")
+    seg = [(z, o) for z, i, o in prof if 0.05 <= z <= 1.0 and o]
+    if len(seg) > 10:
+        slope = (seg[0][1] - seg[-1][1])/(seg[-1][0] - seg[0][0])
+        print(f"     |dr/dz| off the rim {slope:.4f} "
+              f"(a cone would read {BODY_R/DOME_L:.4f})")
+        check(slope < 0.05, f"dome leaves the {BODY_D} body tangent ({slope:.4f})")
+        check(abs(seg[0][1] - BODY_R) < 0.03, "and flush with it")
+
+    print("\n[3] the spigot thread")
+    thr = [o for z, i, o in radial_profile(tris, -SPIG_THR_L + 0.7, -1.0, 0.04) if o]
+    if thr:
+        core, major = min(thr), max(thr)
+        print(f"     core r {core:.3f}, major r {major:.3f}, depth {major-core:.3f}")
+        check(abs(2*major - THR_D) < 0.10, f"major {2*major:.3f} == {THR_D}")
+        check(major - core > 0.8*THR_DEPTH, f"depth {major-core:.3f} is a thread")
+    check(SPIG_THR_L < SOCK_THR_L,
+          f"spigot thread {SPIG_THR_L} is shorter than the socket's {SOCK_THR_L}, "
+          f"so the RIM is the stop and the joint actually closes")
+    return report()
+
+
+def mate(bore, dome):
+    sz, flare0, floor, top = bore_geom()
+    print("\n[1] do the threads actually fit each other?")
+    fem = [i for z, i, o in radial_profile(bore, top - SOCK_THR_L + 0.4,
+                                           top - 0.3, 0.04) if i]
+    mal = [o for z, i, o in radial_profile(dome, -SPIG_THR_L + 0.7, -1.0, 0.04) if o]
+    if fem and mal:
+        f_crest, f_root = min(fem), max(fem)
+        m_core, m_major = min(mal), max(mal)
+        c_root = f_root - m_major
+        c_crest = f_crest - m_core
+        print(f"     female  crest {f_crest:.3f}  root  {f_root:.3f}")
+        print(f"     male    core  {m_core:.3f}  major {m_major:.3f}")
+        print(f"     clearance at the roots {c_root:+.3f}, at the crests "
+              f"{c_crest:+.3f}   (4*slop = {4*THR_SLOP:.2f} diametral)")
+        check(c_root > 0.02,
+              f"male major clears the female root by {c_root:+.3f} mm -- "
+              f"negative here and the two simply will not go together")
+        check(c_crest > 0.02,
+              f"female crest clears the male core by {c_crest:+.3f} mm")
+        check(c_root < 0.45 and c_crest < 0.45,
+              "and neither clearance is so big the joint rattles")
+
+    print("\n[2] the outside has to be continuous across the joint")
+    rb = max(math.hypot(p[0], p[1]) for t in bore for p in t)
+    rd = max(math.hypot(p[0], p[1]) for t in dome for p in t)
+    print(f"     anchor {2*rb:.3f} mm, dome rim {2*rd:.3f} mm")
+    check(abs(rb - rd) < 0.05, f"no step at the joint ({2*rb:.3f} vs {2*rd:.3f})")
+
+    print("\n[3] THE KNOT CHAMBER, measured off both meshes on the rim datum")
+    tbl = {}
+    for z, i, o in radial_profile(bore, floor - 0.2, top - 0.05, 0.05):
+        if i is not None:
+            tbl[round(z - top, 2)] = i
+    for z, i, o in radial_profile(dome, -SPIG_THR_L + 0.05, -0.05, 0.05):
+        if i is not None:                    # the spigot's bore wins where it is
+            k = round(z, 2)
+            tbl[k] = min(tbl.get(k, 99.0), i)
+    zs = sorted(tbl)
+
+    def R(z):
+        if z < zs[0] or z > zs[-1]:
+            return 0.0
+        return tbl[min(zs, key=lambda a: abs(a - z))]
+
+    dia, at = biggest_sphere(R, zs[0] + 0.2, zs[-1] - 0.2, 0.05)
+    bay_zone = [tbl[z] for z in zs if z < -(SOCK_THR_L + 0.6)]
+    choke = [tbl[z] for z in zs if -SOCK_THR_L < z < -0.4]
+    print(f"     bay          {2*max(bay_zone):5.2f} mm dia")
+    # Two different numbers and they answer different questions.  The knot is
+    # pushed in with the dome OFF, so what it has to pass is the socket
+    # thread's crest.  Once the dome is on, the spigot's bore is the narrowest
+    # thing above the bay -- that is what bounds the sphere below, not entry.
+    print(f"     entry, dome OFF   {THR_MINOR + 4*THR_SLOP:5.2f} mm  "
+          f"(the socket thread's crests -- the knot is pushed past this)")
+    print(f"     spigot bore       {2*min(choke):5.2f} mm  "
+          f"(assembled; sits ABOVE the bay, so it caps the sphere not the entry)")
+    print(f"     LARGEST SPHERE THAT FITS: {dia:.2f} mm, centred {at:+.2f} "
+          f"from the rim")
+    check(dia > 1.6*CORD_D,
+          f"the chamber swallows a {dia:.2f} mm ball = {dia/CORD_D:.1f} cord "
+          f"diameters, which is a tight overhand knot in {CORD_D} mm bungee")
+    check(2*max(bay_zone) > THR_MINOR + 1.0,
+          f"and the bay ({2*max(bay_zone):.2f}) is wider than the thread, so "
+          f"the knot sits below everything the dome sweeps on its way down")
+    return report()
 
 
 # =====================================================================

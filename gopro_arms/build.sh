@@ -80,6 +80,22 @@ python3 verify_cap.py "stl/pipe_cap_12mm.stl" | tail -4
 echo "--- pipe fairing cap (four on a plate)"
 scad "stl/pipe_cap_12mm_x4.stl" "capset"
 
+# The two-part bungee cap.  Each half is checked alone, and then -- the part
+# that matters -- the two are checked AGAINST EACH OTHER: a thread that fits
+# nothing is just a decorative helix, and the knot chamber only exists once
+# both halves are on the same datum.
+echo "--- bungee cap: anchor half"
+scad "stl/pipe_cap_12mm_bore.stl" "borecap"
+python3 verify_cap.py "stl/pipe_cap_12mm_bore.stl" --bore | tail -4
+
+echo "--- bungee cap: screw-on dome"
+scad "stl/pipe_cap_12mm_dome.stl" "domecap"
+python3 verify_cap.py "stl/pipe_cap_12mm_dome.stl" --dome | tail -4
+
+echo "--- bungee cap: do the two halves actually go together"
+python3 verify_cap.py "stl/pipe_cap_12mm_bore.stl" \
+        --mate "stl/pipe_cap_12mm_dome.stl" | tail -6
+
 echo "--- mating / interference (a shipping gate that never checks FIT is no gate)"
 python3 fitcheck.py
 python3 fitcheck.py --simple

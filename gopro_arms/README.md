@@ -94,8 +94,10 @@ Parts, streamlined: `gauge`, `arm50`, `arm75`, `arm100`, `arm140`, `set`,
 `sset`, `ssection`. Plus `clamp`, `buckle` and `twist`. Arm names are
 **pivot-to-pivot** distance in mm.
 
-Not an arm at all, but it caps the pipes the clamp holds: `cap`, `capset` and
-`capgauge` — a press-fit parabolic fairing for the end of a 12 mm PVC tube.
+Not an arm at all, but they cap the pipes the clamp holds: `cap`, `capset` and
+`capgauge` — a press-fit parabolic fairing for the end of a 12 mm PVC tube — and
+`borecap` + `domecap`, a two-part version that takes a 4 mm bungee through the
+end and screws a fairing over the knot.
 
 > **Print a gauge first.** It is both ends with no beam, ~10 minutes, and it
 > tells you whether the 0.10 mm clearances land right on *your* PETG before you
@@ -1172,8 +1174,8 @@ along its length. It carries three annular ribs, like a hose barb:
 
 | | diameter | vs the 9.90 bore |
 |---|---|---|
-| rib crest | 9.90 | **line-to-line** |
-| plug body | 9.20 | −0.700 clearance — touches nothing |
+| rib crest | 9.95 | **+0.05** (27 % of the tube's yield) |
+| plug body | 9.25 | −0.650 clearance — touches nothing |
 
 Only the crests touch, so insertion force stays low while contact pressure stays
 high, and one part suits a bore anywhere in a ~0.4 mm band.
@@ -1201,7 +1203,9 @@ that has permanently belled its own tube cannot be re-seated.) `verify_cap.py`
 `[4]` computes this from the shipped numbers and fails above 60 % of yield, so
 the ceiling cannot be raised by editing one line and forgetting why it was there.
 
-Given a ceiling of +0.10 and glue as the fallback, the two failure directions are
+`plug_crest_d` ships at **9.95** — a whisker of nominal interference, which the
+printer's positive bias turns into a light press. Given a ceiling of +0.10 and
+glue as the fallback, the two failure directions are
 wildly asymmetric — too loose is a ten-second recovery, too tight wastes the
 print and maybe the tube — so the shipped number errs at the recoverable end. It
 is unlikely to actually *be* loose: FDM lays outer diameters fat, so a nominal
@@ -1299,6 +1303,105 @@ able to fail, and were made to — a cone (`para_k=0`) fails tangency at 0.3333,
 55° chamfer fails printability with 35.5 mm² unsupported, a blank label fails at
 0/57, and `plug_crest_d` at or below the bore will not even render.
 
+
+## Two-part bungee cap (`part="borecap"` + `part="domecap"`)
+
+A 4 mm bungee has to pass through the tube end and be knotted so it cannot pull
+back, and the end still has to be hydrodynamic. Those two jobs fight — the knot
+wants a big open pocket, the fairing wants a smooth point — so they are two
+parts that screw together.
+
+| | what it is |
+|---|---|
+| `borecap` | the **anchor**: the same plug as every other cap here, but a 4 mm cord bore and a threaded socket instead of a nose |
+| `domecap` | the **dome**: screws onto it and is the parabola |
+| `capstack` / `capcut` | both assembled, whole and halved. For looking at, **not** print plates |
+
+### Why 14 mm, and why that is better than 12
+
+A dome that screws over an 11.5 mm thread needs wall outside the thread, so it
+cannot also be 12.0. Rather than step 12 → 14 at the tube — a forward-facing
+step, the one thing worth avoiding — the anchor cap **cones** from 12.0 at the
+tube out to 14.0 over 6 mm: a **9.4° half-angle**, measured, gentle enough to
+stay attached.
+
+The assembly is then 12 → 14 → parabola to a point, which is a proper body of
+revolution rather than a cylinder with a hat on it. That is very likely *better*
+in the water than the flush 12 mm version, not a concession. The dome is the
+same `K` = 1 parabola solved on the 14 mm base: measured `|dr/dz|` off the rim
+is **0.0179** against the 0.35 a cone would read, and the profile matches the
+analytic curve to **0.0013 mm**.
+
+### Why a thread rather than a snap
+
+A snap wanted an annular bead, and an annular bead on a 12 mm ring has to
+stretch its whole circumference to pass — 0.3 mm of bead is ~6 % hoop strain,
+well past PETG. Getting under that needs slots, and slots on the one surface
+that is supposed to be smooth. A thread has no strain budget at all, it is
+serviceable (the knot can be retied), and BOSL2 already has the geometry.
+
+`thr_pitch` is 2.00, coarse for an 11.5 thread and deliberately so: fewer,
+fatter threads survive FDM's rounding, and a 60° profile's flanks stand 30° off
+the axis — inside the 45° budget — so both halves print standing up, no support.
+
+Measured off the two meshes, on the shared rim datum:
+
+| | crest | root/major | depth |
+|---|---|---|---|
+| female socket | 4.872 | 5.955 | 1.083 |
+| male spigot | 4.667 | 5.749 | 1.082 |
+
+against BOSL2's own profile depth of 1.082 — and **+0.205 mm radial clearance on
+both flanks**, which is `4 × $slop` split two ways. `verify_cap.py --mate`
+checks both clearances are positive, because a thread that fits nothing is just
+a decorative helix and it looks perfect in a render.
+
+The rim — not the thread bottoming out — is the stop, which is why the spigot's
+thread (4.5) is shorter than the socket's (5.0). Hand tight, then glue.
+
+### Where the knot actually lives, which is the whole design
+
+**Not in the dome.** The dome's spigot descends into the socket as it is done
+up, so anything parked in the socket's top gets swept by it — a knot there would
+be crushed or would jam the thread.
+
+So the socket is deeper than the thread, and its bottom `bay_l` is a plain
+counterbore at **12.0 mm — bored wider than the thread's own major diameter**,
+and below where the spigot ever reaches. The knot is pushed down into that bay
+and the dome screws down over the top of it, touching nothing. A funnel between
+the two guides it down (and without that funnel the step from bay to thread is a
+1.33 mm annular ceiling — 45 mm² of unsupported area, the largest overhang in
+the part).
+
+Measured off both meshes:
+
+| | |
+|---|---|
+| bay | **12.00 mm** dia |
+| entry, dome off | 9.74 mm — the socket thread's crests, what the knot is pushed past |
+| spigot bore, assembled | 7.33 mm — sits *above* the bay, so it caps the sphere, not the entry |
+| **largest sphere that fits** | **8.74 mm** = 2.2 cord diameters |
+
+Check your actual knot against those numbers, not against a sentence in a
+comment. Both halves take the same plug, so `capgauge` sizes these too.
+
+### Two defects the checks caught
+
+**The thread was not a thread.** The socket was pre-bored to the thread's major
+diameter before the mask was subtracted — which removes exactly the material the
+inward-pointing crests are made of. What was left was a smooth 11.5 hole with a
+helical scratch in it, measured **0.205 mm deep instead of 1.083**, and it looked
+entirely convincing in the render. The mask cuts its own bore; do not pre-drill.
+
+**239 edges shared by four triangles.** The knot bay's top rim landed exactly on
+the funnel's bottom rim — same z, same 12.0 diameter, zero overlap — and exported
+a ring of pinch points at z = 24.819. OpenSCAD called it `Status: NoError` and
+`manifold` on the way out, and its own genus report went to 0 (which would mean
+*no through bore* on a part that plainly has one). Cut solids have to
+interpenetrate. `verify_cap.py` now counts edge incidence on every part, because
+the slicer eats the STL, not OpenSCAD's opinion of it.
+
+
 ## Verifying
 
 ```sh
@@ -1309,6 +1412,10 @@ python3 verify_buckle.py stl/gopro_qr_buckle.stl                  # the buckle
 python3 verify_twist.py stl/gopro_90_twist.stl                    # the twist adapter
 python3 verify_cap.py stl/pipe_cap_12mm.stl                       # the pipe fairing cap
 python3 verify_cap.py stl/pipe_cap_12mm_gauge.stl --gauge          # its fit coupon
+python3 verify_cap.py stl/pipe_cap_12mm_bore.stl --bore            # bungee cap, anchor
+python3 verify_cap.py stl/pipe_cap_12mm_dome.stl --dome            # bungee cap, dome
+python3 verify_cap.py stl/pipe_cap_12mm_bore.stl \
+        --mate stl/pipe_cap_12mm_dome.stl        # do the two halves GO TOGETHER
 python3 fitcheck.py                                               # mating interference
 python3 fitcheck.py --simple
 python3 fitcheck.py --twist              # both ends, each on its own axis
