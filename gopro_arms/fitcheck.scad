@@ -50,8 +50,8 @@
 //  point of raising that connector was to free a half turn.
 // =====================================================================
 
-lib_t = true;        // the include chain: twist -> buckle -> arm_simple -> arm
-include <twist.scad>
+lib_p = true;        // the chain: plate -> twist -> buckle -> arm_simple -> arm
+include <plate.scad>
 use <clamp.scad>
 
 test = "male_in_ours";
@@ -104,6 +104,25 @@ module at_pivot(px, a, pz = pivot_z) {
 // solid, not something anyone prints.
 module at_ref_pivot(px, a, pz) {
     at_pivot(px, a, pz) translate([0, 0, pz - pivot_z]) children();
+}
+
+// ---- the RAIL PLATE's frame ----------------------------------------
+// The plate carries its connectors at boss_pos, not at the origin, so the
+// PLATE is slid until connector `i` sits on the origin.  Moving the part and
+// not the probe keeps every pose in the same frame the arms are swept in.
+// i = 0 is the -X connector, so -X is OUTBOARD, and ang = 0 -- ref_2prong's
+// body on -X -- lays a mating part flat outboard, which is the pose the whole
+// raised-pivot argument exists to allow.  ang = 180 lays it flat INBOARD,
+// straight at the other connector; that end of the sweep is expected to bite.
+module plate_at_origin(i = 0) {
+    translate([-boss_pos[i][0], -boss_pos[i][1], 0]) rail_plate();
+}
+
+// Carry a mating part built about its own pivot height `pz_part` onto the
+// PLATE's pivot -- a full tab_r above the plate top, not arm.scad's pivot_z --
+// and swing it there.
+module at_plate(a, pz_part) {
+    at_pivot(0, a, p_pivot_z) translate([0, 0, p_pivot_z - pz_part]) children();
 }
 
 // The 90 deg twist adapter's two pivots do NOT share an axis, so ONE helper
@@ -307,6 +326,35 @@ else if (test == "clamp_in_arm")
     }
 else if (test == "show_clamp")
     { arm(armL); at_pivot(0, ang) mirror([1, 0, 0]) pipe_clamp(); }
+// ---- the RAIL PLATE ------------------------------------------------
+// Different question from every sweep above.  The arms are checked for zero
+// interference at the poses they are USED in; the plate is checked over a
+// FULL HALF TURN, 0 to 180 deg, because that half turn is the whole reason
+// its pivot stands a full tab_r above the plate instead of arm.scad's
+// tab_r/sqrt(2).  ang = 0 lays the mating part flat toward -X, 90 stands it
+// up, 180 lays it flat toward +X.  Anything less than the full 180 means the
+// plate itself is in the way, which is exactly the failure to catch.
+else if (test == "male_in_plate")
+    intersection() { plate_at_origin(); at_plate(ang, pivot_z) ref_2prong(); }
+// A REAL simple arm, not the reference: what limits this hinge at the ends of
+// the sweep is the arm's 15.0 mm slab BODY lying down onto the plate, and the
+// reference has no body worth the name.  Its 2-prong end is at x = armL, so
+// it is slid back to the origin first.
+else if (test == "simple_in_plate")
+    intersection() {
+        plate_at_origin();
+        at_plate(ang, s_pivot_z) translate([-armL, 0, 0]) arm_simple(armL);
+    }
+// CONTROL: 1.0 mm off-axis along Y, the hinge axis -- the direction that
+// closes the slot clearance.  Same control the arms use.  If this reads zero
+// the probe is blind and the two sweeps above mean nothing.
+else if (test == "ctrl_plate")
+    intersection() {
+        plate_at_origin();
+        translate([0, 1.0, 0]) at_plate(ang, pivot_z) ref_2prong();
+    }
+else if (test == "show_plate")
+    { plate_at_origin(); at_plate(ang, s_pivot_z) translate([-armL, 0, 0]) arm_simple(armL); }
 else if (test == "show_male")
     { arm(armL); at_pivot(0, ang) ref_2prong(); }
 else if (test == "show_female")

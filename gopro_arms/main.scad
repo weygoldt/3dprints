@@ -51,6 +51,12 @@
 //    capstack       both, assembled.  For looking at, NOT a print plate.
 //    capcut         the same assembly, halved, so you can see where the
 //                   knot actually sits.  Also not a print plate.
+//    plate          RAIL PLATE -- a flat base that bolts onto the airboat's
+//                   M4 rail grid (boat_enclosure/rail.scad: 40 mm along a
+//                   rail, 62 mm rail to rail) and stands a 3-prong GoPro
+//                   connector at each end, facing up, hinge axis along the
+//                   40 mm direction so the arms swing out over the short
+//                   edges.  It is the ground end of every chain in here.
 //    twist          90 deg twist adapter -- a short arm whose two hinge axes
 //                   are at right angles, so a chain can change its plane of
 //                   articulation.  It prints FLAT, like the arms, so its layer
@@ -65,14 +71,15 @@
 //  do most of the structural work and the part ends up nearly solid.
 // =====================================================================
 
-// One include, four files: twist.scad sets `lib_b` and includes buckle.scad,
-// which sets `lib_s` and includes arm_simple.scad, which sets `lib` and
-// includes arm.scad.  OpenSCAD's include is textual and has no include-once,
+// One include, five files: plate.scad sets `lib_t` and includes twist.scad,
+// which sets `lib_b` and includes buckle.scad, which sets `lib_s` and includes
+// arm_simple.scad, which sets `lib` and includes arm.scad.  OpenSCAD's
+// include is textual and has no include-once,
 // so the project keeps ONE chain rather than several paths to arm.scad -- two
 // paths would define every module twice.  Each file guards its own standalone
 // preview on its own sentinel, so this file only suppresses the outermost.
-lib_t = true;
-include <twist.scad>
+lib_p = true;
+include <plate.scad>
 use <clamp.scad>
 // cap.scad has no GoPro joint, so it stays off the arm include chain and comes
 // in on its own.  It DOES need BOSL2 now (the bungee cap's threads), and `use`
@@ -83,7 +90,7 @@ use <clamp.scad>
 // opening cap.scad on its own is fine, it includes BOSL2 at its own top level.
 use <cap.scad>
 
-part = "arm100";   // [gauge, arm50, arm75, arm100, arm140, set, section, sgauge, simple50, simple75, simple100, simple140, sset, ssection, double50, double75, double100, double140, dset, clamp, buckle, twist, cap, capset, capgauge, borecap, domecap, capstack, capcut, cordcap]
+part = "arm100";   // [gauge, arm50, arm75, arm100, arm140, set, section, sgauge, simple50, simple75, simple100, simple140, sset, ssection, double50, double75, double100, double140, dset, clamp, buckle, twist, cap, capset, capgauge, borecap, domecap, capstack, capcut, cordcap, plate]
 
 arm_lengths = [50, 75, 100, 140];
 
@@ -117,6 +124,7 @@ else if (part == "domecap")   dome_cap();
 else if (part == "capstack")  cap_stack();
 else if (part == "capcut")    cap_cut();
 else if (part == "cordcap")   cord_cap();
+else if (part == "plate")     rail_plate();
 
 // All four arms, side by side, flat faces all on the bed.
 module arm_set() {

@@ -66,6 +66,14 @@ done
 echo "--- double set (all four on one plate)"
 scad "stl/gopro_arms_double_set.stl" "dset"
 
+# The ground end of every chain in here: a flat plate on the airboat's M4 rail
+# grid with a 3-prong connector at each end.  Its verify is a MESH read, not a
+# recomputation of the .scad: fitcheck cannot tell a connector that does not
+# foul from a connector that is not there.
+echo "--- rail plate (bolts to the boat's 40 x 62 M4 rail grid)"
+scad "stl/gopro_rail_plate.stl" "plate"
+python3 verify_plate.py "stl/gopro_rail_plate.stl" | tail -4
+
 echo "--- pipe clamp"
 scad "stl/gopro_pipe_clamp_12mm.stl" "clamp"
 python3 verify_clamp.py "stl/gopro_pipe_clamp_12mm.stl" | tail -4
@@ -127,5 +135,11 @@ python3 fitcheck.py --buckle
 # MALE and there is no arm-to-arm case to run: two females cannot couple, which
 # is the reason that part exists.
 python3 fitcheck.py --double
+# The plate is the one part whose limit is the PART ITSELF rather than a mating
+# body: a connector standing on a plate can only swing through the half space
+# above it.  So its sweep is gated on the outboard quadrant, and the readings
+# BELOW flat -- under the plate -- have to come back non-zero or the probe was
+# never touching the plate at all.
+python3 fitcheck.py --plate
 
 ls -la stl/

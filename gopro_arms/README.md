@@ -100,6 +100,10 @@ Parts, streamlined: `gauge`, `arm50`, `arm75`, `arm100`, `arm140`, `set`,
 `double50`, `double75`, `double100`, `double140`, `dset`. Plus `clamp`,
 `buckle` and `twist`. Arm names are **pivot-to-pivot** distance in mm.
 
+`plate` is the one part that is not an arm and not a cap: a flat base on the
+airboat's 40 × 62 mm M4 rail grid with a 3-prong connector at each end. It is
+where a chain of these starts.
+
 Not an arm at all, but they cap the pipes the clamp holds: `cap`, `capset` and
 `capgauge` — a press-fit parabolic fairing for the end of a 12 mm PVC tube — and
 `borecap` + `domecap`, a two-part version that takes a 5.5 mm bungee through the
@@ -1535,6 +1539,126 @@ contact is a *ring*, not a disc, because the bore runs right through. (`cord_fla
 was trimmed 0.80 → 0.60 when the bore went to 5.5 for exactly this reason — at
 0.80 the ring was down to 12.6 mm².)
 
+## Rail plate (`part="plate"`)
+
+The ground end of every chain in here. A flat **78 × 56 × 8 mm** plate that
+bolts onto the airboat's mounting rails and stands a GoPro 3-prong connector at
+each end, facing up. Everything else in this folder — arm, simple arm,
+`arm_double`, twist adapter, buckle — clips straight onto it.
+
+The bolt pattern is not a choice, it is `boat_enclosure/rail.scad`: **40 mm**
+along one rail (`rail_pitch`, the insert spacing) and **62 mm** rail to rail
+(the gap the box lugs at X = ±31 already set). Four M4 socket-head cap screws
+drop through the plate from above into the brass heat-set inserts in the rails,
+so the plate slides fore/aft on the 40 mm grid like everything else on the boat.
+Measured off the mesh: bores Ø4.500, centres at ±31.000 and ±20.000, pitch
+62.000 × 40.000, symmetric about zero.
+
+**Orientation.** The grid is 40 mm in Y and 62 mm in X, so the plate's *short*
+edges are the two that run along Y. The connectors' hinge axis runs along Y as
+well, **parallel to those short edges**, which is what makes an arm swing out
+*over* a short edge. Turning that 90° — arms swinging over the long edges
+instead — is one number, `boss_yaw = 90`; where the connectors sit is
+`boss_pos`, also just a list. Both are worth checking against the boat before
+printing, because no measurement in here can tell a correct orientation from a
+plausible one.
+
+### The pivot stands a full radius up, and that is the whole part
+
+`arm.scad` builds its knuckles with `tab_style = "trim"`: pivot at
+`tab_r/sqrt(2)` = 5.303, the R7.5 circle simply **cut** by the bed. That is
+right for an arm, whose mating half sits on the same centreline. It is wrong
+here. A mating arm's knuckle is a full R7.5 disc about the shared pivot and it
+has to be able to swing all the way down onto the plate — so the pivot has to
+stand a **full `tab_r`** above the plate top (15.5 = 8.0 + 7.5), exactly like a
+real GoPro adhesive base.
+
+That leaves the circle *tangent* to the plate, i.e. a 0° overhang at the root.
+So the knuckle gets `arm.scad`'s **"pad"** treatment: hulled onto a thin bar of
+half-width `tab_base_h_at(tab_r)` = **3.107**, which puts the flanks at exactly
+`oh_ang`. The pad pokes ~0.62 mm outside the R7.5 joint envelope, and here that
+is provably harmless rather than merely small: every point of it is **farther
+from the pivot than `tab_r`** (the corner sits at 8.12), and the mating knuckle
+is a disc of radius `tab_r` about that same pivot, so it cannot reach the pad at
+any angle. On an arm the same pad *is* a problem, because there a mating body
+sweeps past at that radius — which is why `arm.scad` does not use it.
+
+A 45° **skirt** (`boss_skirt = 1.5`) fillets the root on top of that: wider at
+the plate, dying out 1.5 mm up, so it adds material where the bending moment is
+highest and still never overhangs. It clears the joint by the same argument.
+
+### And why the slots are cut short
+
+`pocket()` is a cylinder of `pocket_r` = 11.05 about the pivot. Put that on a
+pivot a full `tab_r` up and its floor reaches **3.55 mm below the plate top** —
+it would saw two 3.1 mm slots most of the way through an 8 mm plate. So the
+pocket is clipped to `slot_sink` below the plate top. The reasoning is exact,
+not a fudge: the mating knuckle only ever reaches `tab_r` from the pivot, and
+`tab_r` from the pivot *is* the plate top, so a shallow relief is all the
+clearance the geometry can ever need. Measured floor **7.600**, i.e. 0.400 down.
+What is left in the plate under each slot is a ~0.4 × 3.1 × 16 mm groove, which
+also drains.
+
+### What the checks measured
+
+`fitcheck.py --plate` asks a different question from every other sweep in here.
+The arms are checked for zero interference at the poses they are *used* in; the
+plate is swept over the whole half space above itself, because a connector
+standing on a plate can only ever swing through that half space. `ang = 0` lays
+the mating part flat **outboard**, 90 stands it up, 180 lays it flat inboard.
+
+| | clear swing |
+|---|---|
+| ideal GoPro 2-prong (`male_in_plate`) | **0 … 180°** — the full half turn |
+| a real `arm_simple(100)` (`simple_in_plate`) | **0 … 150°** |
+
+The real arm loses the last 30° to the *other connector*, not to the plate: at
+160° its 15.0 mm slab body has come down far enough to catch the second knuckle
+36 mm away. That is a pose nobody wants (an arm aimed inboard at its neighbour),
+and it is reported rather than gated — the gate is the outboard quadrant, 0…90.
+
+Two controls sit either side of it. The usual off-axis one: the reference driven
+1.0 mm along the hinge axis reads **290.9 mm³**, so the probe can see a
+collision. And a second that comes free from the geometry — below flat-outboard
+the mating part is *under the plate*, and it must foul. It does: 554.5 mm³ at
+−10°, 1249.3 at −20°. A clear reading there would not have been good news, it
+would have meant the probe never met the plate at all.
+
+`verify_plate.py` reads the exported mesh with rays, because `fitcheck` cannot
+tell a connector that does not foul from a connector **that is not there** — an
+intersection with a part that was never built is also 0.000 mm³. It measures the
+bolt grid as the *gaps* in a solid span (spacing and diameter from one reading),
+the counterbore seat (3.600, so 3.6 mm of material under the head), the prong
+grid at a height above the nut pocket so the pocket cannot be miscounted as a
+slot (**3.400 / 2.900 / 5.800**, slots 3.100 on ±3.000), the M5 bore read
+*downward* from the pivot (floor 2.650 below it = r), the slot floor, where the
+two connectors sit (±18.000), and 32 rays straight down the four counterbores to
+prove a hex key can reach every screw.
+
+Both of the checks that could plausibly be decorative were made to fail on
+purpose. Forcing the pad away (`-D p_pad_h=0.01`) leaves the tangent circle
+sitting on the plate and the overhang scan reports **368 facets, 212.59 mm² at
+z = 8.16** — the knuckle root, exactly where it should be. Moving the bolt grid
+(`-D grid_x=50`) trips 6 checks. With the part as shipped the steepest
+downward-facing facet is nz **−0.7071**, sitting precisely on the 45° rule; that
+is the teardrop bore's roof, and it is the reason the rule is written as ≤ and
+not <.
+
+### Print
+
+Flat on the bed, plate down, connectors up. PETG, 0.2 mm, 0.4 nozzle, **no
+support** — the knuckle flanks leave the plate at `oh_ang`, the M5 bore is a
+teardrop, the nut pocket has a 45° peak, and the bolt counterbores open *upward*
+(a counterbore that opens up has no ceiling to bridge). 4–5 perimeters: the load
+path is bolt → plate → knuckle root and all of it runs in the walls. 37.2 cm³ of
+envelope, so about 20 g at a normal infill.
+
+Per plate: **4 × M4 socket-head cap screw** (plate seat 3.6 mm + insert depth →
+12–14 mm into a `rail.scad` insert), plus **one M5 GoPro thumbscrew and one M5
+DIN 934 nut per connector**. The nut trap is the arms' own — same 8.00 AF pocket,
+4.30 deep, 1.50 mm of material back to the slot — so it takes the same nuts, and
+it sits in the −Y outer prong.
+
 ## Verifying
 
 ```sh
@@ -1551,11 +1675,13 @@ python3 verify_cap.py stl/pipe_cap_12mm_dome.stl --dome            # bungee cap,
 python3 verify_cap.py stl/pipe_cap_12mm_cord.stl --cord            # plain cord cap
 python3 verify_cap.py stl/pipe_cap_12mm_bore.stl \
         --mate stl/pipe_cap_12mm_dome.stl        # do the two halves GO TOGETHER
+python3 verify_plate.py stl/gopro_rail_plate.stl                  # the rail plate
 python3 fitcheck.py                                               # mating interference
 python3 fitcheck.py --simple
 python3 fitcheck.py --twist              # both ends, each on its own axis
 python3 fitcheck.py --buckle             # a REAL arm on the buckle's hinge
 python3 fitcheck.py --double             # both ends, each swung on its own
+python3 fitcheck.py --plate              # the rail plate, over the half space above it
 python3 fitcheck.py --simple --chain     # also arm-to-arm, which is slower
 ```
 

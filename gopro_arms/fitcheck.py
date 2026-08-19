@@ -12,6 +12,7 @@ nothing.
   python3 fitcheck.py --double        arm_double() -- 3-prong at both ends
   python3 fitcheck.py --buckle        a simple arm on the quick-release
                                       buckle's hinge (buckle.scad)
+  python3 fitcheck.py --plate         the rail plate's connector (plate.scad)
   python3 fitcheck.py --chain         also swing one of our arms against
                                       another, which is the pairing the body
                                       shape actually limits
@@ -170,6 +171,78 @@ def buckle_main(armL):
     return 1
 
 
+# ---- the rail plate -------------------------------------------------
+# Its own driver, because the question is a RANGE and the range is not
+# symmetric.  A connector standing on a plate can only swing through the half
+# space above the plate, and one of the two halves of THAT is aimed straight at
+# the plate's other connector.  So the sweep runs -20..180 with ang = 0 flat
+# OUTBOARD, and the gate is the outboard quadrant 0..90.  Two things fall out
+# for free and are checked as controls in their own right: below 0 the mating
+# part must FOUL (it is under the plate -- if it does not, the plate is not
+# where this test thinks it is), and past 90 it eventually meets the other
+# connector, which is reported rather than gated.
+PLATE_GATE = 90        # deg of clear outboard swing the plate must give
+
+
+def plate_main(armL):
+    print("interference volume vs hinge angle   (mating parts on the RAIL\n"
+          "PLATE's connector; ang=0 lays the part flat OUTBOARD along the\n"
+          "plate, 90 stands it up, 180 lays it flat inboard at the other\n"
+          "connector)\n")
+    ok = True
+
+    print("  CONTROL -- male driven 1.0 mm off-axis in Y; must be NON-zero")
+    v, _, _ = run('ctrl_plate', 0, armL)
+    ctrl_ok = v > 0.1
+    print(f"    ctrl_plate   ang=  0   {v:10.4f} mm^3   "
+          + ("OK (probe can see collisions)" if ctrl_ok else "*** BLIND PROBE ***"))
+    ok = ok and ctrl_ok
+
+    results = {}
+    for test in ['male_in_plate', 'simple_in_plate']:
+        print(f"\n  {test}")
+        rng = []
+        for ang in range(-20, 181, 10):
+            v, _, _ = run(test, ang, armL)
+            if v < 1e-6:
+                rng.append(ang)
+            print(f"    ang={ang:5d}   {v:10.4f} mm^3"
+                  + ('' if v < 1e-6 else '  <-- interference'))
+        results[test] = rng
+
+    print("\n  clear swing measured from flat-outboard (0 deg):")
+    for k, rng in results.items():
+        if 0 not in rng:
+            print(f"    {k:16s}  FOULS AT 0 deg -- it will not lie flat on the plate")
+            ok = False
+            continue
+        # Contiguous band through 0.  min()..max() would paper over a hinge
+        # that jams part-way and call the whole span clear.
+        lo = hi = 0
+        while lo - 10 in rng:
+            lo -= 10
+        while hi + 10 in rng:
+            hi += 10
+        reach_ok = hi >= PLATE_GATE
+        # BELOW flat-outboard is under the plate.  A clear reading there is not
+        # good news, it means the probe never met the plate at all.
+        under_ok = -10 not in rng
+        print(f"    {k:16s}  {lo:+d} .. {hi:+d} deg   "
+              f"(need 0..{PLATE_GATE}) "
+              + ("OK" if reach_ok else "*** short of the gate ***")
+              + ("" if under_ok else "  *** and CLEAR below the plate -- "
+                                     "this probe is not touching the plate ***"))
+        ok = ok and reach_ok and under_ok
+
+    print()
+    if ok:
+        print(f"FIT OK: an arm swings flat-outboard to vertical and past it, and "
+              f"the plate stops it going under.")
+        return 0
+    print("FIT FAILED")
+    return 1
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--simple', action='store_true',
@@ -181,12 +254,17 @@ def main():
     ap.add_argument('--double', action='store_true',
                     help='arm_double() -- both ends 3-prong, each swung on its '
                          'own against the reference male')
+    ap.add_argument('--plate', action='store_true',
+                    help="the rail plate's connector, swept over the half "
+                         "space above the plate")
     ap.add_argument('--chain', action='store_true',
                     help='also swing one of our arms against another')
     args = ap.parse_args()
     armL = 100
     if args.buckle:
         return buckle_main(armL)
+    if args.plate:
+        return plate_main(armL)
     if args.double:
         ctrl = 'ctrl_double'
         tests = ['male_in_double_a', 'male_in_double_b']
