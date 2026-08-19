@@ -18,6 +18,10 @@ use <lid.scad>
 use <pylon.scad>
 use <propguard.scad>
 use <float.scad>
+include <rail.scad>        // the REAL recessed mounting rail (dovetail-chained, 40 mm insert grid)
+include <connector.scad>   // the centre-box connector bracket
+rail = "none";             // AFTER the include: suppress rail.scad's own standalone render
+conn_show = "none";        // AFTER the include: suppress connector.scad's own standalone render
 
 // =====================================================================
 //  PHANTOMS  (assembly preview only)
@@ -87,14 +91,16 @@ module ghost_screws() {
 
 show_wire = true;   // draw the bright motor-lead ghost (down the wire slot toward the boat centre)
 
-// one SET of two parallel fore-aft mounting RAILS per hull (the repo dovetail rail, 40 mm hole grid).  RECESSED into the
-// foam, top flush with the deck, so the boxes screw DIRECTLY down to the hull.  Spans the box lugs (Z=box_z +/-100) plus a
-// margin, CONTAINED in the skid (does not run off the stern).  Small markers show the 40 mm bolt holes the boxes land on.
+// one SET of two parallel fore-aft mounting RAILS under the stern box (the REAL rail.scad part, not a stub): each rail is
+// n_seg segments (start+..+end) laid along Z, TOP flush with the deck (Y=D), inserts opening UP toward the box lugs.  The
+// native rail pose (length +X, up +Z) is reframed to (length world-Z, up world -Y).  Two segments centred on box_back_z put
+// the 40 mm insert grid on phase 20, so the box lugs at Z=box_back_z+/-100 land exactly on real insert holes.
 module box_rails() {
-  z0 = box_back_z  - 100 - rail_end_inset;   // aft end (past the aftmost lug)
-  z1 = box_front_z + 100 + rail_end_inset;   // fwd end (past the forwardmost lug)
-  for (sx=[-1,1])
-    color([0.30,0.30,0.34]) translate([sx*rail_x, D + rail_disp_h/2, (z0+z1)/2]) cube([rail_disp_w, rail_disp_h, z1-z0], center=true);
+  n = 2;   // 2 x 160 = 320 mm covers the 200 mm lug span + margin (contained in the skid)
+  for (sx=[-1,1], i=[0:n-1])
+    color([0.32,0.32,0.36])
+      translate([sx*rail_x, D + rail_h, box_back_z - (n-1)*seg_len/2 + i*seg_len])
+        rotate([0,-90,0]) rotate([90,0,0]) rail_segment(i==0 ? "start" : (i==n-1 ? "end" : "mid"));
 }
 
 // ONE drive: pylon (motor cross rotated by `rot`) + guard (rot + wire slot) + prop-disc + wire ghost, at a box's stern.
@@ -123,21 +129,35 @@ module boat_box(role, with_drive=false, rot=0) {
 }
 
 // =====================================================================
-//  SCENE -- 4 boxes: 2 per hull (BACK = drive/prop, FRONT = bare) on a set of rails; the port + starboard drives are the
-//  REAL, DIFFERENT parts (starboard's motor cross is turned 90deg so both leads exit inboard), not a mirrored fake.
+//  SCENE -- 3 boxes: the two STERN DRIVE boxes (one per hull, on their rails) plus a CENTRE box floated box3_lift above
+//  the deck BETWEEN them, hung off FOUR connector brackets (connector.scad).  The 4-box layout was nose-heavy, so the
+//  front boxes are gone and the third box moves aft+inboard.  The stern boxes sit at +/-hull_dx so their inboard lug lands
+//  on Patrick's MEASURED 155 mm inner rail; the port + starboard drives are the REAL mirrored-motor parts, not a fake.
 // =====================================================================
-module hull_assembly(hull, rot) {
-  apply_side_of(hull) {
+module stern_drive_hull(sgn, rot) {
+  hull = sgn < 0 ? "port" : "starboard";
+  translate([sgn*hull_dx, 0, 0]) apply_side_of(hull) {
     box_rails();
-    translate([0, 0, box_back_z])  boat_box(role_of_side(hull), true,  rot);   // BACK box + drive/prop
-    translate([0, 0, box_front_z]) boat_box(role_of_side(hull), false);        // FRONT box -- bare (other hardware)
+    translate([0, 0, box_back_z]) boat_box(role_of_side(hull), true, rot);
   }
 }
 
+// the CENTRE box: floated box3_lift above the deck, on the centreline, at the same fore-aft station as the stern boxes.
+module centre_box() {
+  translate([0, -box3_lift, box_back_z]) color("LightSteelBlue") boat_box("rc", false);
+}
+
+// the four connector brackets: one per corner (both hulls x both end-block lug stations).
+module centre_connectors() {
+  for (sgn = [-1, 1], zs = [conn_z_fore, conn_z_aft])
+    color("Goldenrod") connector_solid(sgn, zs);
+}
+
 module assembly_scene() {
-  translate([-beam_target/2, 0, 0]) hull_assembly("port",      mrot_of( 1));  // port hull: motor clocked so the wire gap faces the slot
-  if (show_both_hulls)
-    translate([ beam_target/2, 0, 0]) hull_assembly("starboard", mrot_of(-1)); // starboard hull: same, mirrored
+  stern_drive_hull(-1, mrot_of( 1));                       // port hull: motor clocked so the wire gap faces the slot
+  if (show_both_hulls) stern_drive_hull(1, mrot_of(-1));   // starboard hull: same, mirrored
+  centre_box();
+  centre_connectors();
   if (show_foam) translate([0, 0, deck_center_z]) foam_body();
 }
 
