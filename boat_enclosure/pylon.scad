@@ -1,69 +1,79 @@
 // =====================================================================
-//  AIRBOAT ENCLOSURE -- PYLON  (WEDGE rev: straight taper, motor CENTRED, prints on the BACK face)
+//  AIRBOAT ENCLOSURE -- PYLON  (LOWERED + NOSE-DOWN rev, 2026-08-19)
 //  Separate bolt-on part.  See common.scad for the frame mapping, all parameters, the fit-check echoes
 //  and shared helpers.
 //
-//  WEDGE REV (Patrick, 2026-08-16)
-//    The smooth side-print loft (organic, one-sided outboard offset) read as sci-fi next to the rugged
-//    square housing boxes.  Replace it with a SIMPLE STRAIGHT WEDGE that matches the boxes:
-//      * STRAIGHT edges taper toward the top -- the width tapers pylon_width -> pad_w_top and the fore-aft
-//        depth tapers pad_aft -> mast_top_t, both linearly (a clean engineered gusset/wedge, no curves).
-//      * the MOTOR is CENTRED on the mast (motor_zc = pylon_width/2), so the pylon is SYMMETRIC -- one part
-//        fits both hulls (only the guard's arc leans L/R).
-//      * it PRINTS ON THE BACKWARDS (aft) FACE instead of on the side: the flat X=pad_aft face lies on the
-//        bed and the build rises fore-aft (+X).  The mast length (Y) still lies IN the layers, so the
-//        bending strength is comparable to the old side print (Patrick).  Every bore now runs along the
-//        build axis -> no teardrops.
-//    FROZEN: the HOUSING connector (mating face X=0 + register tongue + 4x M4 pattern) and the MOTOR mount
-//    (A2212 cross + boss recess + the flat aft washer face) are unchanged -- it still screws to the same
-//    block and the same motor.
+//  WHY THIS REV (Patrick's handoff: rigid + STOP THE NOSE-DIVE)
+//    (1) LOWERED -- the hub drops from 111.5 to pylon_rise (56.5) above the deck: prop bottom ~2 cm above
+//        the waterline (the prop sweeps AFT of the transom over open water, so the deck is no longer the
+//        clearance floor).  A short mast is far stiffer (bending ~1/L^3) AND halves the bow-down thrust couple.
+//    (2) NOSE-DOWN motor pad -- the motor pad, its bores and the guard are tilted about the WIDTH axis at the
+//        hub so the prop THRUST points forward-and-DOWN by motor_tilt.  A down-forward thrust at the stern
+//        pushes the stern down / bow up and aims the thrust line at the CoM -> nulls the residual dive.  The
+//        tilt is about the extrude (Z) axis, so it stays a pure 2D-plane feature (motor_tilted() in common).
+//    (3) STRUCTURE re-added (handoff #1): a DEEP AFT BUTTRESS base (resists reverse thrust) + a FORWARD GUSSET
+//        bearing on the block top (resists the forward-thrust tipping in compression, off-loading the 4 bolts).
 //
-//  Frame: X = fore-aft (0 = forward MATING face, +X = aft/motor) ; Y = up-mast ; Z = width (0..pylon_width,
-//  motor centred at pylon_width/2).  oriented("pylon") lays the aft face on the bed for printing.
+//  PRINT: SIDE-print.  The 2D silhouette (X = fore-aft, Y = up-mast) is extruded along Z = width; the part lies
+//  on its Z=0 face with the mast flat on the bed and the layers running ALONG the mast.  Teardrop bores (apex
+//  +Z = build-up) keep it supportless.  Motor CENTRED (motor_zc = pylon_width/2) -> SYMMETRIC: ONE part both
+//  hulls (only the guard's arc + the motor-cross rotation lean L/R).
+//
+//  FROZEN: the HOUSING connector (mating face X=0 + register tongue + 4x M4 pattern) and the MOTOR mount
+//  (A2212 cross 19x16 + boss recess + the flat washer/guard face) are unchanged -- same block, same motor.
+//
+//  Frame: X = fore-aft (0 = forward MATING face, +X = aft/motor) ; Y = up-mast ; Z = width (motor centred).
 // =====================================================================
 include <common.scad>
 
-// a thin cross-section slab (chamfered long edges) at height Y: width w (Z, centred), fore-aft from the FLAT aft face
-// (X=pad_aft) forward to fwd_x(Y) -- the forward face recedes linearly (pad_aft depth at the base -> mast_top_t at the top).
-function fwd_x(Y) = max(0, (pad_aft - mast_top_t) * (Y - flare_y) / (mast_top_y - flare_y));  // forward-face X at height Y
-module wslab(Y, w) let(fx = fwd_x(Y), d = pad_aft - fx)
-  translate([(fx + pad_aft)/2, Y, pylon_width/2]) cuboid([d, eps, w], chamfer = pylon_edge_ch, edges = "Y", except = RIGHT);
+// teardrop bore: axis +X (fore-aft), APEX toward +Z (= the side-print build-up) so the horizontal hole
+// self-supports.  Drop-in for `rotate([0,90,0]) cylinder(h,d)`; ctr=true centres it along X.
+module td_bore(h, d, ctr=false)
+  translate([ctr ? -h/2 : 0, 0, 0])
+    rotate([90,0,0]) rotate([0,90,0]) linear_extrude(h) teardrop2d(d=d, ang=45);
 
-// STRAIGHT WEDGE solid, printed on the FLAT aft face.  Three ruled sections:
-//   FOOT   (0..flare_y)        full width/depth -- the connector base (4x M4 + tongue).
-//   TAPER  (flare_y..pad_y0)   width narrows pylon_width -> pad_head_w (straight edges).
-//   HEAD   (pad_y0..mast_top_y) CONSTANT width pad_head_w -- a rectangle whose aft face == the guard hub, so the guard
-//                              base-plate aligns PERFECTLY with the pylon face.  (Fore-aft still recedes to mast_top_t.)
-module pylon() color("Tan") {
+// (head_aft -- the oversized vertical head aft face for the tilt-trim -- is derived in common.scad.)
+
+// ---- 2D structural silhouette (X = fore-aft +aft, Y = up-mast) ------------------------------------------
+//   main body : forward face flat at X=0 (block mating plane, extended up as the mast front) ; deep aft base
+//               (base_aft) tapering to the head aft face -> the DEEP BUTTRESS that resists reverse thrust.
+//   fwd gusset: crisp forward brace, flat underside on the block top (fg_y0) reaching to the stern wall
+//               (-fg_reach), apex at the hub height (0,fg_y1) -> compression path that off-loads the bolts.
+//   tongue    : crisp register key into the block slot.
+module pylon_2d() {
   union() {
-    hull() { wslab(eps/2,   pylon_width); wslab(flare_y,    pylon_width); }  // FOOT  (full, prismatic)
-    hull() { wslab(flare_y, pylon_width); wslab(pad_y0,     pad_head_w); }   // TAPER (44 -> head width)
-    hull() { wslab(pad_y0,  pad_head_w);  wslab(mast_top_y, pad_head_w); }   // HEAD  (constant width -- matches the guard hub)
-    // REGISTER TONGUE (forward, into the block slot) -- part of the frozen connector (crisp)
-    translate([-reg_depth, (foot_h - reg_h)/2, 0]) cube([reg_depth + eps, reg_h, pylon_width]);
+    offset(r=pylon_fillet) offset(delta=-pylon_fillet)
+      polygon([[0,0], [base_aft,0], [head_aft,pad_y0], [head_aft,mast_top_y], [0,mast_top_y]]);
+    if (fwd_gusset) polygon([[eps,fg_y1], [eps,fg_y0], [-fg_reach,fg_y0]]);          // forward gusset (crisp)
+    translate([-reg_depth, (foot_h-reg_h)/2]) square([reg_depth+eps, reg_h]);         // register tongue (crisp)
   }
 }
+module pylon() color("Tan") linear_extrude(pylon_width) pylon_2d();
 
-// bores -- all run along +X (the build axis in the back print), so plain cylinders (no teardrop needed).
-module xbore(x0, y, z, len, d) translate([x0, y, z]) rotate([0,90,0]) cylinder(h = len, d = d, $fn = 48);
+// tilted-pad trim: remove everything AFT of the pad plane (through the hub, tilted by motor_tilt about the
+// width axis) so the motor + guard bear on a genuine FLAT face perpendicular to the (forward+down) thrust.
+module pad_trim() motor_tilted() translate([pad_aft, -600, -600]) cube([600, 1200, 1200]);
+
+// bores.  Motor cross + boss are cut in the TILTED frame (perpendicular to the pad); foot bolts run straight
+// +X through the frozen foot into the block.  All teardrops (apex +Z) -> supportless in the side-print.
 module pylon_cut(rot = mount_rot) {
-  cz = pylon_width/2;
-  // MOTOR CROSS on the flat aft face (X=pad_aft), CENTRED (pattern rotated by `rot` for the wire-routing hull): a FRONT-access
-  // counterbore (motor_head_d, lets the socket head + driver reach from the forward side so the screw stays short) + clearance.
   seat_x = pad_aft - motor_seat_t;
-  for (h = mholes(rot)) {
-    hy = pylon_rise + h[0]; hz = motor_zc + h[1];
-    xbore(-2,     hy, hz, seat_x + 2,       motor_head_d);   // front access + head counterbore
-    xbore(seat_x, hy, hz, motor_seat_t + 2, motor_screw_d);  // screw clearance through the seat
+  motor_tilted() {
+    for (h = mholes(rot)) {
+      hy = pylon_rise + h[0]; hz = motor_zc + h[1];
+      translate([-2,     hy, hz]) td_bore(seat_x + 2,       motor_head_d);   // FRONT-access head counterbore
+      translate([seat_x, hy, hz]) td_bore(motor_seat_t + 2, motor_screw_d);  // M3 screw clearance through the seat
+    }
+    if (motor_boss_reach > 0)                                                 // central relief only if a long boss pokes past the guard
+      translate([pad_aft - (motor_boss_reach + 1), pylon_rise, motor_zc]) td_bore(motor_boss_reach + 3, motor_boss_d);
   }
-  if (motor_boss_reach > 0)                                   // central seat relief only if a long boss pokes past the guard
-    xbore(pad_aft - (motor_boss_reach + 1), pylon_rise, motor_zc, motor_boss_reach + 3, motor_boss_d);
-  // 4x M4 FOOT bolts: a plain clearance hole through the foot (a vertical channel in the back print).  The socket head
-  // sits PROUD on the flat aft face (exposed at the base, behind the pylon -- no interference, and reads rugged) so
-  // there is NO down-facing counterbore to bridge -> the print stays supportless.
+  // 4x M4 FOOT bolts: clearance channels along +X through the foot into the block (frozen connector, not tilted).
   for (sy = [-1,1], sz = [-1,1])
-    xbore(-eps, foot_h/2 + sy*mm_bolt_y/2, cz + sz*mm_bolt_x/2, pad_aft + 2*eps, pylon_bolt_d);
+    translate([-eps, foot_h/2 + sy*mm_bolt_y/2, pylon_width/2 + sz*mm_bolt_x/2]) td_bore(pad_aft + 2*eps, pylon_bolt_d);
 }
 
-// standalone render: opening this file renders the PYLON in its PRINT pose (aft face on the bed).
-oriented("pylon") difference() { pylon(); pylon_cut(); }
+// the finished part: solid, trimmed to the tilted pad, bored.  Used by the standalone render AND main.scad's drive().
+module pylon_part(rot = mount_rot) difference() { pylon(); pad_trim(); pylon_cut(rot); }
+
+// standalone render: opening this file renders the PYLON in its SIDE-print pose (mast flat on the bed).
+oriented("pylon") pylon_part();

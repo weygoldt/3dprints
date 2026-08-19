@@ -100,14 +100,16 @@ module box_rails() {
 // ONE drive: pylon (motor cross rotated by `rot`) + guard (rot + wire slot) + prop-disc + wire ghost, at a box's stern.
 module drive(rot) {
   translate([pylon_width/2, mm_pad_yc + foot_h/2, mm_block_aft_z]) rotate(a=180, v=[1,0,-1]) {
-    color("Tan") difference() { pylon(); pylon_cut(rot); }
-    ghost_hardware();
-    if (prop_guard) translate([pad_aft, pylon_rise, mount_to=="motor" ? motor_zc : pylon_width/2]) rotate([0,90,0]) {
+    color("Tan") pylon_part(rot);
+    // guard, prop disc and motor phantom all TILT with the pad (motor_tilted) so the preview shows the true
+    // nose-down thrust line; the pylon part already has the tilt baked in.
+    motor_tilted() ghost_hardware();
+    if (prop_guard) motor_tilted() translate([pad_aft, pylon_rise, mount_to=="motor" ? motor_zc : pylon_width/2]) rotate([0,90,0]) {
       color("DarkSeaGreen") guard_full(rot, wire_slot_ang, false);
       if (show_wire && mount_to=="motor" && wire_slot) color([1,0.35,0])
         rotate([0,0,wire_slot_ang]) translate([6, 0, guard_t/2]) rotate([0,90,0]) cylinder(h=48, d=3.5);
     }
-    if (show_ghosts) color([0.85,0.2,0.2,0.28])
+    if (show_ghosts) motor_tilted() color([0.85,0.2,0.2,0.28])
       translate([pad_aft+guard_t+guard_standoff, pylon_rise, motor_zc]) rotate([0,90,0]) cylinder(h=1.5, r=prop_radius, center=true);
   }
 }

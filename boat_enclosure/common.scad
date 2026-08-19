@@ -279,8 +279,13 @@ thread_slop = 0.1;    // BOSL2 internal-thread clearance ($slop): adds ~4*slop t
    stiffer, ~450 g static thrust/motor.  1045 (254 mm) is a one-line change. */
 prop_diameter        = 203;   // 8x4.5 = 203 (SETTLED), 1045 = 254
 float_thickness      = 110;   // total foam thickness = deck_t 30 + skid_t 80 (Patrick 2026-08-16); keep in sync if those change
-float_freeboard      = 42;    // float top above the waterline at ~2 kg all-up
-prop_clearance_margin= 10;    // disc lowest point above the float top
+float_freeboard      = 65;    // deck TOP above the waterline.  The hull is 110 tall (deck 30 + skid 80) and floats
+                              // ~45 mm deep at the keel (~2 kg all-up) -> deck top = 110 - 45 = 65 above water.  (Was 42,
+                              // stale from a thinner hull.)  Used ONLY to convert hub-above-water <-> hub-above-deck and
+                              // for the stack report; it CANCELS out of pylon_rise, so this is a pure correctness fix.
+prop_clearance_margin= 20;    // prop BOTTOM above the WATERLINE (was 10, above the DECK top).  The prop now sweeps
+                              // AFT of the transom over open water (see prop_to_transom), so the waterline -- not the deck --
+                              // is the floor.  hub_height_above_water = prop_radius + this.
 prop_z_offset        = 65;    // how far AFT of the stern wall the prop disc sweeps
 
 /* [Motor + BasePlate mount] -- item 2.  The real chain is
@@ -366,6 +371,22 @@ motor_offset_dir = 1;     // +1 = motor/mast on the OUTBOARD edge (prints FLIPPE
 motor_head_d     = 8.0;   // socket-cap head + hex-driver access bore dia (front-access counterbore).  8 (not 5.5) so a
                           // METAL M3 washer (DIN125 ~7 mm OD) fits UNDER the head: it spreads the clamp load and slows
                           // PLA/PETG cold-flow (the mount's real weak link -- both expert reviews flagged preload relaxation).
+
+// -- MOTOR ANGLE-OF-ATTACK (nose-down tilt) -- the anti-nose-dive fix (Patrick 2026-08-19). ------------------
+// The dive is a bow-DOWN couple: the prop thrust is applied HIGH and at the STERN (a forward force above the
+// CoM).  Lowering the mast (see the clearance block) halves it; this tilt nulls the rest.  The motor pad is
+// tilted so the PROP THRUST points FORWARD-and-DOWN (the prop washes aft+UP -> pushes the stern DOWN / bow UP,
+// and the thrust line aims at the CoM so its moment about the CoM -> 0).  Patrick confirmed the sign: thrust
+// forward + a bit down.  DIRECTION IS A SIGN TRAP -- verify in a side-view render before printing (a flip makes
+// the dive WORSE).  Implemented as a rotation of the motor pad + bores + guard about the WIDTH (Z) axis at the
+// hub, so it lives entirely in the side-print's 2D plane.
+//   angle = atan(dz/dx):  dz = hub height above the CoM (~46 mm, robust) ; dx = motor distance BEHIND the CoM
+//   (fore-aft; the sensitive term -- depends on where the loaded boat balances).  The motor sits ~131 mm aft of
+//   the back-box centre / ~211 mm aft of the deck centre.  CoM near the deck centre -> ~11 deg ; near the back
+//   boxes (battery+ESC there) -> ~19 deg.  Default a touch steep (a small bow-up reserve beats residual dive;
+//   hull drag adds bow-down).  It is a KNOB -- tune it after a wet test.
+motor_tilt       = 13;    // degrees the prop thrust points DOWN below horizontal (0 = straight forward).  Rotation
+                          // is about the width axis at the hub; +ve = thrust forward+down (verified by render).
 
 /* [Motor mount + pylon] -- SEPARATE printed pylon bolts to a protruding BLOCK on the
    stern wall.  Every fastener stays inside that block, AFT of the wall -- none enters
@@ -626,10 +647,15 @@ shell_bevel    = atan((ov_d + 0.3 - Ay)/hinge_offset);
 // --- Task 1 derived: prop clearance & pylon height ---
 prop_radius = prop_diameter/2;
 box_outer_height = D;                       // floor to body top, above the float
-hub_height_above_water = prop_radius + float_freeboard + prop_clearance_margin;
+// LOWERED rev (2026-08-19): the prop no longer has to clear the DECK TOP -- it sweeps AFT of the transom over
+// open water (prop_to_transom < 0), so the WATERLINE is the only floor.  hub_height_above_water = prop_radius
+// + prop_clearance_margin (prop bottom sits margin above the waterline).  This ~halves the mast vs the old
+// "clear the deck" rule (freeboard term dropped) -> cuts the bow-down thrust couple ~2x (the nose-dive fix).
+hub_height_above_water = prop_radius + prop_clearance_margin;
 hub_above_box_top = hub_height_above_water - (float_freeboard + box_outer_height);
-pylon_rise = hub_height_above_water - float_freeboard;   // hub above the box floor/mount
-disc_low_above_float = hub_height_above_water - prop_radius - float_freeboard; // >0 clears
+pylon_rise = hub_height_above_water - float_freeboard;   // hub above the box floor/mount (= deck top)
+disc_low_above_water = hub_height_above_water - prop_radius;    // prop bottom above the waterline (= margin; >0 clears)
+disc_low_vs_deck     = disc_low_above_water - float_freeboard;  // vs the DECK top (negative = sweeps below deck level -- OK: aft of the transom, over water)
 
 // RC component footprints on the floor (the layout the bosses must avoid, and the
 // assembly-preview phantoms).  Defined here so the screw-mount clearance check below
@@ -737,6 +763,10 @@ function mholes(rot) = (rot == 90)                          // A2212 cross [dY (
   : [ [ motor_bolt_long/2, 0], [-motor_bolt_long/2, 0], [0,  motor_bolt_short/2], [0, -motor_bolt_short/2] ]; // LONG up-mast (Y)
 mount_rot   = (motor_offset_dir < 0) ? 90 : 0; // which hull turns the motor 90deg (right hull) -- VERIFY by eye
 motor_holes = mholes(mount_rot);               // global (for the standalone part export); main.scad passes per-hull rot
+// NOSE-DOWN motor tilt (anti-nose-dive): rotate the motor pad + bores + guard + prop about the WIDTH (Z) axis at the
+// hub so the prop thrust points forward+DOWN by motor_tilt.  Pivot Z is irrelevant (Z-axis rotation stays in X-Y).
+// Shared by pylon.scad (baked into the part) and main.scad (guard/prop/motor phantoms) so they can never disagree.
+module motor_tilted() translate([pad_aft, pylon_rise, 0]) rotate([0,0,motor_tilt]) translate([-pad_aft, -pylon_rise, 0]) children();
 // edge walls (motor mode): the SHORT bolt + head-access counterbore vs BOTH slim-mast band edges; top LONG bolt vs pad top.
 motor_edge_wall  = min(mast_z1 - (motor_zc + motor_bolt_short/2) - motor_head_d/2,      // to the outboard (bed) band edge
                        (motor_zc - motor_bolt_short/2) - mast_z0 - motor_head_d/2);     // to the inboard band edge
@@ -761,8 +791,14 @@ foot_bolt_base_clear = foot_lowbolt_y - foot_cbore_d/2 - pylon_fillet; // its cb
 // -- Item 2: forward slope extents (pylon-local: X=fore-aft +aft, Y=up mast; bears on the block top) --
 fg_reach   = mm_block_depth - fwd_gusset_gap;              // forward reach = to the stern wall, a hair shy so the foot seats first
 fg_y0      = foot_h + fwd_gusset_gap;                      // bearing foot (a hair above the block top)
-fg_y1      = pad_y0 - fwd_gusset_top_gap;                  // apex tops out just below the motor pad -> FULL-HEIGHT taper
-fg_rise    = fg_y1 - fg_y0;                                // how far up the mast the forward slope climbs (echo/report)
+// LOWERED rev: the mast is now so short (hub only ~17 mm above the block top) that the old fg_y1 = pad_y0 - gap
+// would sit BELOW fg_y0 (inverted).  Climb to the HUB height instead (the thrust application point), clamped just
+// below the pad top -- a stout forward brace bearing on the block top, not a tall climbing slope.
+fg_y1      = min(pylon_rise, pad_y1 - fwd_gusset_top_gap); // apex at the hub (or just below the pad top if shorter)
+fg_rise    = fg_y1 - fg_y0;                                // how far up the mast the forward brace climbs (echo/report)
+// aft face of the HEAD, built vertical + OVERSIZED so the tilted-pad trim always has material to cut back to
+// (the pad is most proud at its bottom, ~ (pylon_rise-pad_y0)*tan(tilt) aft of pad_aft).  Used by pylon.scad.
+head_aft   = pad_aft + ceil((pylon_rise - pad_y0)*tan(motor_tilt)) + 1;
 // overall stack height (waterline to prop top), for the hand-back report
 stack_height = float_freeboard + box_outer_height + hub_above_box_top + prop_radius;
 
@@ -773,11 +809,21 @@ foam_bot_y    = D + deck_t + skid_t;            // foam underside (skid bottom)
 foam_h        = deck_t + skid_t;                // total foam thickness
 bow_tip_z     = max(deck_len, skid_len)/2;      // forward-most foam edge (foam-local Z)
 bow_rake_setback = foam_h * tan(bow_rake_ang);  // how far the bow underside is cut back
-// enclosure fore-aft extents on the deck (enclosures modelled at Z=0; deck shifted deck_center_z)
-foredeck_len  = (deck_center_z + deck_len/2) - (H/2);              // clear deck ahead of the bow wall
-aftdeck_len   = mm_block_aft_z - (deck_center_z - deck_len/2);     // stern block aft face -> deck transom
-prop_disc_z   = -H/2 - prop_z_offset;                             // prop disc plane (enclosure frame Z)
-prop_to_transom = prop_disc_z - (deck_center_z - deck_len/2);      // + = disc forward of the transom
+// enclosure fore-aft extents on the deck.  REAL 4-box layout (Patrick 2026-08-19: motors on the back of the
+// BACK boxes): the DRIVE rides the BACK box (box_back_z), the bare FRONT box is at box_front_z, deck centred
+// at deck_center_z.  The old single-box-at-Z=0 model under-counted the drive's aft reach by |box_back_z| (80 mm)
+// -- it claimed the prop sat 77 mm FORWARD of the transom (over the aft deck) when it really sweeps ~AT/AFT of it,
+// over open water.  prop_disc_z stays the enclosure-LOCAL plane (guard_standoff consumes it); *_asm are the
+// assembly-frame collision checks.
+transom_z         = deck_center_z - deck_len/2;                   // deck stern (transom) edge
+deck_bow_z        = deck_center_z + deck_len/2;                   // deck bow edge
+front_box_bow_z   = box_front_z + H/2;                            // bare FRONT box bow wall
+drive_block_aft_z = box_back_z + mm_block_aft_z;                  // BACK box stern-block aft face (drive foot)
+prop_disc_z   = -H/2 - prop_z_offset;                            // prop disc plane (enclosure-LOCAL frame Z)
+prop_disc_z_asm = box_back_z + prop_disc_z;                      // prop disc plane in the ASSEMBLY frame (drive on the back box)
+foredeck_len  = deck_bow_z - front_box_bow_z;                    // clear deck ahead of the FRONT box bow wall
+aftdeck_len   = drive_block_aft_z - transom_z;                   // deck behind the drive's stern block -> transom
+prop_to_transom = prop_disc_z_asm - transom_z;                   // + = disc fwd of the transom (over aft deck) ; - = aft (over water)
 skid_overhang = (skid_center + skid_w/2) - deck_w/2;              // + = skid sticks out past the deck edge
 cut_to_skid   = (skid_center - skid_w/2) - deck_cut_w/2;          // + = clear gap between cutout and skid
 foam_ok = deck_t + skid_t == float_thickness;
@@ -809,12 +855,15 @@ echo(str("  bed nesting (measured extents): body ", round(body_x_ext),
 echo("--- Task 1: motor mount + pylon --------------------------------");
 echo(str("  prop_diameter = ", prop_diameter, " -> radius ", prop_radius));
 echo(str("  hub above water = ", hub_height_above_water,
-         " (= r ", prop_radius, " + freeboard ", float_freeboard,
-         " + margin ", prop_clearance_margin, ")"));
+         " (= r ", prop_radius, " + margin ", prop_clearance_margin,
+         " above the waterline ; deck top is ", float_freeboard, " above water)"));
 echo(str("  hub above box top = ", hub_above_box_top,
          " ; pylon rise above floor = ", pylon_rise));
-echo(str("  prop disc lowest point clears the float top by ", disc_low_above_float,
-         " mm ", disc_low_above_float >= 0 ? "OK" : "  << WARNING: prop dips below the float"));
+echo(str("  prop bottom above the WATERLINE = ", disc_low_above_water, " mm ",
+         disc_low_above_water >= 0 ? "OK" : "  << WARNING: prop dips below the waterline",
+         " ; vs the DECK top = ", round(disc_low_vs_deck), " mm ",
+         disc_low_vs_deck >= 0 ? "(clears the deck too)"
+                               : "(sweeps below deck level -- OK, aft of the transom over open water; verify the guard's low arc)"));
 if (mount_to == "motor")
   echo(str("  pad mounts the MOTOR DIRECTLY (A2212 cross ", motor_bolt_long, "x", motor_bolt_short,
            ", guard = washer) -- see the MOTOR MOUNT echo block below for pattern/offset/screw/boss/walls"));
@@ -849,14 +898,13 @@ echo(str("  stern-block fastener method = ", mm_bolt_method, " ; bore ",
 echo(str("  bore <-> register-slot PLA web = ", round(10*mm_bolt_slot_wall)/10, " mm ",
          mm_bolt_slot_wall >= 1.5 ? "OK -- insert has PLA to grip; won't reflow into the slot"
                                   : "  << WARNING: bore fouls the register slot -- widen mm_bolt_y or shrink reg_h"));
-echo(str("  pylon: WEDGE (rugged straight taper), motor CENTRED (Z ", pylon_width/2, ") -> SYMMETRIC, ONE part both hulls.",
-         " fore-aft ", pad_aft, "(base)->", mast_top_t, "(top) ; width ", pylon_width, "(base)->", pad_w_top, "(top)."));
-echo(str("  prints on the AFT (back) face: bed ", pylon_width, "(width) x ", round(mast_top_y), "(length) x ",
-         pad_aft + reg_depth, " build ; layers run along the mast (Y) -> bending strength ~ the old side print.",
-         " Foot M4 heads sit PROUD on the flat aft face (no down-facing counterbore -> supportless; exposed = rugged)."));
-echo(str("  moment path: deep wedge base + 4x M4 (spread ", mm_bolt_y, "x", mm_bolt_x, ") + register tongue -- no forward",
-         " gusset needed (thrust moment ~ tens of N at the bolts).  CONNECTOR (mating face + tongue + 4x M4) + MOTOR mount",
-         " (A2212 cross + boss + washer face) UNCHANGED -- same block, same motor."));
+echo(str("  pylon: LOWERED STOUT pylon (2026-08-19), motor CENTRED (Z ", pylon_width/2, ") -> SYMMETRIC, ONE part both hulls.",
+         " hub ", round(pylon_rise), " mm above the deck (was 111.5) ; mast top ", round(mast_top_y), " mm ; width ", pylon_width, "."));
+echo(str("  SIDE-print: 2D silhouette (X-Y) extruded along Z=width; bed ", round(mast_top_y), "(mast) x ", round(head_aft+reg_depth),
+         "(fore-aft) x ", pylon_width, "(width) ; layers run ALONG the mast (Y); teardrop bores (apex +Z) -> SUPPORTLESS (verify)."));
+echo(str("  NOSE-DOWN motor tilt = ", motor_tilt, " deg (prop thrust points forward+DOWN -> nulls the bow-dive; verify the sign in a side render).",
+         " STRUCTURE: deep aft buttress (base ", base_aft, " mm) + forward gusset ", fwd_gusset ? str("(bears on the block top, climbs to Y", round(fg_y1), ")") : "(OFF)",
+         ".  CONNECTOR (mating face + tongue + 4x M4) + MOTOR mount (A2212 cross + boss + washer face) FROZEN -- same block, same motor."));
 echo(str("  << centring the motor gives the design-baseline cross-hull prop clearance (beam ", beam_target, " - prop ",
          prop_diameter, " = ", beam_target - prop_diameter, " mm); the old outboard offset had ~13 mm more -- confirm OK."));
 echo(str("  OVERALL STACK (waterline -> prop top) = ", round(stack_height), " mm"));
@@ -1176,12 +1224,12 @@ if (mount_to=="motor") {
   echo("=== MOTOR MOUNT (integrated: bolt to the A2212 cross; guard = washer) ===");
   echo(str("  A2212 cross: LONG ", motor_bolt_long, " up-mast (Y) x SHORT ", motor_bolt_short,
            " across width (Z) -- Patrick's REAL motor (the Motor/BasePlate STLs are ILLUSTRATIVE only).  4x M3 clearance ", motor_screw_d));
-  echo(str("  WEDGE MAST: rugged straight taper, motor CENTRED at width ", round(10*motor_zc)/10,
-           " (= pylon_width/2) -> the pylon is SYMMETRIC: the SAME part fits both hulls (only the guard's arc leans L/R)."));
-  echo(str("  prints on the AFT (back) face (not on the side) -- one pose for both hulls; the mast length (Y) stays in the",
-           " layers so bending strength is ~ the old side print.  No mirror to get wrong."));
-  echo(str("  pad face ", round(10*(pad_y1-pad_y0))/10, "(Y) x ", mast_w, "(Z) -- TRIMMED to the ", motor_bolt_long,
-           " cross + walls (was the full ", pylon_width, " slab); pad top cut to +3 above the highest hole."));
+  echo(str("  LOWERED STOUT MAST: motor CENTRED at width ", round(10*motor_zc)/10,
+           " (= pylon_width/2) -> the pylon is SYMMETRIC: the SAME part fits both hulls (only the guard's arc + motor-cross rotation lean L/R)."));
+  echo(str("  NOSE-DOWN pad tilt ", motor_tilt, " deg: the pad + bores + guard rotate about the WIDTH axis at the hub so the prop THRUST",
+           " points forward+DOWN (anti-nose-dive).  SIDE-print, layers along the mast, teardrops apex +Z -> supportless.  VERIFY the tilt SIGN by render."));
+  echo(str("  pad face ", round(10*(pad_y1-pad_y0))/10, "(Y) x ", pylon_width, "(Z) -- FULL-WIDTH stout head (motor ", motor_bolt_long,
+           " cross centred); its aft face is TILTED ", motor_tilt, " deg (nose-down) so the motor + guard bear flat on the thrust-normal plane."));
   echo(str("  edge walls: bolt access-bore -> mast edge ", round(100*motor_edge_wall)/100,
            " (need >=3) ", motor_edge_wall>=3 ? "OK" : "<< grow mast_w", " ; top bolt -> pad top ",
            round(100*motor_top_wall)/100, " ", motor_top_wall>=3 ? "OK" : "<< raise the pad top"));
@@ -1270,9 +1318,12 @@ module oriented(p) {
   // pylon: the slim mast must lie ON the bed.  dir>0 puts the band on the FAR (Z=pylon_width) edge -> flip about the
   // fore-aft (X) axis so that face is on the bed (a PROPER rotation, not a mirror -> handedness kept; the teardrops were
   // pre-inverted via td_up so they come out apex-UP).  dir<=0 already has the band on the Z=0 bed edge -> identity.
-  // WEDGE pylon: print on the AFT (back) face -- rotate the flat X=pad_aft face onto the bed, build up = fore-aft (+X).
-  // Symmetric (motor centred) so the pose is the same for both hulls; the mast length (Y) lies in the layers.
-  else if (p=="pylon") translate([0,0,pad_aft]) rotate([0,90,0]) children();
+  // LOWERED/NOSE-DOWN pylon (2026-08-19): SIDE-print -- the 2D silhouette (X-Y) is extruded along Z=width, so the
+  // part already sits on its Z=0 width face with the mast (Y) lying flat on the bed and the layers running ALONG the
+  // mast (in-plane bending strength).  Identity is the print pose.  Motor centred -> symmetric, ONE part both hulls;
+  // teardrop bores apex +Z (build-up) keep it supportless.  The nose-down tilt is baked in about Z (the extrude axis),
+  // so it stays a pure 2D-plane feature.
+  else if (p=="pylon") children();
   else children();
 }
 
