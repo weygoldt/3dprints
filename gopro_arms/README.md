@@ -1606,6 +1606,34 @@ says which way it went.
 The whole connector is 28.0 mm tall against rev 1's 23.0, and the part went from
 37.2 to 40.6 cm³.
 
+### Both screw pockets, and a chamfered top edge
+
+The connector carries the same pair `arm_simple` does, and takes the same
+fasteners: a **captive M5 nut** in one outer prong and a **barrel-head
+counterbore** in the other — Ø8.80 × 5.30 deep, so a plain M5 socket cap screw
+drops in flush from that side and nothing has to be held on the far end. A 45°
+`head_cs` relief opens the bore mouth by 0.50 so the screw's under-head fillet
+has somewhere to go and the head bears on a flat annulus instead of on the
+bore's edge. Each prong is thickened only as far as its own pocket needs —
+`boss_h` = 2.40 for the nut, the deeper `boss_hd` = 3.40 for the head — so the
+stack is deliberately **not** symmetric: 21.7 mm across, −10.35 to +11.35.
+
+One thing departs from `arm_simple`: the counterbore is a **teardrop**, not a
+plain cylinder. Same seat, same head, and the extra material above the bore is
+only air, but the pocket's ceiling comes to a 45° point instead of a round arch.
+`arm_simple` prints with support and can afford the arch; this plate is
+supportless everywhere else and one pocket is not a reason to start. What it
+costs is height — the **apex** is what has to stay under the crown, not the bore
+radius, and checking the radius would happily pass a pocket whose point had
+already broken out. Measured: apex at 26.723, crown at 28.0, 1.277 mm of roof.
+
+The plate's top edge takes a 1.0 mm chamfer all the way round. The bottom edge
+does not, and that is deliberate — a chamfer there would lift the first layer's
+perimeter off the bed at the one place the part is widest. It is built as a hull
+of the full section and a shrunk wafer at the top rather than with `cuboid()`'s
+own chamfer, because `cuboid` takes rounding *or* chamfer for a given edge set
+and the corners want rounding while the top edge wants a chamfer.
+
 ### And why the slots are cut short
 
 `pocket()` is a cylinder of `pocket_r` = 11.05 about the pivot, which reaches
@@ -1645,12 +1673,21 @@ tell a connector that does not foul from a connector **that is not there** — a
 intersection with a part that was never built is also 0.000 mm³. It measures the
 bolt grid as the *gaps* in a solid span (spacing and diameter from one reading),
 the counterbore seat (3.600, so 3.6 mm of material under the head), the prong
-grid at a height above the nut pocket so the pocket cannot be miscounted as a
-slot (**3.400 / 2.900 / 5.800**, slots 3.100 on ±3.000), the M5 bore read
-*downward* from the pivot (floor 2.650 below it = r), the slot floor and the web
-under it, the pedestal's width in X, where the two connectors sit (±18.000), and
-32 rays straight down the four counterbores to prove a hex key can reach every
-screw.
+grid at a height above *both* pockets so neither can be miscounted as a slot
+(**5.800 / 2.900 / 6.800**, slots 3.100 on ±3.000), the M5 bore read *downward*
+from the pivot (floor 2.650 below it = r), the slot floor and the web under it,
+the pedestal's width in X, where the two connectors sit (±18.000), and 32 rays
+straight down the four counterbores to prove a hex key can reach every screw.
+
+Both screw pockets come off **one** ray along Y, offset in X so it misses the
+M5 bore: nut seat 4.300 deep, head seat 5.300 deep, 1.500 mm of wall between the
+head seat and the slot behind it. The offset is load-bearing — the countersink
+is a 45° cone out to r 3.15, so a ray nearer the axis than that clips it and
+reads a deeper floor. Firing a second ray 0.5 mm nearer turns that into the
+measurement of the countersink itself: the floor has to come up exactly
+`3.15 − 3.0 = 0.150`, and it does. The top chamfer is measured the same way, as
+the drop between two probes a known distance in from the edge — 0.750 at 0.25 in
+and 0.250 at 0.75 in, which is 45° and no other angle.
 
 The one it exists for is **16 rays up through each connector's footprint**, each
 of which has to be a single unbroken span from the bed to the top of the
@@ -1660,9 +1697,10 @@ against the rev-1 mesh reproduces it exactly: `[0.000, 8.000], [12.810, 18.190]`
 
 Every check that could plausibly be decorative was made to fail on purpose.
 Narrowing the pedestal (`-D boss_hw=2`) leaves the disc overhanging it and the
-scan reports **182 mm², largest single facet 0.679 mm²**. Moving the bolt grid
-(`-D grid_x=50`) trips 6 checks. The rev-1 mesh fails the weld check and the
-pedestal width.
+scan reports **182 mm², largest single facet 0.679 mm²** — 3 checks. Moving the
+bolt grid (`-D grid_x=50`) trips 8. Deleting the head seat
+(`-D plate_head=false`) trips 6. Flattening the chamfer (`-D top_cham=0.01`)
+trips 2. The rev-1 mesh fails the weld check and the pedestal width.
 
 The overhang scan gates on **area, not facet count**, and that is a fix rather
 than a loosening. Where the pedestal and its skirt pierce the plate's top plane,
@@ -1684,12 +1722,13 @@ Flat on the bed, plate down, connectors up. PETG, 0.2 mm, 0.4 nozzle, **no
 support** — the knuckle flanks leave the plate at `oh_ang`, the M5 bore is a
 teardrop, the nut pocket has a 45° peak, and the bolt counterbores open *upward*
 (a counterbore that opens up has no ceiling to bridge). 4–5 perimeters: the load
-path is bolt → plate → knuckle root and all of it runs in the walls. 40.6 cm³ of
+path is bolt → plate → knuckle root and all of it runs in the walls. 41.8 cm³ of
 envelope, so about 22 g at a normal infill.
 
 Per plate: **4 × M4 socket-head cap screw** (plate seat 3.6 mm + insert depth →
 12–14 mm into a `rail.scad` insert), plus **one M5 GoPro thumbscrew and one M5
-DIN 934 nut per connector**. `knob_d` is reporting-only — it sets no geometry,
+DIN 934 nut per connector** — or, using the barrel-head seat, a plain M5 socket
+cap screw instead of the thumbscrew. `knob_d` is reporting-only — it sets no geometry,
 it just makes the echo tell you whether *your* thumbscrew knob clears the plate
 at this riser. Measure yours; if it is over Ø25, raise `boss_riser`. The nut trap is the arms' own — same 8.00 AF pocket,
 4.30 deep, 1.50 mm of material back to the slot — so it takes the same nuts, and

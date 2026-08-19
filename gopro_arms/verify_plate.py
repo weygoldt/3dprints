@@ -19,6 +19,10 @@ triangles with rays, not out of the .scad file:
   * 16 rays up through each connector's footprint, each of which must be
     ONE unbroken solid from the bed: the connector is welded to the plate,
     not a disc perched on it (which is what rev 1 was)
+  * both screw pockets, read across the stack in one ray: the nut seat, the
+    barrel-head seat, and the wall between the head countersink and the slot
+  * the head seat's diameter and its teardrop roof, read straight up
+  * the top edge chamfer, as the drop between two probes a known distance apart
   * where the two connectors sit in X
   * every downward-facing facet, against the 45 deg overhang rule
 
@@ -40,6 +44,9 @@ PLATE_X, PLATE_Y = GRID_X + 2*EDGE_MARGIN, GRID_Y + 2*EDGE_MARGIN
 TAB_R, U, SLOT_W, W3_HALF = 7.50, 3.00, 3.10, 7.95
 PRONG_OUT, BORE_D = 3.40, 5.30
 BOSS_H = 2.40                      # nut-side local thickening
+HD_D, HD_DEPTH, BOSS_HD = 8.80, 5.30, 3.40   # barrel head seat, head side
+NUT_DEPTH, NUT_WALL, HEAD_CS = 4.30, 1.50, 0.50
+TOP_CHAM = 1.0
 BOSS_X, BOSS_HW, BOSS_RISER = 18.0, 7.50, 5.0
 DISC_Z = PLATE_T + BOSS_RISER      # 13.0 -- lowest point of the knuckle disc
 PIVOT_Z = DISC_Z + TAB_R           # 20.5
@@ -168,12 +175,15 @@ def main():
         check(abs(centre - 2*(U - SLOT_W/2)) < TOL,
               f"centre prong {centre:.3f} == {2*(U-SLOT_W/2):.2f}")
         outer = [iv[0][1]-iv[0][0], iv[2][1]-iv[2][0]]
-        check(abs(max(outer) - (PRONG_OUT + BOSS_H)) < TOL
-              and abs(min(outer) - PRONG_OUT) < TOL,
-              f"outer prongs {outer[0]:.3f} / {outer[1]:.3f} -- one plain "
-              f"{PRONG_OUT}, one thickened to {PRONG_OUT+BOSS_H} for the nut")
-        check(abs(iv[2][1] - W3_HALF) < TOL,
-              f"stack reaches +{iv[2][1]:.3f} == {W3_HALF} on the plain side")
+        want = sorted([PRONG_OUT + BOSS_H, PRONG_OUT + BOSS_HD])
+        check(all(abs(a - b) < TOL for a, b in zip(sorted(outer), want)),
+              f"outer prongs {outer[0]:.3f} / {outer[1]:.3f} -- thickened to "
+              f"{want[0]} for the nut and {want[1]} for the barrel head")
+        check(abs(iv[0][0] + (W3_HALF + BOSS_H)) < TOL
+              and abs(iv[2][1] - (W3_HALF + BOSS_HD)) < TOL,
+              f"stack spans {iv[0][0]:.3f} .. {iv[2][1]:.3f} == "
+              f"{-(W3_HALF+BOSS_H)} .. {W3_HALF+BOSS_HD} "
+              f"({iv[2][1]-iv[0][0]:.3f} mm wide)")
 
     # ---- the M5 bore, measured downward from the pivot --------------
     print("\nM5 thumbscrew bore")
@@ -203,6 +213,70 @@ def main():
               f"three prong roots together (rev 1 had none -- the slot reached "
               f"the plate)")
 
+    # ---- the two screw pockets, read across the stack ---------------
+    # A ray along Y, offset in X, is OUTSIDE the M5 bore (r 2.65) but still
+    # inside both pockets, so one reading gives both floors and both walls.
+    # Solid runs: nut-pocket floor -> slot, centre prong, slot -> head seat.
+    #
+    # The offset matters.  The countersink at the head-seat floor is a 45 deg
+    # cone from r CS_R = bore_d/2 + head_cs down to bore_d/2, so a ray closer
+    # to the axis than CS_R clips it and reads a floor that much deeper.  At
+    # 3.5 the cone is missed entirely and the seat is measured clean; at 3.0 it
+    # is clipped by exactly CS_R - 3.0, which is how the countersink itself
+    # gets measured two lines further down.
+    print("\nscrew pockets (M5 nut one side, barrel head the other)")
+    CS_R = BORE_D/2 + HEAD_CS          # 3.15
+    iv = spans(tris, [BOSS_X + 3.5, 0.0, PIVOT_Z], 1, pad=3.0)
+    if check(len(iv) == 3, f"three solid runs across the stack: {fmt(iv)}"):
+        nut_floor, hd_floor = iv[0][0], iv[2][1]
+        check(abs((W3_HALF + BOSS_H) + nut_floor - NUT_DEPTH) < TOL,
+              f"nut pocket {(W3_HALF+BOSS_H)+nut_floor:.3f} deep == {NUT_DEPTH} "
+              f"(floor at y {nut_floor:.3f})")
+        check(abs((W3_HALF + BOSS_HD) - hd_floor - HD_DEPTH) < TOL,
+              f"head seat {(W3_HALF+BOSS_HD)-hd_floor:.3f} deep == {HD_DEPTH} "
+              f"(floor at y {hd_floor:+.3f}) -- an M5 cap head drops in flush")
+        check(abs((hd_floor - (U + SLOT_W/2)) - NUT_WALL) < TOL,
+              f"{hd_floor-(U+SLOT_W/2):.3f} mm of wall between the head seat "
+              f"and the slot behind it == {NUT_WALL}")
+        # The countersink, measured as how much deeper the floor reads once the
+        # ray is inside the cone.  A 45 deg cone means depth == CS_R - offset.
+        iv2 = spans(tris, [BOSS_X + 3.0, 0.0, PIVOT_Z], 1, pad=3.0)
+        if check(len(iv2) == 3, f"same ray 0.5 nearer the axis: {fmt(iv2)}"):
+            bite = hd_floor - iv2[2][1]
+            check(abs(bite - (CS_R - 3.0)) < TOL,
+                  f"countersink takes the floor {bite:.3f} deeper at 3.0 vs 3.5 "
+                  f"off-axis == {CS_R-3.0:.3f} -> a 45 deg relief out to "
+                  f"r {CS_R}, so the head bears on a flat annulus not an edge")
+    # Diameter and roof of the head seat, read straight up through it.  y = 8.0
+    # is inside the pocket (its floor is at 6.05); the void runs from the
+    # counterbore radius below the pivot to the TEARDROP APEX above it, and the
+    # apex is the number the assert in plate.scad is really about.
+    iv = spans(tris, [BOSS_X, 8.0, 0.0], 2, pad=1.0)
+    apex = PIVOT_Z + (HD_D/2)/math.cos(math.radians(OH_ANG))
+    if check(len(iv) == 2, f"head seat is a through-void in Z: {fmt(iv)}"):
+        check(abs((PIVOT_Z - iv[0][1]) - HD_D/2) < TOL,
+              f"counterbore floor {PIVOT_Z-iv[0][1]:.3f} below the pivot == "
+              f"r {HD_D/2} (d{HD_D})")
+        check(abs(iv[1][0] - apex) < TOL,
+              f"teardrop apex at z {iv[1][0]:.3f} == {apex:.3f}, and the crown "
+              f"is {TAB_TOP} -- {TAB_TOP-iv[1][0]:.3f} mm of roof left")
+
+    # ---- the top edge chamfer ---------------------------------------
+    # Two rays a known distance apart, near the edge: on a 45 deg break the
+    # top surface has to drop by exactly the distance they are apart.
+    print("\ntop edge chamfer")
+    for axis_name, pt in (("X edge", lambda d: [PLATE_X/2 - d, 0.0, 0.0]),
+                          ("Y edge", lambda d: [0.0, PLATE_Y/2 - d, 0.0])):
+        a = spans(tris, pt(0.25), 2, pad=1.0)
+        b = spans(tris, pt(0.75), 2, pad=1.0)
+        if not check(len(a) == 1 and len(b) == 1,
+                     f"{axis_name}: solid under both probes: {fmt(a)} / {fmt(b)}"):
+            continue
+        drop_a, drop_b = PLATE_T - a[0][1], PLATE_T - b[0][1]
+        check(abs(drop_a - 0.75) < TOL and abs(drop_b - 0.25) < TOL,
+              f"{axis_name}: top drops {drop_a:.3f} at 0.25 in and {drop_b:.3f} "
+              f"at 0.75 in -> 45 deg, {TOP_CHAM} mm break")
+
     # ---- the connector is WELDED to the plate, not perched on it ----
     # This is the check rev 1 would have failed and the reason the pedestal
     # exists.  There, the knuckle was a disc TANGENT to the plate, so a ray up
@@ -216,7 +290,7 @@ def main():
     broken = []
     for cx in (-BOSS_X, BOSS_X):
         for dx in (-7.0, -5.0, 5.0, 7.0):
-            for dy in (6.0, -5.0):
+            for dy in (5.0, -5.0):
                 iv = spans(tris, [cx + dx, dy, 0.0], 2, pad=1.0)
                 top = DISC_Z + TAB_R + math.sqrt(max(0.0, TAB_R**2 - dx**2))
                 if len(iv) != 1 or abs(iv[0][0]) > TOL or abs(iv[0][1] - top) > TOL:
@@ -232,7 +306,7 @@ def main():
     # take the span that actually contains this connector's axis.
     # ray_intervals returns offsets FROM THE ORIGIN, so scan from x = 0 and
     # the numbers come back as plain X coordinates.
-    allsp = spans(tris, [0.0, 6.0, DISC_Z - 1.0], 0, pad=12.0)
+    allsp = spans(tris, [0.0, 5.0, DISC_Z - 1.0], 0, pad=12.0)
     mine = [s for s in allsp if s[0] <= BOSS_X <= s[1]]
     check(len(mine) == 1 and abs((mine[0][1] - mine[0][0]) - 2*BOSS_HW) < TOL,
           f"pedestal is {(mine[0][1]-mine[0][0]) if mine else float('nan'):.3f} "

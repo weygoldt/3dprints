@@ -42,7 +42,7 @@
 //  boss_hw, running from the plate top all the way up to the pivot, with
 //  the disc sitting on top of it.  The silhouette is a rectangle with a
 //  semicircular cap, which is what a real GoPro base looks like, and the
-//  footprint is a solid 2*boss_hw x 18.3 mm welded to the plate.
+//  footprint is a solid 2*boss_hw x 21.7 mm welded to the plate.
 //
 //  boss_hw = tab_r is not a styling choice, it is the largest value the
 //  joint allows and the only one that is also smooth.  A vertical line at
@@ -64,6 +64,25 @@
 //  connector without grounding out on the plate -- at riser 0 the knob
 //  would foul, which is reported in the echo below.
 //
+//  THE TWO SCREW POCKETS
+//  Same pairing arm_simple.scad uses, and the same fasteners: a captive
+//  M5 nut in one outer prong, a barrel-head counterbore in the other, so
+//  a plain M5 socket cap screw drops in flush from the head side and
+//  nothing has to be held on the far end.  hd_d 8.80 x hd_depth 5.30,
+//  with a 45 deg head_cs relief at the bore mouth so the screw's
+//  under-head fillet has somewhere to go and the head bears on a flat
+//  annulus rather than on the bore's edge.  Each prong is thickened only
+//  as far as its own pocket needs -- boss_h for the nut, the deeper
+//  boss_hd for the head -- which is why the stack is not symmetric.
+//
+//  The one departure: the counterbore is a TEARDROP, where arm_simple
+//  uses a plain cylinder.  Identical seat, identical head, but the
+//  pocket's ceiling comes to a 45 deg point instead of a round arch.
+//  arm_simple prints with support and can afford an arch; this plate is
+//  supportless everywhere else and one pocket is not a reason to start.
+//  What that costs is height: the apex, not the bore radius, is what has
+//  to stay under the crown, and the assert checks the apex.
+//
 //  AND WHY THE SLOTS ARE CUT SHORT
 //  arm.scad's pocket() is a cylinder of pocket_r = 11.05 about the pivot,
 //  which reaches 3.55 mm below the disc and would saw the slots straight
@@ -77,14 +96,21 @@
 //  Flat on the bed, plate down, connectors up.  PETG, 0.2 mm, 0.4 nozzle,
 //  NO SUPPORT: the pedestal walls are vertical, the disc meets them
 //  tangentially so the section only narrows going up, the M5 bore is a
-//  teardrop, the nut pocket has a 45 deg peak, and the bolt counterbores
-//  open UPWARD (a counterbore that opens up has no ceiling).  4-5
+//  teardrop, the nut pocket has a 45 deg peak, the head counterbore is a
+//  teardrop too, and the bolt counterbores open UPWARD (a counterbore
+//  that opens up has no ceiling).  The plate's top edge is chamfered and
+//  its bottom edge deliberately is not -- a chamfer down there would lift
+//  the first layer's perimeter off the bed where the part is widest.  4-5
 //  perimeters; the load path is bolt -> plate -> pedestal, all of it in
 //  the walls.
 //
 //  BOM per plate: 4x M4 socket-head cap screw (length = plate_t - cbore_h
-//  + insert depth, so ~12-14 mm into a rail.scad insert), plus one M5
-//  GoPro thumbscrew and one M5 DIN 934 nut per connector.
+//  + insert depth, so ~12-14 mm into a rail.scad insert), plus per
+//  connector one M5 DIN 934 nut in the nut prong and EITHER a GoPro
+//  thumbscrew (knob outboard of the head seat) or a plain M5 socket cap
+//  screw, which drops flush into the barrel-head counterbore opposite the
+//  nut and needs nothing held on the far side.  Same two pockets, same two
+//  fasteners, as arm_simple.scad.
 // =====================================================================
 
 // This file is the OUTERMOST link of the project's single include chain:
@@ -113,6 +139,9 @@ plate_square = false; // true -> square plate, side = max(long, short).  The
                       // bolt grid is 40 x 62, so the default is a RECTANGLE
                       // sized off that grid; nothing else changes.
 corner_r    = 4.0;   // rounded plate corners (vertical edges only)
+top_cham    = 1.0;   // 45 deg break on the TOP edge, all the way round.  Top
+                     // only: the bottom stays square so the first layer keeps
+                     // its full footprint on the bed.
 
 /* [Connectors] */
 // Position of each 3-prong knuckle on the plate top, [x, y].  Two, one
@@ -131,6 +160,9 @@ boss_skirt  = 1.5;   // 45 deg fillet skirt where the pedestal meets the plate
 slot_sink   = 0.4;   // slot floor, measured BELOW the disc's lowest point
 slot_relief = 1.0;   // slot cut is clipped to tab_r + this in X (see header)
 plate_nut   = true;  // captive M5 nut in one outer prong, as on the arms
+plate_head  = true;  // ... and a barrel-head counterbore in the OTHER one, so
+                     // an M5 socket cap screw drops in flush from that side --
+                     // arm_simple.scad's pairing, same screw, same numbers
 knob_d      = 20.0;  // M5 GoPro thumbscrew KNOB diameter -- reporting only,
                      // it sets no geometry.  MEASURE yours; the echo below
                      // says whether it clears the plate at this riser.
@@ -145,11 +177,25 @@ p_tab_top = p_pivot_z + tab_r;        // top of the knuckle
 p_slot_z  = p_disc_z - slot_sink;     // slot floor -- still inside the pedestal
 p_knob_c  = p_pivot_z - knob_d/2 - plate_t;   // thumbscrew knob over the plate
 
-// Y span of one connector stack, nut boss included (boss_h/nut_side/nut_depth/
-// nut_wall/nut_af/nut_r all come from arm.scad, so the trap here is the same
-// trap the arms use and takes the same nut).
-p_y_lo = (plate_nut && nut_side < 0) ? -w3_half - boss_h : -w3_half;
-p_y_hi = (plate_nut && nut_side > 0) ?  w3_half + boss_h :  w3_half;
+// Which outer prong carries what.  arm.scad's nut_side is the nut; the barrel
+// head goes opposite it, which is arm_simple.scad's pairing exactly.
+p_nut_side  = nut_side;          // -1 -> the -Y prong
+p_head_side = -nut_side;         // ... so +Y takes the head
+
+// Y span of one connector stack, both bosses included.  boss_h/nut_depth/
+// nut_wall/nut_af/nut_r come from arm.scad and hd_d/hd_depth/boss_hd/head_cs
+// from arm_simple.scad, so both pockets here are the ones already in service
+// on the arms and take the same M5 nut and the same M5 cap screw.
+p_y_lo = (plate_nut  && p_nut_side  < 0) ? -w3_half - boss_h
+       : (plate_head && p_head_side < 0) ? -w3_half - boss_hd : -w3_half;
+p_y_hi = (plate_nut  && p_nut_side  > 0) ?  w3_half + boss_h
+       : (plate_head && p_head_side > 0) ?  w3_half + boss_hd :  w3_half;
+
+// Head pocket geometry, on its own side's face.
+p_hd_face  = p_head_side * (w3_half + boss_hd);        // outboard face
+p_hd_floor = p_hd_face - p_head_side * hd_depth;       // where the head seats
+// A teardrop's apex stands r/cos(ang) above the axis, not r.
+p_hd_top   = p_pivot_z + (hd_d/2)/cos(oh_ang);
 
 // ---------------------------------------------------------------- gates
 assert(plate_t - cbore_h >= 2.0,
@@ -180,6 +226,20 @@ assert(!plate_nut || p_pivot_z + nut_af/2 + nut_r/2 <= p_tab_top - 0.45,
        "nut pocket breaks out of the top of the knuckle");
 assert(!plate_nut || p_pivot_z - nut_af/2 >= p_slot_z,
        "nut pocket reaches below the slot floor, into the pedestal web");
+// Same two questions for the head pocket.  Its roof is the TEARDROP APEX, not
+// the bore radius -- checking the radius would pass a pocket whose point has
+// already broken out through the crown.
+assert(!plate_head || p_hd_top <= p_tab_top - 0.45,
+       str("the head pocket's teardrop apex reaches ", p_hd_top,
+           " vs a crown at ", p_tab_top, " -- it breaks out of the knuckle"));
+assert(!plate_head || p_pivot_z - hd_d/2 >= p_slot_z,
+       "head pocket reaches below the slot floor, into the pedestal web");
+// Wall between the head seat and the slot behind it, less what the countersink
+// eats out of that same wall.
+assert(!plate_head
+       || abs(p_hd_floor) - (u + slot_w/2) - head_cs >= 0.8,
+       str("only ", abs(p_hd_floor) - (u + slot_w/2) - head_cs,
+           " mm of wall left between the head countersink and the slot"));
 
 // ---------------------------------------------------------------- pieces
 
@@ -245,21 +305,50 @@ module gp_nut_pocket() {
                     linear_extrude(height = nut_depth + 0.5) nut_profile2d();
 }
 
+// The barrel-head counterbore, opposite the nut, so an M5 socket cap screw
+// drops in flush from that side and needs no tool on the far end.  Same head
+// numbers as arm_simple.scad (hd_d 8.80 x hd_depth 5.30), same 45 deg relief
+// at the bore mouth so the under-head fillet has somewhere to go and the head
+// seats on a flat annulus rather than on the bore's edge.
+//
+// One thing IS different: the counterbore is a TEARDROP, not the plain
+// cylinder arm_simple uses.  Same seat and same head -- the extra material
+// above the bore is only air -- but the pocket's ceiling comes to a 45 deg
+// point instead of a round arch.  arm_simple prints with support and can
+// afford the arch; this plate is supportless everywhere else, and one pocket
+// is not a reason to start.
+module gp_head_pocket() {
+    if (plate_head) {
+        translate([0, (p_hd_floor + p_hd_face + p_head_side*0.5)/2, p_pivot_z])
+            teardrop(h = hd_depth + 0.5, d = hd_d, ang = oh_ang);
+        translate([0, p_hd_floor, p_pivot_z])
+            rotate([p_head_side > 0 ? 90 : -90, 0, 0])
+                cylinder(d1 = bore_d + 2*head_cs, d2 = bore_d, h = head_cs);
+    }
+}
+
 // The whole 3-prong connector, built at the origin on top of a plate top at
-// z = plate_t.  Slots on +/- u, M5 teardrop bore on the pivot.
+// z = plate_t.  Slots on +/- u, M5 teardrop bore on the pivot, a captive nut
+// in one outer prong and a barrel-head seat in the other.
 module gp_connector() {
     difference() {
         union() {
             gp_knuckle(-w3_half, w3_half);
+            // Each outer prong is thickened only as far as its own pocket
+            // needs -- boss_h for the nut, the deeper boss_hd for the head.
             if (plate_nut && boss_h > 0)
-                gp_knuckle(nut_side < 0 ? -w3_half - boss_h : w3_half,
-                           nut_side < 0 ? -w3_half          : w3_half + boss_h);
+                gp_knuckle(p_nut_side < 0 ? -w3_half - boss_h : w3_half,
+                           p_nut_side < 0 ? -w3_half          : w3_half + boss_h);
+            if (plate_head && boss_hd > 0)
+                gp_knuckle(p_head_side < 0 ? -w3_half - boss_hd : w3_half,
+                           p_head_side < 0 ? -w3_half           : w3_half + boss_hd);
             gp_skirt(p_y_lo, p_y_hi);
         }
         bore(0, 6*w3_half, p_pivot_z);
         gp_slot( u);
         gp_slot(-u);
         gp_nut_pocket();
+        gp_head_pocket();
     }
 }
 
@@ -270,12 +359,30 @@ module gp_bolt_hole() {
     translate([0, 0, plate_t - cbore_h]) cylinder(d = cbore_d, h = cbore_h + 1);
 }
 
+// The slab: rounded corners on the vertical edges, and a 45 deg break on the
+// TOP edge all the way round.  Built as a hull of the full section and a
+// shrunk wafer at the top rather than with cuboid()'s own chamfer, because
+// cuboid takes rounding OR chamfer for a given edge set, and the corners want
+// rounding while the top edge wants a chamfer.
+//
+// The bottom edge is deliberately left square.  A chamfer there would lift the
+// first layer's perimeter off the bed at the one place the part is widest.
+module gp_plate_slab() {
+    hull() {
+        linear_extrude(height = plate_t - top_cham)
+            rect([plate_x, plate_y], rounding = corner_r);
+        translate([0, 0, plate_t - 0.001])
+            linear_extrude(height = 0.001)
+                rect([plate_x - 2*top_cham, plate_y - 2*top_cham],
+                     rounding = max(0.01, corner_r - top_cham));
+    }
+}
+
 // ---------------------------------------------------------------- the part
 module rail_plate() {
     difference() {
         union() {
-            cuboid([plate_x, plate_y, plate_t],
-                   rounding = corner_r, edges = "Z", anchor = BOTTOM);
+            gp_plate_slab();
             for (p = boss_pos)
                 translate([p[0], p[1], 0]) rotate([0, 0, boss_yaw]) gp_connector();
         }
@@ -311,8 +418,14 @@ echo(str("  M5 bore d", bore_d, " ; thumbscrew knob d", knob_d, " clears the ",
 echo(str("  hinge axis along ", boss_yaw == 0 ? "Y (arms swing over the SHORT edges)"
                                               : "X (arms swing over the LONG edges)"));
 echo(str("  nut trap: ", plate_nut ? str("M5 ", nut_af, " AF, ", nut_depth,
-         " deep in the ", nut_side < 0 ? "-Y" : "+Y", " prong, ", nut_wall,
+         " deep in the ", p_nut_side < 0 ? "-Y" : "+Y", " prong, ", nut_wall,
          " mm to the slot") : "none -- bring your own nut"));
+echo(str("  head seat: ", plate_head ? str("M5 barrel head d", hd_d, " x ",
+         hd_depth, " deep in the ", p_head_side < 0 ? "-Y" : "+Y", " prong (",
+         head_cs, " countersink at the bore mouth), teardrop apex ", p_hd_top,
+         " vs crown ", p_tab_top) : "none -- the head stands proud"));
+echo(str("  stack ", p_y_hi - p_y_lo, " mm wide (", -p_y_lo, " nut side + ",
+         p_y_hi, " head side) ; plate top edge chamfered ", top_cham));
 
 // ---------------------------------------------------------------- preview
 if (is_undef(lib_p)) rail_plate();
