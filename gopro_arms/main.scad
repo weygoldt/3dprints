@@ -57,6 +57,12 @@
 //                   connector at each end, facing up, hinge axis along the
 //                   40 mm direction so the arms swing out over the short
 //                   edges.  It is the ground end of every chain in here.
+//    plate155       the same plate on a WIDER grid: 40 mm across the short
+//                   edge as before, 155 mm along the long one, and ONE
+//                   connector in the middle turned a quarter turn, so the
+//                   arm swings FORE-AFT over the long edges instead of
+//                   athwartships over the short ones.  Nothing but the bolt
+//                   span, the connector count and that yaw differ.
 //    twist          90 deg twist adapter -- a short arm whose two hinge axes
 //                   are at right angles, so a chain can change its plane of
 //                   articulation.  It prints FLAT, like the arms, so its layer
@@ -90,7 +96,7 @@ use <clamp.scad>
 // opening cap.scad on its own is fine, it includes BOSL2 at its own top level.
 use <cap.scad>
 
-part = "arm100";   // [gauge, arm50, arm75, arm100, arm140, set, section, sgauge, simple50, simple75, simple100, simple140, sset, ssection, double50, double75, double100, double140, dset, clamp, buckle, twist, cap, capset, capgauge, borecap, domecap, capstack, capcut, cordcap, plate]
+part = "arm100";   // [gauge, arm50, arm75, arm100, arm140, set, section, sgauge, simple50, simple75, simple100, simple140, sset, ssection, double50, double75, double100, double140, dset, clamp, buckle, twist, cap, capset, capgauge, borecap, domecap, capstack, capcut, cordcap, plate, plate155]
 
 arm_lengths = [50, 75, 100, 140];
 
@@ -125,6 +131,7 @@ else if (part == "capstack")  cap_stack();
 else if (part == "capcut")    cap_cut();
 else if (part == "cordcap")   cord_cap();
 else if (part == "plate")     rail_plate();
+else if (part == "plate155")  rail_plate155();
 
 // All four arms, side by side, flat faces all on the bed.
 module arm_set() {

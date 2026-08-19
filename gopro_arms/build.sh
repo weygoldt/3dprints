@@ -74,6 +74,13 @@ echo "--- rail plate (bolts to the boat's 40 x 62 M4 rail grid)"
 scad "stl/gopro_rail_plate.stl" "plate"
 python3 verify_plate.py "stl/gopro_rail_plate.stl" | tail -4
 
+# The WIDE variant: same connector, 155 x 40 grid, one of them in the middle
+# turned a quarter turn so the arm swings fore-aft.  --wide reads the mesh in a
+# rotated frame so the connector checks are the same code, not a second copy.
+echo "--- rail plate, WIDE (155 x 40 grid, one fore-aft connector)"
+scad "stl/gopro_rail_plate_155mm.stl" "plate155"
+python3 verify_plate.py "stl/gopro_rail_plate_155mm.stl" --wide | tail -4
+
 echo "--- pipe clamp"
 scad "stl/gopro_pipe_clamp_12mm.stl" "clamp"
 python3 verify_clamp.py "stl/gopro_pipe_clamp_12mm.stl" | tail -4
@@ -141,5 +148,9 @@ python3 fitcheck.py --double
 # BELOW flat -- under the plate -- have to come back non-zero or the probe was
 # never touching the plate at all.
 python3 fitcheck.py --plate
+# The wide plate's connector is yawed, and it is ALONE -- so unlike the default
+# plate nothing but the plate limits it, and the real arm should keep the whole
+# half turn rather than losing the last 30 deg to a neighbour.
+python3 fitcheck.py --plate155
 
 ls -la stl/

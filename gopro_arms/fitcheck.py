@@ -13,6 +13,7 @@ nothing.
   python3 fitcheck.py --buckle        a simple arm on the quick-release
                                       buckle's hinge (buckle.scad)
   python3 fitcheck.py --plate         the rail plate's connector (plate.scad)
+  python3 fitcheck.py --plate155      ... and the WIDE plate's, yawed 90 deg
   python3 fitcheck.py --chain         also swing one of our arms against
                                       another, which is the pairing the body
                                       shape actually limits
@@ -184,22 +185,28 @@ def buckle_main(armL):
 PLATE_GATE = 90        # deg of clear outboard swing the plate must give
 
 
-def plate_main(armL):
-    print("interference volume vs hinge angle   (mating parts on the RAIL\n"
-          "PLATE's connector; ang=0 lays the part flat OUTBOARD along the\n"
-          "plate, 90 stands it up, 180 lays it flat inboard at the other\n"
-          "connector)\n")
+def plate_main(armL, wide=False):
+    sfx = '155' if wide else ''
+    tail = ("plate, 90 stands it up, 180 lays it flat back across it.  Its one\n"
+            "connector is centred, so there is no neighbour to meet and the\n"
+            "real arm should keep the whole half turn.\n" if wide else
+            "plate, 90 stands it up, 180 lays it flat inboard at the other\n"
+            "connector)\n")
+    print(f"interference volume vs hinge angle   (mating parts on the "
+          f"{'WIDE ' if wide else ''}RAIL\n"
+          f"PLATE's connector; ang=0 lays the part flat OUTBOARD along the\n"
+          + tail)
     ok = True
 
     print("  CONTROL -- male driven 1.0 mm off-axis in Y; must be NON-zero")
-    v, _, _ = run('ctrl_plate', 0, armL)
+    v, _, _ = run(f'ctrl_plate{sfx}', 0, armL)
     ctrl_ok = v > 0.1
-    print(f"    ctrl_plate   ang=  0   {v:10.4f} mm^3   "
+    print(f"    ctrl_plate{sfx:3s} ang=  0   {v:10.4f} mm^3   "
           + ("OK (probe can see collisions)" if ctrl_ok else "*** BLIND PROBE ***"))
     ok = ok and ctrl_ok
 
     results = {}
-    for test in ['male_in_plate', 'simple_in_plate']:
+    for test in [f'male_in_plate{sfx}', f'simple_in_plate{sfx}']:
         print(f"\n  {test}")
         rng = []
         for ang in range(-20, 181, 10):
@@ -257,6 +264,9 @@ def main():
     ap.add_argument('--plate', action='store_true',
                     help="the rail plate's connector, swept over the half "
                          "space above the plate")
+    ap.add_argument('--plate155', action='store_true',
+                    help="the WIDE plate's single centred connector, which is "
+                         "yawed 90 deg and has no neighbour to foul")
     ap.add_argument('--chain', action='store_true',
                     help='also swing one of our arms against another')
     args = ap.parse_args()
@@ -265,6 +275,8 @@ def main():
         return buckle_main(armL)
     if args.plate:
         return plate_main(armL)
+    if args.plate155:
+        return plate_main(armL, wide=True)
     if args.double:
         ctrl = 'ctrl_double'
         tests = ['male_in_double_a', 'male_in_double_b']

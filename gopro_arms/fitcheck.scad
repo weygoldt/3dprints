@@ -118,6 +118,17 @@ module plate_at_origin(i = 0) {
     translate([-boss_pos[i][0], -boss_pos[i][1], 0]) rail_plate();
 }
 
+// The WIDE plate's one connector is turned a quarter turn, so its hinge axis
+// runs along X and at_plate() -- which swings about Y -- cannot reach it.
+// Rather than write a second swing helper, the PART is turned back: translate
+// its connector onto the origin, then un-yaw it.  Interference volume is
+// invariant under a rigid transform, and a rotation is not a mirror, so this
+// re-frames the question without changing its answer.
+module plate155_at_origin() {
+    rotate([0, 0, -wide_yaw])
+        translate([-wide_pos[0][0], -wide_pos[0][1], 0]) rail_plate155();
+}
+
 // Carry a mating part built about its own pivot height `pz_part` onto the
 // PLATE's pivot -- a full tab_r above the plate top, not arm.scad's pivot_z --
 // and swing it there.
@@ -353,6 +364,26 @@ else if (test == "ctrl_plate")
         plate_at_origin();
         translate([0, 1.0, 0]) at_plate(ang, pivot_z) ref_2prong();
     }
+// ---- the WIDE plate: one centred connector, swinging fore-aft ------
+// Same three questions, and one difference that is the point of the variant:
+// there is no SECOND connector for the arm to meet, so nothing but the plate
+// itself is in the way and the real arm should keep the full half turn the
+// ideal male gets.
+else if (test == "male_in_plate155")
+    intersection() { plate155_at_origin(); at_plate(ang, pivot_z) ref_2prong(); }
+else if (test == "simple_in_plate155")
+    intersection() {
+        plate155_at_origin();
+        at_plate(ang, s_pivot_z) translate([-armL, 0, 0]) arm_simple(armL);
+    }
+else if (test == "ctrl_plate155")
+    intersection() {
+        plate155_at_origin();
+        translate([0, 1.0, 0]) at_plate(ang, pivot_z) ref_2prong();
+    }
+else if (test == "show_plate155")
+    { plate155_at_origin();
+      at_plate(ang, s_pivot_z) translate([-armL, 0, 0]) arm_simple(armL); }
 else if (test == "show_plate")
     { plate_at_origin(); at_plate(ang, s_pivot_z) translate([-armL, 0, 0]) arm_simple(armL); }
 else if (test == "show_male")

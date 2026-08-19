@@ -27,6 +27,15 @@ triangles with rays, not out of the .scad file:
   * every downward-facing facet, against the 45 deg overhang rule
 
   python3 verify_plate.py stl/gopro_rail_plate.stl
+  python3 verify_plate.py stl/gopro_rail_plate_155mm.stl --wide
+
+--wide checks the 155 x 40 variant, whose single connector is turned a quarter
+turn.  Rather than fork every connector check onto the other axis, the MESH is
+rotated -90 deg about Z first, which puts that connector back on the default
+frame -- so the prong grid, the pockets, the bore and the weld rays below are
+the same code reading the same numbers, and only the plate's own dimensions and
+bolt grid swap over.  A rotation is not a mirror: it cannot hide a handedness
+error, and it leaves every z unchanged, so the overhang scan is untouched.
 """
 import argparse
 import math
@@ -48,6 +57,7 @@ HD_D, HD_DEPTH, BOSS_HD = 8.80, 5.30, 3.40   # barrel head seat, head side
 NUT_DEPTH, NUT_WALL, HEAD_CS = 4.30, 1.50, 0.50
 TOP_CHAM = 1.0
 BOSS_X, BOSS_HW, BOSS_RISER = 18.0, 7.50, 5.0
+CONNECTORS = [-BOSS_X, BOSS_X]     # centres along X, in the connector's frame
 DISC_Z = PLATE_T + BOSS_RISER      # 13.0 -- lowest point of the knuckle disc
 PIVOT_Z = DISC_Z + TAB_R           # 20.5
 TAB_TOP = PIVOT_Z + TAB_R          # 28.0
@@ -88,15 +98,35 @@ def fmt(iv):
     return ", ".join(f"[{a:.3f}, {b:.3f}]" for a, b in iv)
 
 
+def rotz_minus90(tris):
+    """-90 deg about Z: (x, y, z) -> (y, -x, z).  A proper rotation, so winding
+    and therefore every normal survives; z is untouched."""
+    return [[[p[1], -p[0], p[2]] for p in t] for t in tris]
+
+
 def main():
+    global GRID_X, GRID_Y, PLATE_X, PLATE_Y, BOSS_X, CONNECTORS
     ap = argparse.ArgumentParser()
     ap.add_argument('stl')
+    ap.add_argument('--wide', action='store_true',
+                    help='the 155 x 40 variant: one connector, yawed 90 deg')
     args = ap.parse_args()
 
     tris = load(args.stl)
     if not tris:
         print("*** empty mesh -- every measurement below would false-pass")
         return 1
+    if args.wide:
+        # Read in the rotated frame: the long 155 span lands along Y, the 40 mm
+        # short span along X, and the connector comes back to yaw 0 at the
+        # origin.  Everything below is then the default code.
+        tris = rotz_minus90(tris)
+        GRID_X, GRID_Y = 40.0, 155.0
+        PLATE_X, PLATE_Y = GRID_X + 2*EDGE_MARGIN, GRID_Y + 2*EDGE_MARGIN
+        BOSS_X, CONNECTORS = 0.0, [0.0]
+        print("[--wide] mesh rotated -90 deg about Z; grid now "
+              f"{GRID_X} x {GRID_Y}, plate {PLATE_X} x {PLATE_Y}, "
+              f"{len(CONNECTORS)} connector\n")
     lo, hi = bbox(tris)
     vol = volume(tris)
     print(f"{args.stl}: {len(tris)} facets, {vol:.1f} mm^3, "
@@ -288,7 +318,7 @@ def main():
     # prongs and clear of the nut pocket at y <= -6.05.
     print("\nconnector welded to the plate (no gap at the root)")
     broken = []
-    for cx in (-BOSS_X, BOSS_X):
+    for cx in CONNECTORS:
         for dx in (-7.0, -5.0, 5.0, 7.0):
             for dy in (5.0, -5.0):
                 iv = spans(tris, [cx + dx, dy, 0.0], 2, pad=1.0)
@@ -296,8 +326,8 @@ def main():
                 if len(iv) != 1 or abs(iv[0][0]) > TOL or abs(iv[0][1] - top) > TOL:
                     broken.append((round(cx + dx, 1), dy, fmt(iv) or 'nothing'))
     check(not broken,
-          f"16 rays up through the footprint, each ONE unbroken span from the "
-          f"bed to the section top"
+          f"{len(CONNECTORS)*8} rays up through the footprint, each ONE unbroken "
+          f"span from the bed to the section top"
           + (f" -- broken at {broken[:3]}" if broken else ""))
     # And the pedestal really is the full 2*BOSS_HW wide: a ray just OUTSIDE
     # it, at the same height, must miss.  Without this the check above would
@@ -316,10 +346,11 @@ def main():
     # ---- where the connectors sit -----------------------------------
     print("\nconnector placement")
     iv = spans(tris, [0.0, 0.0, zg], 0, pad=3.0)
-    if check(len(iv) == 2, f"two connectors on the ray: {fmt(iv)}"):
-        cs = [(a+b)/2 for a, b in iv]
-        check(all(abs(abs(c) - BOSS_X) < TOL for c in cs),
-              f"centres {cs[0]:+.3f} / {cs[1]:+.3f} == +/-{BOSS_X}")
+    if check(len(iv) == len(CONNECTORS),
+             f"{len(CONNECTORS)} connector(s) on the ray: {fmt(iv)}"):
+        cs = sorted((a+b)/2 for a, b in iv)
+        check(all(abs(c - w) < TOL for c, w in zip(cs, sorted(CONNECTORS))),
+              f"centres {[round(c,3) for c in cs]} == {sorted(CONNECTORS)}")
     # A hex key has to reach every screw.  Not "the numbers say it clears" --
     # ray straight DOWN the counterbore at four points on its seat and demand
     # each one meets the seat first and nothing at all above it.  This is the
@@ -330,7 +361,7 @@ def main():
         for sy in (-1, 1):
             for k in range(8):
                 a = math.radians(45*k)
-                o = [sx*GRID_X/2 + r*math.cos(a), sy*GRID_Y/2 + r*math.sin(a), 0.0]
+                o = [sx*GRID_X/2 + r*math.cos(a), sy*GRID_Y/2 + r*math.sin(a), 0.0]  # noqa: E501
                 iv = spans(tris, o, 2, pad=1.0)
                 if len(iv) != 1 or abs(iv[0][1] - (PLATE_T - CBORE_H)) > TOL:
                     blocked.append((round(o[0], 2), round(o[1], 2), fmt(iv)))

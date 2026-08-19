@@ -29,6 +29,24 @@
 //  swinging out over the LONG edges instead) is one number: boss_yaw = 90.
 //  Where the two connectors sit is `boss_pos`, also just a list.
 //
+//  TWO VARIANTS
+//    plate      62 x 40 bolt grid, TWO connectors, hinge axis along the
+//               40 mm (fore-aft) axis -> the arms swing ATHWARTSHIPS, out
+//               over the short edges.
+//    plate155   155 x 40 bolt grid, ONE connector dead centre, turned a
+//               quarter turn (wide_yaw = 90) so its hinge axis lies along
+//               the long span -> the arm swings FORE-AFT, out over the long
+//               edges.  171 x 56 x 8 mm.
+//  They are the same module with different arguments.  Everything below --
+//  bolt, counterbore, pedestal, disc, both screw pockets, the chamfer --
+//  is shared, so the joint is the joint on both.
+//
+//  Note what the second one is NOT: 155 is not a multiple of the 40 mm
+//  rail_pitch and it is not the 62 mm rail gap, so the wide plate does NOT
+//  land on boat_enclosure/rail.scad's grid.  It is a 40 x 155 pattern for
+//  something else, taken at face value.  If it was meant to straddle the
+//  rails, 160 (4 x 40) is the nearest span that lands on them.
+//
 //  THE CONNECTOR IS A BLOCK WITH A ROUND TOP, NOT A CIRCLE ON A POINT
 //  A GoPro knuckle is an R7.5 disc about the pivot, and the mating half
 //  is another R7.5 disc about the SAME pivot.  Put that disc straight
@@ -167,6 +185,13 @@ knob_d      = 20.0;  // M5 GoPro thumbscrew KNOB diameter -- reporting only,
                      // it sets no geometry.  MEASURE yours; the echo below
                      // says whether it clears the plate at this riser.
 
+/* [The WIDE variant -- part "plate155"] */
+// Same 40 mm short-edge spacing, a 155 mm span on the long edge, and ONE
+// connector in the middle turned a quarter turn.  See the header.
+grid_x_wide = 155.0;   // long-edge bolt spacing for the wide plate
+wide_pos    = [[0, 0]];  // one connector, dead centre
+wide_yaw    = 90;      // hinge axis along X -> the arm swings FORE-AFT
+
 // ---------------------------------------------------------------- derived
 plate_x = plate_square ? max(grid_x, grid_y) + 2*edge_margin : grid_x + 2*edge_margin;
 plate_y = plate_square ? max(grid_x, grid_y) + 2*edge_margin : grid_y + 2*edge_margin;
@@ -214,12 +239,6 @@ assert(boss_hw <= tab_r,
 assert(p_slot_z > plate_t + 0.5,
        str("slot floor at ", p_slot_z, " is down on the plate (top ", plate_t,
            ") -- raise boss_riser, the prong roots have nothing tying them"));
-// The knuckle must not reach a counterbore.  Its widest point is tab_r from
-// the pivot, at pivot height; the counterbore's inner edge is cbore_d/2 in.
-for (p = boss_pos)
-    assert(abs(abs(p[0]) - grid_x/2) - tab_r - cbore_d/2 >= 1.0
-        || abs(abs(p[1]) - grid_y/2) - tab_r - cbore_d/2 >= 1.0,
-           str("connector at ", p, " runs into a bolt counterbore"));
 // Nut pocket, if any, has to stay inside the knuckle: its 45 deg peak is the
 // highest point (nut_profile2d puts flats top and bottom, then a peak on top).
 assert(!plate_nut || p_pivot_z + nut_af/2 + nut_r/2 <= p_tab_top - 0.45,
@@ -367,33 +386,65 @@ module gp_bolt_hole() {
 //
 // The bottom edge is deliberately left square.  A chamfer there would lift the
 // first layer's perimeter off the bed at the one place the part is widest.
-module gp_plate_slab() {
+module gp_plate_slab(px, py) {
     hull() {
         linear_extrude(height = plate_t - top_cham)
-            rect([plate_x, plate_y], rounding = corner_r);
+            rect([px, py], rounding = corner_r);
         translate([0, 0, plate_t - 0.001])
             linear_extrude(height = 0.001)
-                rect([plate_x - 2*top_cham, plate_y - 2*top_cham],
+                rect([px - 2*top_cham, py - 2*top_cham],
                      rounding = max(0.01, corner_r - top_cham));
     }
 }
 
 // ---------------------------------------------------------------- the part
-module rail_plate() {
+// Everything the two variants differ in is an argument; everything they share
+// -- bolt, counterbore, pedestal, disc, both screw pockets, the chamfer -- is
+// the file's own parameters and is therefore literally the same geometry.
+// The defaults ARE the globals, so rail_plate() with no arguments is the part
+// it always was, byte for byte.
+module rail_plate(gx = grid_x, gy = grid_y, pos = boss_pos, yaw = boss_yaw) {
+    px = plate_square ? max(gx, gy) + 2*edge_margin : gx + 2*edge_margin;
+    py = plate_square ? max(gx, gy) + 2*edge_margin : gy + 2*edge_margin;
+    // A connector must not sit on a bolt.  Its widest point is tab_r from the
+    // pivot; the counterbore's inner edge is cbore_d/2 in.  Separation in
+    // EITHER axis is enough, hence the or.
+    for (p = pos)
+        assert(abs(abs(p[0]) - gx/2) - tab_r - cbore_d/2 >= 1.0
+            || abs(abs(p[1]) - gy/2) - tab_r - cbore_d/2 >= 1.0,
+               str("connector at ", p, " runs into a bolt counterbore"));
     difference() {
         union() {
-            gp_plate_slab();
-            for (p = boss_pos)
-                translate([p[0], p[1], 0]) rotate([0, 0, boss_yaw]) gp_connector();
+            gp_plate_slab(px, py);
+            for (p = pos)
+                translate([p[0], p[1], 0]) rotate([0, 0, yaw]) gp_connector();
         }
         for (sx = [-1, 1], sy = [-1, 1])
-            translate([sx*grid_x/2, sy*grid_y/2, 0]) gp_bolt_hole();
+            translate([sx*gx/2, sy*gy/2, 0]) gp_bolt_hole();
         // No second pass to cut the slots out of the PLATE, unlike rev 1.
         // The slots now bottom out at p_slot_z, a whole riser above the plate
         // top, so the plate is untouched by them -- which is the point of the
         // pedestal: what is left below each slot is the web tying the three
         // prong roots together.  The assert on p_slot_z guards that.
     }
+}
+
+// The WIDE plate: 40 mm across the short edge as before, 155 mm along the
+// long one, and a single connector in the middle at a quarter turn.
+//
+// The yaw is the whole point of the variant.  On the boat the 40 mm direction
+// is FORE-AFT (it is one rail's own insert pitch) and the long span is
+// athwartships, so the default plate -- hinge axis along the 40 mm axis --
+// swings its arms athwartships, out over the short edges.  Turning the
+// connector 90 deg puts the hinge axis along the long span instead, and the
+// arm then swings FORE-AFT, over the long edges.  Same connector, same
+// pockets, same everything; only the plane it articulates in changes.
+//
+// One connector and not two, so nothing limits the swing but the plate: the
+// default plate loses its last 30 deg inboard to its OWN second connector,
+// and with a single centred one there is no neighbour to meet.
+module rail_plate155() {
+    rail_plate(gx = grid_x_wide, gy = grid_y, pos = wide_pos, yaw = wide_yaw);
 }
 
 // ---------------------------------------------------------------- echo
@@ -426,6 +477,11 @@ echo(str("  head seat: ", plate_head ? str("M5 barrel head d", hd_d, " x ",
          " vs crown ", p_tab_top) : "none -- the head stands proud"));
 echo(str("  stack ", p_y_hi - p_y_lo, " mm wide (", -p_y_lo, " nut side + ",
          p_y_hi, " head side) ; plate top edge chamfered ", top_cham));
+echo(str("  WIDE variant (part \"plate155\"): ", grid_x_wide + 2*edge_margin,
+         " x ", grid_y + 2*edge_margin, " x ", plate_t, " mm, bolt grid ",
+         grid_x_wide, " x ", grid_y, ", ", len(wide_pos),
+         " connector at ", wide_pos[0], " yawed ", wide_yaw,
+         " deg -> the arm swings FORE-AFT, over the long edges"));
 
 // ---------------------------------------------------------------- preview
 if (is_undef(lib_p)) rail_plate();

@@ -102,7 +102,9 @@ Parts, streamlined: `gauge`, `arm50`, `arm75`, `arm100`, `arm140`, `set`,
 
 `plate` is the one part that is not an arm and not a cap: a flat base on the
 airboat's 40 × 62 mm M4 rail grid with a 3-prong connector at each end. It is
-where a chain of these starts.
+where a chain of these starts. `plate155` is the same thing on a 40 × 155 grid
+with a single centred connector turned a quarter turn, so its arm swings
+fore-aft rather than athwartships.
 
 Not an arm at all, but they cap the pipes the clamp holds: `cap`, `capset` and
 `capgauge` — a press-fit parabolic fairing for the end of a 12 mm PVC tube — and
@@ -1564,6 +1566,39 @@ instead — is one number, `boss_yaw = 90`; where the connectors sit is
 printing, because no measurement in here can tell a correct orientation from a
 plausible one.
 
+### Two variants
+
+| | `plate` | `plate155` |
+|---|---|---|
+| bolt grid | 62 × 40 | **155 × 40** |
+| plate | 78 × 56 × 8 | **171 × 56 × 8** |
+| connectors | two, at X = ±18 | **one, dead centre** |
+| hinge axis | along the 40 mm axis | **along the 155 mm axis** |
+| arm swings | athwartships, over the short edges | **fore-aft, over the long edges** |
+| clear swing, real arm | 0…150° | **0…180°** |
+| volume | 41.8 cm³ | 79.3 cm³ |
+
+They are the **same module with different arguments** — `rail_plate()` takes the
+grid, the connector list and the yaw, and everything else (bolt, counterbore,
+pedestal, disc, both screw pockets, the chamfer) is shared. `rail_plate()` with
+no arguments renders byte-for-byte what it always did, which is checked.
+
+The yaw is the point of the second one. On the boat the 40 mm direction is
+fore-aft — it is one rail's own insert pitch — and the long span is
+athwartships, so the default plate swings its arms athwartships. Turning the
+connector 90° puts the hinge axis along the long span and the arm swings
+fore-aft instead. Same connector, same pockets; only the plane it articulates in
+changes.
+
+Its single centred connector also buys back the articulation the default plate
+spends on itself: with no neighbour 36 mm away, a real `arm_simple(100)` keeps
+the **whole 0…180°** instead of stopping at 150°.
+
+> **`plate155` does not land on the boat's rail grid.** 155 is neither a
+> multiple of the 40 mm `rail_pitch` nor the 62 mm rail gap, so it is a 40 × 155
+> pattern for something else, taken at face value. If it was meant to straddle
+> the rails, **160** (4 × 40) is the nearest span that does.
+
 ### A block with a round top, not a circle on a point
 
 A GoPro knuckle is an R7.5 disc about the pivot, and the mating half is another
@@ -1655,6 +1690,7 @@ the mating part flat **outboard**, 90 stands it up, 180 lays it flat inboard.
 |---|---|
 | ideal GoPro 2-prong (`male_in_plate`) | **0 … 180°** — the full half turn |
 | a real `arm_simple(100)` (`simple_in_plate`) | **0 … 150°** |
+| the same arm on `plate155` (`simple_in_plate155`) | **0 … 180°** — no neighbour |
 
 The real arm loses the last 30° to the *other connector*, not to the plate: at
 160° its 15.0 mm slab body has come down far enough to catch the second knuckle
@@ -1751,12 +1787,14 @@ python3 verify_cap.py stl/pipe_cap_12mm_cord.stl --cord            # plain cord 
 python3 verify_cap.py stl/pipe_cap_12mm_bore.stl \
         --mate stl/pipe_cap_12mm_dome.stl        # do the two halves GO TOGETHER
 python3 verify_plate.py stl/gopro_rail_plate.stl                  # the rail plate
+python3 verify_plate.py stl/gopro_rail_plate_155mm.stl --wide      # ... the wide one
 python3 fitcheck.py                                               # mating interference
 python3 fitcheck.py --simple
 python3 fitcheck.py --twist              # both ends, each on its own axis
 python3 fitcheck.py --buckle             # a REAL arm on the buckle's hinge
 python3 fitcheck.py --double             # both ends, each swung on its own
 python3 fitcheck.py --plate              # the rail plate, over the half space above it
+python3 fitcheck.py --plate155           # ... and the wide plate's yawed, lone connector
 python3 fitcheck.py --simple --chain     # also arm-to-arm, which is slower
 ```
 
