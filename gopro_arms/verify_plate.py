@@ -14,7 +14,11 @@ triangles with rays, not out of the .scad file:
   * the prong / slot grid across the connector, at a height above the nut
     pocket so the pocket cannot be mistaken for a slot
   * the M5 bore radius, read DOWNWARD from the pivot
-  * the slot floor, i.e. how far the slot actually sinks into the plate
+  * the slot floor -- it has to stop in the PEDESTAL, leaving a web
+    that ties the three prong roots together
+  * 16 rays up through each connector's footprint, each of which must be
+    ONE unbroken solid from the bed: the connector is welded to the plate,
+    not a disc perched on it (which is what rev 1 was)
   * where the two connectors sit in X
   * every downward-facing facet, against the 45 deg overhang rule
 
@@ -36,10 +40,12 @@ PLATE_X, PLATE_Y = GRID_X + 2*EDGE_MARGIN, GRID_Y + 2*EDGE_MARGIN
 TAB_R, U, SLOT_W, W3_HALF = 7.50, 3.00, 3.10, 7.95
 PRONG_OUT, BORE_D = 3.40, 5.30
 BOSS_H = 2.40                      # nut-side local thickening
-BOSS_X = 18.0
-PIVOT_Z = PLATE_T + TAB_R          # 15.5
-TAB_TOP = PIVOT_Z + TAB_R          # 23.0
+BOSS_X, BOSS_HW, BOSS_RISER = 18.0, 7.50, 5.0
+DISC_Z = PLATE_T + BOSS_RISER      # 13.0 -- lowest point of the knuckle disc
+PIVOT_Z = DISC_Z + TAB_R           # 20.5
+TAB_TOP = PIVOT_Z + TAB_R          # 28.0
 SLOT_SINK = 0.4
+SLOT_Z = DISC_Z - SLOT_SINK        # 12.6 -- floor, still inside the pedestal
 OH_ANG = 45.0
 
 TOL = 0.05                         # mm; mesh is a tessellation, not algebra
@@ -98,7 +104,7 @@ def main():
           f"plate width  {hi[1]-lo[1]:.3f} == {PLATE_Y}")
     check(abs(lo[2]) < TOL and abs(hi[2] - TAB_TOP) < TOL,
           f"stands on the bed and tops out at {hi[2]:.3f} == {TAB_TOP} "
-          f"(plate {PLATE_T} + knuckle {2*TAB_R})")
+          f"(plate {PLATE_T} + riser {BOSS_RISER} + disc {2*TAB_R})")
 
     # ---- plate thickness, clear of every feature --------------------
     print("\nplate")
@@ -185,13 +191,53 @@ def main():
           f"bore runs clear through all three prongs: {fmt(iv) or 'nothing'}")
 
     # ---- slot floor -------------------------------------------------
-    print("\nslot floor (how far the slot sinks into the plate)")
+    print("\nslot floor (it must stop in the PEDESTAL, not in the plate)")
     iv = spans(tris, [BOSS_X, U, 0.0], 2, pad=1.0)
-    if check(len(iv) == 1, f"slot is open to the sky: {fmt(iv)}"):
-        sink = PLATE_T - iv[0][1]
-        check(abs(sink - SLOT_SINK) < TOL,
-              f"floor at z = {iv[0][1]:.3f} -> sinks {sink:.3f} == {SLOT_SINK} "
-              f"(clearance for a knuckle tangent to the plate, no more)")
+    if check(len(iv) == 1, f"solid from the bed to the floor, then open sky: {fmt(iv)}"):
+        check(abs(iv[0][1] - SLOT_Z) < TOL,
+              f"floor at z = {iv[0][1]:.3f} == {SLOT_Z} -- {SLOT_SINK} under the "
+              f"disc (all the clearance a knuckle of radius {TAB_R} can need)")
+        web = iv[0][1] - PLATE_T
+        check(web > 0.5,
+              f"and {web:.3f} mm of pedestal web left under the slot, tying the "
+              f"three prong roots together (rev 1 had none -- the slot reached "
+              f"the plate)")
+
+    # ---- the connector is WELDED to the plate, not perched on it ----
+    # This is the check rev 1 would have failed and the reason the pedestal
+    # exists.  There, the knuckle was a disc TANGENT to the plate, so a ray up
+    # through the footprint met the plate, then a GAP of air, then the disc --
+    # two intervals.  With the pedestal every ray inside the footprint is ONE
+    # continuous solid from the bed to the top of the section.  Offsets in X
+    # avoid the M5 bore (it is a tunnel along Y, so it would split any ray
+    # closer than its radius to the axis); offsets in Y sit in the two outer
+    # prongs and clear of the nut pocket at y <= -6.05.
+    print("\nconnector welded to the plate (no gap at the root)")
+    broken = []
+    for cx in (-BOSS_X, BOSS_X):
+        for dx in (-7.0, -5.0, 5.0, 7.0):
+            for dy in (6.0, -5.0):
+                iv = spans(tris, [cx + dx, dy, 0.0], 2, pad=1.0)
+                top = DISC_Z + TAB_R + math.sqrt(max(0.0, TAB_R**2 - dx**2))
+                if len(iv) != 1 or abs(iv[0][0]) > TOL or abs(iv[0][1] - top) > TOL:
+                    broken.append((round(cx + dx, 1), dy, fmt(iv) or 'nothing'))
+    check(not broken,
+          f"16 rays up through the footprint, each ONE unbroken span from the "
+          f"bed to the section top"
+          + (f" -- broken at {broken[:3]}" if broken else ""))
+    # And the pedestal really is the full 2*BOSS_HW wide: a ray just OUTSIDE
+    # it, at the same height, must miss.  Without this the check above would
+    # pass on a pedestal 1 mm wide.
+    # The ray runs the whole length of the plate and meets BOTH connectors, so
+    # take the span that actually contains this connector's axis.
+    # ray_intervals returns offsets FROM THE ORIGIN, so scan from x = 0 and
+    # the numbers come back as plain X coordinates.
+    allsp = spans(tris, [0.0, 6.0, DISC_Z - 1.0], 0, pad=12.0)
+    mine = [s for s in allsp if s[0] <= BOSS_X <= s[1]]
+    check(len(mine) == 1 and abs((mine[0][1] - mine[0][0]) - 2*BOSS_HW) < TOL,
+          f"pedestal is {(mine[0][1]-mine[0][0]) if mine else float('nan'):.3f} "
+          f"mm wide in X at z = {DISC_Z-1.0} == {2*BOSS_HW} "
+          f"(spans on the ray: {fmt(allsp)})")
 
     # ---- where the connectors sit -----------------------------------
     print("\nconnector placement")
@@ -225,7 +271,7 @@ def main():
     print(f"\noverhangs (nothing may face down flatter than {OH_ANG} deg "
           f"from vertical)")
     lim = -math.cos(math.radians(OH_ANG)) - 0.02
-    worst, worst_z, bad, bad_area = 0.0, 0.0, 0, 0.0
+    worst, worst_z, bad, bad_area, biggest = 0.0, 0.0, 0, 0.0, 0.0
     for t in tris:
         n, a = normal(t)
         if n is None:
@@ -236,6 +282,7 @@ def main():
         if n[2] < lim:
             bad += 1
             bad_area += a
+            biggest = max(biggest, a)
             if n[2] < worst:
                 worst, worst_z = n[2], zc
     # Report the steepest downward facet even when it passes: "0 bad facets"
@@ -248,10 +295,21 @@ def main():
             continue
         if n[2] < steep:
             steep, steep_z = n[2], sum(p[2] for p in t)/3.0
-    check(bad == 0,
-          f"{bad} facet(s), {bad_area:.2f} mm^2, face down past the rule; "
-          f"steepest downward facet nz {steep:.4f} at z {steep_z:.2f} "
-          f"(the rule is {lim + 0.02:.4f})"
+    # Gate on AREA, not facet count.  Where the pedestal and its skirt pierce
+    # the plate's top plane, CGAL triangulates that plane around the
+    # intersection curve and leaves collinear slivers -- one here, 1.7e-06 mm^2,
+    # nz -1.0, three points that are the same straight line to machine
+    # precision.  That is a tessellation artifact, not a surface that can
+    # droop: a single 0.4 x 0.2 extrusion bead is ~0.08 mm^2, so the threshold
+    # below is an eighth of the smallest thing a printer can lay down, and four
+    # orders of magnitude under what the -D boss_hw negative control reports.
+    # Any SINGLE facet over it fails, so this cannot swallow a real overhang.
+    AREA_EPS = 0.01
+    check(bad_area <= AREA_EPS and biggest <= AREA_EPS,
+          f"{bad} facet(s), {bad_area:.3g} mm^2 total / {biggest:.3g} mm^2 "
+          f"largest, face down past the rule (budget {AREA_EPS} mm^2 = 1/8 of "
+          f"one extrusion bead); steepest downward facet nz {steep:.4f} at "
+          f"z {steep_z:.2f}, the rule is {lim + 0.02:.4f}"
           + (f" -- worst {worst:.3f} at z {worst_z:.2f}" if bad else ""))
 
     print()

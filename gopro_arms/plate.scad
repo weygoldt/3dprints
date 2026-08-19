@@ -29,41 +29,58 @@
 //  swinging out over the LONG edges instead) is one number: boss_yaw = 90.
 //  Where the two connectors sit is `boss_pos`, also just a list.
 //
-//  WHY THE PIVOT SITS A FULL RADIUS UP
-//  arm.scad's own knuckles use tab_style = "trim": the pivot at
-//  tab_r/sqrt(2), the R7.5 circle simply CUT by the bed.  That is right
-//  for an arm, whose mating half is another arm sitting on the same
-//  centreline.  It is WRONG here.  A mating arm's knuckle is a full R7.5
-//  disc about the shared pivot, and it has to be able to swing all the
-//  way down onto the plate -- so the pivot has to stand a full tab_r
-//  above the plate top, exactly like a real GoPro adhesive base.  That
-//  leaves the circle TANGENT to the plate, i.e. a 0 deg overhang at the
-//  root, so the knuckle gets arm.scad's "pad" treatment: hulled onto a
-//  thin bar of half-width tab_base_h_at(tab_r) = 3.107, which makes the
-//  flanks leave the plate at exactly oh_ang.  That pad pokes ~0.6 mm
-//  outside the R7.5 joint envelope -- harmless HERE, and provably so:
-//  every point of it is FARTHER from the pivot than tab_r, and the
-//  mating knuckle is a disc of radius tab_r about that same pivot, so it
-//  can never reach the pad at any angle.  (On an arm the same pad is a
-//  problem, because there the mating BODY sweeps past at that radius.)
+//  THE CONNECTOR IS A BLOCK WITH A ROUND TOP, NOT A CIRCLE ON A POINT
+//  A GoPro knuckle is an R7.5 disc about the pivot, and the mating half
+//  is another R7.5 disc about the SAME pivot.  Put that disc straight
+//  down onto a plate and it is tangent -- the two touch along a line and
+//  the connector necks to nothing at the root.  (rev 1 did exactly that,
+//  with only arm.scad's 3.107 mm "pad" hulled underneath to keep the
+//  flanks printable.  It looked like a barrel balanced on an edge, and
+//  structurally it was one.)
+//
+//  So the knuckle stands on a PEDESTAL: a plain block, half-width
+//  boss_hw, running from the plate top all the way up to the pivot, with
+//  the disc sitting on top of it.  The silhouette is a rectangle with a
+//  semicircular cap, which is what a real GoPro base looks like, and the
+//  footprint is a solid 2*boss_hw x 18.3 mm welded to the plate.
+//
+//  boss_hw = tab_r is not a styling choice, it is the largest value the
+//  joint allows and the only one that is also smooth.  A vertical line at
+//  x = tab_r is TANGENT to the disc at pivot height, so:
+//    * every point of the block is at least tab_r from the pivot
+//      (sqrt(tab_r^2 + dz^2) >= tab_r), and the mating knuckle is a disc
+//      of radius tab_r about that same pivot -- so the block is outside
+//      the joint envelope at EVERY hinge angle.  Wider would foul.
+//    * the disc meets the block tangentially, so the section only ever
+//      narrows going up.  No overhang anywhere, and no pad needed.
+//  Narrower than tab_r is legal but pointless: it re-opens the overhang
+//  the pad existed to patch, which is what the -D boss_hw negative
+//  control in verify_plate.py demonstrates.
+//
+//  boss_riser then lifts the whole disc clear of the plate.  It buys two
+//  things: the slots stop inside the pedestal instead of cutting into the
+//  plate, so the three prongs are tied together by a solid web at their
+//  root; and an M5 thumbscrew KNOB (~20 mm across) turns beside the
+//  connector without grounding out on the plate -- at riser 0 the knob
+//  would foul, which is reported in the echo below.
 //
 //  AND WHY THE SLOTS ARE CUT SHORT
-//  arm.scad's pocket() is a cylinder of pocket_r = 11.05 about the pivot.
-//  Placed on a pivot a full tab_r up, its bottom would reach 3.55 mm
-//  BELOW the plate top and saw two 3.1 mm slots most of the way through
-//  the plate.  So the pocket is clipped to `slot_sink` below the plate
-//  top: the mating knuckle only ever reaches tab_r from the pivot, and
-//  tab_r from the pivot IS the plate top, so a shallow relief is all the
-//  clearance that geometry can ever need.  What is left in the plate is
-//  a ~0.4 x 3.1 x 16 mm groove under each slot, which also drains.
+//  arm.scad's pocket() is a cylinder of pocket_r = 11.05 about the pivot,
+//  which reaches 3.55 mm below the disc and would saw the slots straight
+//  on down through the pedestal and into the plate.  It is clipped to
+//  `slot_sink` below the disc's lowest point instead.  The reasoning is
+//  exact rather than a fudge: the mating knuckle never passes tab_r from
+//  the pivot, so tab_r from the pivot is the deepest a slot can ever need
+//  to be, and everything below that is web holding the prongs together.
 //
 //  PRINT
 //  Flat on the bed, plate down, connectors up.  PETG, 0.2 mm, 0.4 nozzle,
-//  NO SUPPORT: the knuckle flanks leave the plate at oh_ang, the M5 bore
-//  is a teardrop, the nut pocket has a 45 deg peak, and the bolt
-//  counterbores open UPWARD (a counterbore that opens up has no ceiling).
-//  4-5 perimeters; the load path is bolt -> plate -> knuckle root, all of
-//  it in the walls.
+//  NO SUPPORT: the pedestal walls are vertical, the disc meets them
+//  tangentially so the section only narrows going up, the M5 bore is a
+//  teardrop, the nut pocket has a 45 deg peak, and the bolt counterbores
+//  open UPWARD (a counterbore that opens up has no ceiling).  4-5
+//  perimeters; the load path is bolt -> plate -> pedestal, all of it in
+//  the walls.
 //
 //  BOM per plate: 4x M4 socket-head cap screw (length = plate_t - cbore_h
 //  + insert depth, so ~12-14 mm into a rail.scad insert), plus one M5
@@ -103,18 +120,30 @@ corner_r    = 4.0;   // rounded plate corners (vertical edges only)
 // hinge axis along Y (arms swing over the SHORT edges), 90 puts it along X.
 boss_pos    = [[-18, 0], [18, 0]];
 boss_yaw    = 0;
-boss_skirt  = 1.5;   // 45 deg fillet skirt where the knuckle meets the plate
-slot_sink   = 0.4;   // how far the slot floor drops below the plate top
+boss_hw     = 7.50;  // pedestal half-width in X.  MUST be <= tab_r -- at tab_r
+                     // the wall is tangent to the disc (smooth, and the whole
+                     // block is outside the joint envelope); wider fouls, and
+                     // narrower re-opens an overhang under the disc.
+boss_riser  = 5.0;   // pedestal height ABOVE the plate before the disc starts.
+                     // Ties the prong roots together with a solid web and gets
+                     // an M5 thumbscrew knob off the plate.
+boss_skirt  = 1.5;   // 45 deg fillet skirt where the pedestal meets the plate
+slot_sink   = 0.4;   // slot floor, measured BELOW the disc's lowest point
 slot_relief = 1.0;   // slot cut is clipped to tab_r + this in X (see header)
 plate_nut   = true;  // captive M5 nut in one outer prong, as on the arms
+knob_d      = 20.0;  // M5 GoPro thumbscrew KNOB diameter -- reporting only,
+                     // it sets no geometry.  MEASURE yours; the echo below
+                     // says whether it clears the plate at this riser.
 
 // ---------------------------------------------------------------- derived
 plate_x = plate_square ? max(grid_x, grid_y) + 2*edge_margin : grid_x + 2*edge_margin;
 plate_y = plate_square ? max(grid_x, grid_y) + 2*edge_margin : grid_y + 2*edge_margin;
 
-p_pivot_z = plate_t + tab_r;          // knuckle circle TANGENT to the plate top
+p_disc_z  = plate_t + boss_riser;     // lowest point of the knuckle disc
+p_pivot_z = p_disc_z + tab_r;         // hinge axis, one radius above that
 p_tab_top = p_pivot_z + tab_r;        // top of the knuckle
-p_pad_h   = tab_base_h_at(tab_r);     // 3.107 -- pad half-width for oh_ang flanks
+p_slot_z  = p_disc_z - slot_sink;     // slot floor -- still inside the pedestal
+p_knob_c  = p_pivot_z - knob_d/2 - plate_t;   // thumbscrew knob over the plate
 
 // Y span of one connector stack, nut boss included (boss_h/nut_side/nut_depth/
 // nut_wall/nut_af/nut_r all come from arm.scad, so the trap here is the same
@@ -129,7 +158,16 @@ assert(plate_t - cbore_h >= 2.0,
 assert(edge_margin >= cbore_d/2 + 2.5,
        str("edge_margin ", edge_margin, " leaves ", edge_margin - cbore_d/2,
            " mm of wall outside the counterbore"));
-assert(slot_sink < plate_t - 1.0, "slot_sink is eating the plate");
+// The pedestal wall is tangent to the disc at boss_hw == tab_r.  Anything
+// wider reaches INSIDE the mating knuckle's R7.5 sweep and jams the hinge.
+assert(boss_hw <= tab_r,
+       str("boss_hw ", boss_hw, " > tab_r ", tab_r, " -- the pedestal would ",
+           "reach inside the joint envelope and the hinge would not turn"));
+// The slots stop in the pedestal, not in the plate.  If they reach the plate
+// top the prongs have lost the web that ties their roots together.
+assert(p_slot_z > plate_t + 0.5,
+       str("slot floor at ", p_slot_z, " is down on the plate (top ", plate_t,
+           ") -- raise boss_riser, the prong roots have nothing tying them"));
 // The knuckle must not reach a counterbore.  Its widest point is tab_r from
 // the pivot, at pivot height; the counterbore's inner edge is cbore_d/2 in.
 for (p = boss_pos)
@@ -140,49 +178,58 @@ for (p = boss_pos)
 // highest point (nut_profile2d puts flats top and bottom, then a peak on top).
 assert(!plate_nut || p_pivot_z + nut_af/2 + nut_r/2 <= p_tab_top - 0.45,
        "nut pocket breaks out of the top of the knuckle");
-assert(!plate_nut || p_pivot_z - nut_af/2 >= plate_t + 1.5,
-       "nut pocket reaches down into the plate");
+assert(!plate_nut || p_pivot_z - nut_af/2 >= p_slot_z,
+       "nut pocket reaches below the slot floor, into the pedestal web");
 
 // ---------------------------------------------------------------- pieces
 
-// Knuckle silhouette in XZ, sitting ON the plate top.  This is arm.scad's
-// "pad" branch with the pivot a full tab_r up -- see the header for why the
-// file's own "trim" style cannot be used here.
-module gp_pad_profile2d() {
-    hull() {
+// Connector silhouette in XZ: a pedestal from the plate top up to the pivot,
+// with the R7.5 knuckle disc on top of it.  At boss_hw == tab_r the wall is
+// TANGENT to the disc, so this is one smooth outline and not two shapes that
+// happen to overlap -- see the header.
+module gp_boss_profile2d() {
+    union() {
         translate([0, p_pivot_z]) circle(r = tab_r);
-        translate([0, plate_t + 0.005]) square([2*p_pad_h, 0.01], center = true);
+        translate([-boss_hw, plate_t]) square([2*boss_hw, p_pivot_z - plate_t]);
     }
 }
 
 // That silhouette as a solid spanning y0..y1 (same construction as tab_solid).
 module gp_knuckle(y0, y1) {
     translate([0, y1, 0]) rotate([90, 0, 0])
-        linear_extrude(height = y1 - y0) gp_pad_profile2d();
+        linear_extrude(height = y1 - y0) gp_boss_profile2d();
 }
 
-// A 45 deg skirt around the knuckle root.  Wider at the plate, dying out
+// A 45 deg skirt around the pedestal root.  Wider at the plate, dying out
 // `boss_skirt` up, so it adds material where the bending moment is highest
-// and never overhangs.  Every exposed point of it is farther from the pivot
-// than tab_r (at z = plate_t it is sqrt((p_pad_h+s)^2 + tab_r^2) away), so
-// like the pad it cannot touch a mating knuckle.
+// and never overhangs.  It sits a whole riser below the disc, so it is far
+// outside the joint envelope and cannot touch a mating knuckle.
 module gp_skirt(y0, y1) {
+    // The lower slab is sunk 1 mm INTO the plate rather than sitting on it.
+    // Its top face is where it always was, so the 45 deg flare above the plate
+    // is unchanged -- but its bottom face is now buried instead of coplanar
+    // with the plate top, and a coplanar face is what the union leaves behind
+    // as a zero-area downward sliver.  (The overhang scan found exactly one,
+    // nz -1.0 at z = 8.00.  Sinking the slab is the fix; loosening the scan to
+    // ignore small facets would have been the bug.)
     if (boss_skirt > 0)
         hull() {
-            translate([0, (y0 + y1)/2, plate_t + 0.005])
-                cube([2*(p_pad_h + boss_skirt), (y1 - y0) + 2*boss_skirt, 0.01],
+            translate([0, (y0 + y1)/2, plate_t - 0.5])
+                cube([2*(boss_hw + boss_skirt), (y1 - y0) + 2*boss_skirt, 1.01],
                      center = true);
             translate([0, (y0 + y1)/2, plate_t + boss_skirt])
-                cube([2*p_pad_h, y1 - y0, 0.01], center = true);
+                cube([2*boss_hw, y1 - y0, 0.01], center = true);
         }
 }
 
-// One slot, clipped so it stops at the plate instead of sawing through it.
+// One slot, clipped so it stops inside the PEDESTAL -- slot_sink below the
+// lowest point a mating knuckle can reach -- instead of carrying on down
+// through the web and into the plate.
 module gp_slot(yc) {
     intersection() {
         translate([0, yc, p_pivot_z])
             cyl(r = pocket_r, h = slot_w, rounding = root_fillet, orient = BACK);
-        translate([-(tab_r + slot_relief), yc - (slot_w + 2)/2, plate_t - slot_sink])
+        translate([-(tab_r + slot_relief), yc - (slot_w + 2)/2, p_slot_z])
             cube([2*(tab_r + slot_relief), slot_w + 2, 8*tab_r]);
     }
 }
@@ -234,14 +281,11 @@ module rail_plate() {
         }
         for (sx = [-1, 1], sy = [-1, 1])
             translate([sx*grid_x/2, sy*grid_y/2, 0]) gp_bolt_hole();
-        // The slots have to be cut AFTER the plate too: a connector's own
-        // difference() only sees its own solid, and the groove under each
-        // slot lives in the plate.
-        for (p = boss_pos)
-            translate([p[0], p[1], 0]) rotate([0, 0, boss_yaw]) {
-                gp_slot( u);
-                gp_slot(-u);
-            }
+        // No second pass to cut the slots out of the PLATE, unlike rev 1.
+        // The slots now bottom out at p_slot_z, a whole riser above the plate
+        // top, so the plate is untouched by them -- which is the point of the
+        // pedestal: what is left below each slot is the web tying the three
+        // prong roots together.  The assert on p_slot_z guards that.
     }
 }
 
@@ -252,13 +296,18 @@ echo(str("  bolt grid ", grid_x, " x ", grid_y, " (rail.scad: 62 mm rail gap, ",
          "40 mm rail_pitch) ; M4 clr ", bolt_d, ", cbore ", cbore_d, "x", cbore_h,
          " -> ", plate_t - cbore_h, " mm seat, ", edge_margin - cbore_d/2,
          " mm wall to the edge"));
-echo(str("  connector: pivot ", tab_r, " above the plate (circle TANGENT), pad ",
-         p_pad_h, " half-width -> flanks at ", oh_ang, " deg ; stack y ",
-         p_y_lo, "..", p_y_hi, " (", p_y_hi - p_y_lo, " mm), M5 bore d", bore_d));
-echo(str("  slots: 2 x ", slot_w, " on +/-", u, ", floor ", slot_sink,
-         " below the plate top ; prongs ",
+echo(str("  connector: pedestal ", 2*boss_hw, " x ", p_y_hi - p_y_lo, " welded to ",
+         "the plate, up ", p_pivot_z - plate_t, " to the pivot at ", p_pivot_z,
+         " ; disc starts ", boss_riser, " above the plate, tangent to the wall ",
+         boss_hw == tab_r ? "(smooth, no overhang)" : " << boss_hw != tab_r"));
+echo(str("  slots: 2 x ", slot_w, " on +/-", u, ", floor ", p_slot_z, " = ",
+         slot_sink, " under the disc and ", p_slot_z - plate_t,
+         " ABOVE the plate -> that much web tying the prong roots ; prongs ",
          w3_half - (u + slot_w/2), " / ", 2*(u - slot_w/2), " / ",
          w3_half - (u + slot_w/2), " thick (outer / centre / outer)"));
+echo(str("  M5 bore d", bore_d, " ; thumbscrew knob d", knob_d, " clears the ",
+         "plate by ", p_knob_c, " mm ",
+         p_knob_c >= 0 ? "OK" : " << raise boss_riser or the knob grounds out"));
 echo(str("  hinge axis along ", boss_yaw == 0 ? "Y (arms swing over the SHORT edges)"
                                               : "X (arms swing over the LONG edges)"));
 echo(str("  nut trap: ", plate_nut ? str("M5 ", nut_af, " AF, ", nut_depth,

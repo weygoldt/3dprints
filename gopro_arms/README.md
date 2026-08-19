@@ -1543,8 +1543,9 @@ was trimmed 0.80 → 0.60 when the bore went to 5.5 for exactly this reason — 
 
 The ground end of every chain in here. A flat **78 × 56 × 8 mm** plate that
 bolts onto the airboat's mounting rails and stands a GoPro 3-prong connector at
-each end, facing up. Everything else in this folder — arm, simple arm,
-`arm_double`, twist adapter, buckle — clips straight onto it.
+each end, facing up, on a pedestal that carries it to **28 mm** overall.
+Everything else in this folder — arm, simple arm, `arm_double`, twist adapter,
+buckle — clips straight onto it.
 
 The bolt pattern is not a choice, it is `boat_enclosure/rail.scad`: **40 mm**
 along one rail (`rail_pitch`, the insert spacing) and **62 mm** rail to rail
@@ -1563,41 +1564,56 @@ instead — is one number, `boss_yaw = 90`; where the connectors sit is
 printing, because no measurement in here can tell a correct orientation from a
 plausible one.
 
-### The pivot stands a full radius up, and that is the whole part
+### A block with a round top, not a circle on a point
 
-`arm.scad` builds its knuckles with `tab_style = "trim"`: pivot at
-`tab_r/sqrt(2)` = 5.303, the R7.5 circle simply **cut** by the bed. That is
-right for an arm, whose mating half sits on the same centreline. It is wrong
-here. A mating arm's knuckle is a full R7.5 disc about the shared pivot and it
-has to be able to swing all the way down onto the plate — so the pivot has to
-stand a **full `tab_r`** above the plate top (15.5 = 8.0 + 7.5), exactly like a
-real GoPro adhesive base.
+A GoPro knuckle is an R7.5 disc about the pivot, and the mating half is another
+R7.5 disc about the **same** pivot. Drop that disc straight onto a plate and it
+is tangent — the two touch along a line, and the connector necks to nothing at
+its root. Rev 1 did exactly that, with only `arm.scad`'s 3.107 mm "pad" hulled
+underneath to keep the flanks printable. It looked like a barrel balanced on an
+edge, and structurally it was one: a ray up through the footprint 7 mm off the
+axis met the plate, then **4.8 mm of air**, then the disc.
 
-That leaves the circle *tangent* to the plate, i.e. a 0° overhang at the root.
-So the knuckle gets `arm.scad`'s **"pad"** treatment: hulled onto a thin bar of
-half-width `tab_base_h_at(tab_r)` = **3.107**, which puts the flanks at exactly
-`oh_ang`. The pad pokes ~0.62 mm outside the R7.5 joint envelope, and here that
-is provably harmless rather than merely small: every point of it is **farther
-from the pivot than `tab_r`** (the corner sits at 8.12), and the mating knuckle
-is a disc of radius `tab_r` about that same pivot, so it cannot reach the pad at
-any angle. On an arm the same pad *is* a problem, because there a mating body
-sweeps past at that radius — which is why `arm.scad` does not use it.
+So the knuckle stands on a **pedestal** — a plain block, half-width `boss_hw`,
+running from the plate top all the way up to the pivot, with the disc on top of
+it. The silhouette is a rectangle with a semicircular cap, which is what a real
+GoPro base looks like, and the footprint is a solid **15 × 18.3 mm** welded to
+the plate.
 
-A 45° **skirt** (`boss_skirt = 1.5`) fillets the root on top of that: wider at
-the plate, dying out 1.5 mm up, so it adds material where the bending moment is
-highest and still never overhangs. It clears the joint by the same argument.
+`boss_hw = tab_r` is not a styling choice. It is the largest value the joint
+allows and the only one that is also smooth, because a vertical line at
+`x = tab_r` is **tangent** to the disc at pivot height:
+
+- every point of the block is at least `tab_r` from the pivot
+  (`sqrt(tab_r² + dz²) ≥ tab_r`), and the mating knuckle is a disc of radius
+  `tab_r` about that same pivot — so the block sits outside the joint envelope
+  at **every** hinge angle. Anything wider fouls, and the assert says so.
+- the disc meets the block tangentially, so the section only ever narrows going
+  up. No overhang, and no pad needed.
+
+Narrower than `tab_r` is legal but pointless — it re-opens the very overhang the
+pad existed to patch, which is what the `-D boss_hw` negative control below
+demonstrates.
+
+`boss_riser = 5.0` then lifts the disc clear of the plate, and buys two things.
+The slots now bottom out at **12.6**, which is 0.4 mm under the disc and still
+**4.6 mm above the plate**, so the three prongs are tied together by a solid web
+at their roots instead of each standing alone on the plate. And an M5 thumbscrew
+knob (Ø20 assumed, `knob_d`) turns beside the connector with 2.5 mm to spare
+instead of grounding out on the plate — at riser 0 it would foul, and the echo
+says which way it went.
+
+The whole connector is 28.0 mm tall against rev 1's 23.0, and the part went from
+37.2 to 40.6 cm³.
 
 ### And why the slots are cut short
 
-`pocket()` is a cylinder of `pocket_r` = 11.05 about the pivot. Put that on a
-pivot a full `tab_r` up and its floor reaches **3.55 mm below the plate top** —
-it would saw two 3.1 mm slots most of the way through an 8 mm plate. So the
-pocket is clipped to `slot_sink` below the plate top. The reasoning is exact,
-not a fudge: the mating knuckle only ever reaches `tab_r` from the pivot, and
-`tab_r` from the pivot *is* the plate top, so a shallow relief is all the
-clearance the geometry can ever need. Measured floor **7.600**, i.e. 0.400 down.
-What is left in the plate under each slot is a ~0.4 × 3.1 × 16 mm groove, which
-also drains.
+`pocket()` is a cylinder of `pocket_r` = 11.05 about the pivot, which reaches
+3.55 mm below the disc and would saw the slots on down through the pedestal and
+into the plate. It is clipped to `slot_sink` below the disc's lowest point
+instead. The reasoning is exact rather than a fudge: the mating knuckle never
+passes `tab_r` from the pivot, so `tab_r` from the pivot is the deepest a slot
+can ever need to be, and everything below that is web.
 
 ### What the checks measured
 
@@ -1631,18 +1647,36 @@ bolt grid as the *gaps* in a solid span (spacing and diameter from one reading),
 the counterbore seat (3.600, so 3.6 mm of material under the head), the prong
 grid at a height above the nut pocket so the pocket cannot be miscounted as a
 slot (**3.400 / 2.900 / 5.800**, slots 3.100 on ±3.000), the M5 bore read
-*downward* from the pivot (floor 2.650 below it = r), the slot floor, where the
-two connectors sit (±18.000), and 32 rays straight down the four counterbores to
-prove a hex key can reach every screw.
+*downward* from the pivot (floor 2.650 below it = r), the slot floor and the web
+under it, the pedestal's width in X, where the two connectors sit (±18.000), and
+32 rays straight down the four counterbores to prove a hex key can reach every
+screw.
 
-Both of the checks that could plausibly be decorative were made to fail on
-purpose. Forcing the pad away (`-D p_pad_h=0.01`) leaves the tangent circle
-sitting on the plate and the overhang scan reports **368 facets, 212.59 mm² at
-z = 8.16** — the knuckle root, exactly where it should be. Moving the bolt grid
-(`-D grid_x=50`) trips 6 checks. With the part as shipped the steepest
-downward-facing facet is nz **−0.7071**, sitting precisely on the 45° rule; that
-is the teardrop bore's roof, and it is the reason the rule is written as ≤ and
-not <.
+The one it exists for is **16 rays up through each connector's footprint**, each
+of which has to be a single unbroken span from the bed to the top of the
+section. That is the rev-1 defect written as an assertion, and running it
+against the rev-1 mesh reproduces it exactly: `[0.000, 8.000], [12.810, 18.190]`
+— plate, then air, then disc.
+
+Every check that could plausibly be decorative was made to fail on purpose.
+Narrowing the pedestal (`-D boss_hw=2`) leaves the disc overhanging it and the
+scan reports **182 mm², largest single facet 0.679 mm²**. Moving the bolt grid
+(`-D grid_x=50`) trips 6 checks. The rev-1 mesh fails the weld check and the
+pedestal width.
+
+The overhang scan gates on **area, not facet count**, and that is a fix rather
+than a loosening. Where the pedestal and its skirt pierce the plate's top plane,
+CGAL triangulates that plane around the intersection curve and leaves collinear
+slivers — one survives, 1.7 × 10⁻⁶ mm², nz −1.0, three points that are the same
+straight line to machine precision. A single 0.4 × 0.2 extrusion bead is
+~0.08 mm², so the budget is an eighth of the smallest thing the printer can lay
+down, and the narrow-pedestal control clears it by four orders of magnitude with
+a single facet 68× over it. (The first sliver found this way *was* real and was
+fixed in the geometry — the skirt's lower slab now starts 1 mm inside the plate
+so its bottom face is buried instead of coplanar with the plate top.) With the
+part as shipped the steepest genuine downward facet is nz **−0.7071**, sitting
+precisely on the 45° rule; that is the teardrop bore's roof, and it is the reason
+the rule is written as ≤ and not <.
 
 ### Print
 
@@ -1650,12 +1684,14 @@ Flat on the bed, plate down, connectors up. PETG, 0.2 mm, 0.4 nozzle, **no
 support** — the knuckle flanks leave the plate at `oh_ang`, the M5 bore is a
 teardrop, the nut pocket has a 45° peak, and the bolt counterbores open *upward*
 (a counterbore that opens up has no ceiling to bridge). 4–5 perimeters: the load
-path is bolt → plate → knuckle root and all of it runs in the walls. 37.2 cm³ of
-envelope, so about 20 g at a normal infill.
+path is bolt → plate → knuckle root and all of it runs in the walls. 40.6 cm³ of
+envelope, so about 22 g at a normal infill.
 
 Per plate: **4 × M4 socket-head cap screw** (plate seat 3.6 mm + insert depth →
 12–14 mm into a `rail.scad` insert), plus **one M5 GoPro thumbscrew and one M5
-DIN 934 nut per connector**. The nut trap is the arms' own — same 8.00 AF pocket,
+DIN 934 nut per connector**. `knob_d` is reporting-only — it sets no geometry,
+it just makes the echo tell you whether *your* thumbscrew knob clears the plate
+at this riser. Measure yours; if it is over Ø25, raise `boss_riser`. The nut trap is the arms' own — same 8.00 AF pocket,
 4.30 deep, 1.50 mm of material back to the slot — so it takes the same nuts, and
 it sits in the −Y outer prong.
 
