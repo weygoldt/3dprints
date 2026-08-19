@@ -135,9 +135,9 @@ module hull_assembly(hull, rot) {
 }
 
 module assembly_scene() {
-  translate([-beam_target/2, 0, 0]) hull_assembly("port",      0);            // port hull: motor LONG-vertical (rot 0)
+  translate([-beam_target/2, 0, 0]) hull_assembly("port",      mrot_of( 1));  // port hull: motor clocked so the wire gap faces the slot
   if (show_both_hulls)
-    translate([ beam_target/2, 0, 0]) hull_assembly("starboard", 90);         // starboard hull: motor turned 90deg
+    translate([ beam_target/2, 0, 0]) hull_assembly("starboard", mrot_of(-1)); // starboard hull: same, mirrored
   if (show_foam) translate([0, 0, deck_center_z]) foam_body();
 }
 

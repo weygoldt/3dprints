@@ -763,8 +763,13 @@ flare_y      = foot_h + flare_lift;                       // the foot stays full
 function mholes(rot) =
   let (base = [ [motor_bolt_long/2, 0], [-motor_bolt_long/2, 0], [0, motor_bolt_short/2], [0, -motor_bolt_short/2] ])
   [ for (b = base) [ b[0]*cos(rot) - b[1]*sin(rot), b[0]*sin(rot) + b[1]*cos(rot) ] ];
-mount_rot   = (motor_offset_dir < 0) ? 135 : 45; // motor clocked +45deg (Patrick 2026-08-19) so the wire exits HORIZONTAL-inboard
-                                                 // (was 0/90); the 90deg L/R offset is kept -- the bolt pattern must match the clocked motor.  VERIFY by eye
+// motor CLOCK per hull (deg).  The A2212's wire exits BETWEEN two mounting holes, so the hole pattern must be
+// clocked so a GAP (not a hole) faces the wire slot.  Patrick 2026-08-19: wire exits HORIZONTAL-inboard (slot at
+// 0deg), so clock the "+" pattern 45deg -> holes at 45/135/225/315, gap at 0deg.  ONE source of truth: both the
+// standalone parts (mount_rot) AND the assembly (main.scad) derive the clock from mrot_of(), so the bores can never
+// fall out of sync with the wire slot again.  (Was 0/90 = "+" pattern, which put a HOLE on the horizontal slot.)
+function mrot_of(dir) = (dir < 0) ? 135 : 45;
+mount_rot   = mrot_of(motor_offset_dir);
 motor_holes = mholes(mount_rot);               // global (for the standalone part export); main.scad passes per-hull rot
 // NOSE-DOWN motor tilt (anti-nose-dive): rotate the motor pad + bores + guard + prop about the WIDTH (Z) axis at the
 // hub so the prop thrust points forward+DOWN by motor_tilt.  Pivot Z is irrelevant (Z-axis rotation stays in X-Y).
