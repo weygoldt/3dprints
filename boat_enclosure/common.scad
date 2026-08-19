@@ -1234,7 +1234,9 @@ if (mount_to=="motor") {
            " (need >=3) ", motor_edge_wall>=3 ? "OK" : "<< grow mast_w", " ; top bolt -> pad top ",
            round(100*motor_top_wall)/100, " ", motor_top_wall>=3 ? "OK" : "<< raise the pad top"));
   echo(str("  SCREW LENGTH: seat ", motor_seat_t, " + guard ", guard_t, " = ", motor_seat_t+guard_t,
-           " mm of CLEARANCE before the motor face; the blind A2212 hole is only ~3-4 mm deep."));
+           " mm of CLEARANCE before the motor face; the blind A2212 hole is only ~3-4 mm deep.",
+           "  ALL 4 SCREWS SAME LENGTH -- the seat depth is uniform, so the head bears at the same depth on every hole",
+           " regardless of the ", motor_tilt, "deg tilt (a ball-end M3 key reaches each head via the straight driver tunnel)."));
   echo(str("    -> M3 x ", motor_screw_len, " mm is the MAX (", motor_seat_t+guard_t, " + ", motor_engage,
            " engage).  MEASURE your hole depth Hd, buy the nearest M3 <= ", motor_seat_t+guard_t,
            "+Hd, and ROUND DOWN -- a too-long screw BOTTOMS on the hole floor, holds the head proud, and NEVER clamps",
