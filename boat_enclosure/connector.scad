@@ -37,7 +37,6 @@ hull_dx        = conn_rail_span/2 + hd_x;   // stern-box centre so its inboard l
 // ---- bracket geometry ---------------------------------------------------
 conn_w        = mm_block_depth;// fore-aft width = the stern block depth (14): the bracket sits FLUSH with the
                                // block/pylon-mount faces on the housing, not proud (Patrick 2026-08-19)
-conn_boss     = 7;             // X half-extent of the pad around the outer screw axis
 conn_in       = 9;            // how far the inner edge reaches PAST the insert axis (toward the centreline)
 conn_clr      = 0.3;           // notch slide-on clearance: the box negative is also subtracted shifted +/-conn_clr
                                // in X so the lug's inboard/outboard faces clear as the bracket drops on (Y seats
@@ -67,29 +66,29 @@ module stern_placed(sgn) {
         children();
 }
 
-// The box negative = the REAL 3D box (an EXACT per-Z notch -- keeps a full CLOSED boss round the barrel screw,
-// unlike a max-extent silhouette which over-cuts it open).  With clr>0 it is also subtracted shifted +/-clr in X
-// so the lug's side faces clear as the bracket drops on.  The lug's screw-hole leaves a peg concentric with the
-// OUTER barrel bore (5.5), which removes it.
-module box_negative(sgn, clr) {
-  b = role_of_side(sgn < 0 ? "port" : "starboard");
-  stern_placed(sgn) body(b);
-  if (clr > 0) for (dx = [clr, -clr]) translate([dx, 0, 0]) stern_placed(sgn) body(b);
-}
-
-// ONE bracket at hull sgn (-1 port / +1 starboard), fore-aft station z_st.  clr>0 adds the slide-on fit gap
-// (the assembly preview uses 0 for an exact/faster notch; the printed part uses conn_clr).
+// ONE bracket at hull sgn (-1 port / +1 starboard), fore-aft station z_st.  clr = slide-on fit gap.
+//
+// The notch is a clean LUG-SHAPED POCKET (a prism sized to the lug's outer box), NOT the raw box subtracted:
+// the raw box dragged its own INTERNAL voids in -- the lug's hex-nut pocket became a hex PEG and the block's
+// slots/bores became thin WEBS, both nasty overhangs (Patrick 2026-08-19).  Instead the blank simply STOPS clr
+// inboard of the block face (no block overlap -> no block negative needed) and a rectangular pocket clears the
+// lug.  The lug's rounded aft corners just get a touch more clearance; the flat inboard + top faces (which
+// locate + seat the bracket) fit exactly, and the barrel-screw boss stays fully CLOSED.
 module connector_solid(sgn, z_st, clr = 0) {
-  scr = sgn*conn_rail_span/2;                 // outer screw axis (on the inner rail / box inboard lug)
-  ins = sgn*hd_x;                             // inner insert axis (under the centre-box lug)
-  xo  = scr + sgn*conn_boss;                  // outboard edge (a boss past the screw, into the box -> carved back)
-  xi  = ins - sgn*conn_in;                    // inboard edge (a boss past the insert, toward the centreline)
+  scr    = sgn*conn_rail_span/2;                    // outer screw axis (on the inner rail / box inboard lug)
+  ins    = sgn*hd_x;                                // inner insert axis (under the centre-box lug)
+  blk_in = sgn*(hull_dx - mm_pad_w/2);              // stern block INBOARD face (world X)
+  xo     = blk_in - sgn*clr;                        // outboard edge: clr inboard of the block face (no overlap)
+  xi     = ins - sgn*conn_in;                       // inboard edge (a boss past the insert, toward the centreline)
   xlo = min(xo, xi);  xhi = max(xo, xi);
+  lug_lo = min(scr - hd_w/2, scr + hd_w/2) - clr;   // lug pocket X span (+clr each side for the drop-on fit)
+  lug_hi = max(scr - hd_w/2, scr + hd_w/2) + clr;
   difference() {
-    // rectangular blank (front view), spanning lug->centre-box, deck->centre-box floor
+    // rectangular blank (front view), block face -> centre-box, deck -> centre-box floor
     translate([xlo, conn_ytop, z_st - conn_w/2]) cube([xhi - xlo, conn_ybot - conn_ytop, conn_w]);
-    // NEGATIVE: the real 3D box (exact per-Z notch), dilated by clr in X for the slide-on fit
-    box_negative(sgn, clr);
+    // LUG POCKET: a prism from the lug top (Y=hd_top_y, where the bracket SEATS) down past the deck, through
+    // the full width -> the lug drops in from below; no top gap (it rests on the lug), clr on the side faces.
+    translate([lug_lo, hd_top_y, z_st - conn_w/2 - eps]) cube([lug_hi - lug_lo, (D - hd_top_y) + 1, conn_w + 2*eps]);
     // OUTER barrel-head cap: counterbore from the top + M4 clearance all the way down through the lug
     translate([scr, conn_ytop - eps, z_st]) rotate([-90,0,0]) cylinder(h = (conn_ybot - conn_ytop) + float_thickness, d = conn_clear_d);
     translate([scr, conn_ytop - eps, z_st]) rotate([-90,0,0]) cylinder(h = conn_barrel_h + eps, d = conn_barrel_d);
@@ -103,8 +102,8 @@ module connector_solid(sgn, z_st, clr = 0) {
 // The notch is a through-profile feature (no overhang); the two bores print horizontal (fine for a clearance
 // hole and a heat-set insert).  main.scad / STL export renders this; the assembly uses connector_solid.
 module connector_print(sgn) {
-  scr = sgn*conn_rail_span/2;  ins = sgn*hd_x;
-  xo  = scr + sgn*conn_boss;   xi = ins - sgn*conn_in;
+  ins = sgn*hd_x;   blk_in = sgn*(hull_dx - mm_pad_w/2);
+  xo  = blk_in - sgn*conn_clr;   xi = ins - sgn*conn_in;
   translate([-(xo + xi)/2, -(conn_ytop + conn_ybot)/2, -(conn_z_fore - conn_w/2)])
     connector_solid(sgn, conn_z_fore, conn_clr);
 }
