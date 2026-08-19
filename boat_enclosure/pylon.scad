@@ -35,8 +35,9 @@ module td_bore(h, d, ctr=false)
 // (head_aft -- the oversized vertical head aft face for the tilt-trim -- is derived in common.scad.)
 
 // ---- 2D structural silhouette (X = fore-aft +aft, Y = up-mast) ------------------------------------------
-//   main body : forward face flat at X=0 (block mating plane, extended up as the mast front) ; deep aft base
-//               (base_aft) tapering to the head aft face -> the DEEP BUTTRESS that resists reverse thrust.
+//   main body : forward face flat at X=0 (block mating plane, extended up as the mast front) ; aft face a nearly
+//               full-depth slab (base_aft at the foot -> head_aft at the head, ~1 mm of taper) = the DEEP, STIFF
+//               BUTTRESS base that resists reverse thrust (a short mast wants section, not a dramatic taper).
 //   fwd gusset: crisp forward brace, flat underside on the block top (fg_y0) reaching to the stern wall
 //               (-fg_reach), apex at the hub height (0,fg_y1) -> compression path that off-loads the bolts.
 //   tongue    : crisp register key into the block slot.
@@ -67,9 +68,17 @@ module pylon_cut(rot = mount_rot) {
     if (motor_boss_reach > 0)                                                 // central relief only if a long boss pokes past the guard
       translate([pad_aft - (motor_boss_reach + 1), pylon_rise, motor_zc]) td_bore(motor_boss_reach + 3, motor_boss_d);
   }
-  // 4x M4 FOOT bolts: clearance channels along +X through the foot into the block (frozen connector, not tilted).
+  // 4x M4 FOOT bolts: clearance along +X through the foot to the ACTUAL (buttress) aft face + a socket-head
+  // COUNTERBORE recessed from that face (bolt inserted from aft, threads into the block insert; frozen, not tilted).
+  // The re-added deep buttress pushed the aft face back to ~base_aft, so the bore MUST reach it -- a pad_aft-length
+  // bore would dead-end ~5 mm inside the buttress and the pylon could not be bolted on (review blocker, 2026-08-19).
   for (sy = [-1,1], sz = [-1,1])
-    translate([-eps, foot_h/2 + sy*mm_bolt_y/2, pylon_width/2 + sz*mm_bolt_x/2]) td_bore(pad_aft + 2*eps, pylon_bolt_d);
+    let (by    = foot_h/2 + sy*mm_bolt_y/2,
+         bz    = pylon_width/2 + sz*mm_bolt_x/2,
+         x_aft = base_aft + (head_aft - base_aft)*(by/pad_y0)) {   // buttress aft face X at this bolt height
+      translate([-eps, by, bz])                td_bore(x_aft + 2,        pylon_bolt_d);   // clearance -> through the aft face
+      translate([x_aft - foot_cbore_h, by, bz]) td_bore(foot_cbore_h + 2, foot_cbore_d);   // socket-head counterbore from aft
+    }
 }
 
 // the finished part: solid, trimmed to the tilted pad, bored.  Used by the standalone render AND main.scad's drive().
