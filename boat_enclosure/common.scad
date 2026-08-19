@@ -758,10 +758,13 @@ flare_y      = foot_h + flare_lift;                       // the foot stays full
 // Patrick 2026-08-16 (wire routing): the A2212 leads exit in the gap between two screws.  One hull keeps LONG vertical; the
 // OTHER turns the motor 90deg so BOTH motors' tails exit INBOARD (toward the boat centre) and route down the wire slot.
 // The pattern stays a "+" either way (long/short just swap axes), so the slot's 45deg diagonal gap is always clear of a bolt.
-function mholes(rot) = (rot == 90)                          // A2212 cross [dY (up-mast), dZ (width)] rotated by `rot`
-  ? [ [0,  motor_bolt_long/2], [0, -motor_bolt_long/2], [ motor_bolt_short/2, 0], [-motor_bolt_short/2, 0] ]  // LONG across width (Z)
-  : [ [ motor_bolt_long/2, 0], [-motor_bolt_long/2, 0], [0,  motor_bolt_short/2], [0, -motor_bolt_short/2] ]; // LONG up-mast (Y)
-mount_rot   = (motor_offset_dir < 0) ? 90 : 0; // which hull turns the motor 90deg (right hull) -- VERIFY by eye
+// A2212 cross [dY (up-mast), dZ (width)] rotated by `rot` deg (any angle -- the base cross has LONG up-mast, SHORT
+// across width; rotate each hole in the Y-Z plane).  rot=0 -> LONG up-mast ; 90 -> LONG across ; 45/135 -> diagonal.
+function mholes(rot) =
+  let (base = [ [motor_bolt_long/2, 0], [-motor_bolt_long/2, 0], [0, motor_bolt_short/2], [0, -motor_bolt_short/2] ])
+  [ for (b = base) [ b[0]*cos(rot) - b[1]*sin(rot), b[0]*sin(rot) + b[1]*cos(rot) ] ];
+mount_rot   = (motor_offset_dir < 0) ? 135 : 45; // motor clocked +45deg (Patrick 2026-08-19) so the wire exits HORIZONTAL-inboard
+                                                 // (was 0/90); the 90deg L/R offset is kept -- the bolt pattern must match the clocked motor.  VERIFY by eye
 motor_holes = mholes(mount_rot);               // global (for the standalone part export); main.scad passes per-hull rot
 // NOSE-DOWN motor tilt (anti-nose-dive): rotate the motor pad + bores + guard + prop about the WIDTH (Z) axis at the
 // hub so the prop thrust points forward+DOWN by motor_tilt.  Pivot Z is irrelevant (Z-axis rotation stays in X-Y).
@@ -1108,9 +1111,14 @@ guard_arc         = 180;    // Patrick 2026-08-16: a full HALF circle (symmetric
                             // symmetric arc lets the spars land every 45deg -> on the mounting-square DIAGONALS + axes.
 guard_arc_bias    = 45;     // Patrick 2026-08-16: lean the HALF circle 45deg so the OUTBOARD side gets the most
                             // protection -- the arc centre sits on the top-outboard diagonal (135 deg) and the open
-                            // side faces down-INBOARD, where the wire slot already exits toward the boat centre.
+                            // side faces down + INBOARD, and the wire slot exits HORIZONTAL-inboard toward the boat centre.
                             // In guard-local the OUTBOARD side is -X / 180 deg (a_ctr = 90 + this*motor_offset_dir);
                             // the per-hull mirror carries it to the right side on each hull -- VERIFY by eye.
+// The lowered mast drops the guard's DOWN-OUTBOARD tip ~5 mm below the deck (it nicks the fibre-glassed aft deck,
+// which can't be knifed -- Patrick 2026-08-19).  Trim that many degrees off the a1 (down-outboard) end of the arc so
+// the guard clears the deck.  Only the down-outboard end pulls up (guard_a0, the up-inboard end, stays), so the
+// TOP + OUTBOARD coverage is kept; the lost wedge is on the down-outboard side, which was already the open half.
+guard_arc_lo_trim = 28;     // deg trimmed off the down-outboard (a1) arc end for deck clearance (0 = full 180 half-circle)
 guard_tip_gap     = 6;      // radial clearance: prop tip -> rim INNER (the rim must clear a flexing blade)
 guard_t           = 5;      // frontal-plate thickness (Z / axial) -- ALSO the washer thickness (its flat aft face bears the motor)
 // --- edge language (matches the pylon: round EVERYTHING ~2.5 EXCEPT bed-contact edges, which stay crisp) ---
@@ -1177,8 +1185,9 @@ guard_standoff = (mm_block_aft_z - pad_aft) - prop_disc_z;  // pad face -> prop 
 // arc centre from +X (90 = top; bias leans toward OUTBOARD = the side the motor sits on).  The lean follows the mast
 // side (guard-local +X <-> pylon -Z), so the sign tracks motor_offset_dir.  VERIFY by eye in the assembly.
 guard_a_ctr    = 90 + guard_arc_bias * (mount_to=="motor" ? motor_offset_dir : 1);
-guard_a0       = guard_a_ctr - guard_arc/2;          // arc start / end
-guard_a1       = guard_a_ctr + guard_arc/2;
+guard_a0       = guard_a_ctr - guard_arc/2;                       // up-INBOARD arc end (kept)
+guard_a1       = guard_a_ctr + guard_arc/2 - guard_arc_lo_trim;   // down-OUTBOARD arc end, pulled UP for deck clearance
+guard_arc_draw = guard_a1 - guard_a0;                            // the actual drawn arc span (rings extrude over this)
 guard_full_ring = guard_arc >= 359.9;
 // concentric rib radii: legacy spaces them from the hub; bloom spaces them in the OUTER (finned) band, from the collar/hub
 // reach out to the rim (so a rib never lands inside the solid collar).
@@ -1210,9 +1219,11 @@ wire_slot_corner_r = 4;   // the diagonal canal leaves the SQUARE hub through it
 // direction from the hub centre to the INBOARD (toward boat centre) + DOWN (toward the deck) corner, in guard-local
 // (X=width, Y=up-mast).  INBOARD is OPPOSITE the arc lean (the arc covers the exposed OUTBOARD side); DOWN is -Y.  The sign
 // tracks motor_offset_dir -- VERIFY by eye (a mirror is probe-invisible; see the L/R memory).
-// slot angle (guard-local): -Y is DOWN; the X sign puts it toward the INBOARD corner.  wsa(dir) for the standalone part;
-// main.scad passes each hull its own tuned angle (the assembly then shows the REAL routing, not a mirrored fake).
-function wsa(dir) = atan2(-guard_hub_h/2, dir * guard_hub_w/2);
+// slot angle (guard-local): HORIZONTAL toward the INBOARD side (+X for dir>0).  Patrick 2026-08-19: route the leads
+// straight INBOARD, not down-and-in -- the motor is clocked ~45deg (see mount_rot) so its wire exits horizontally,
+// and this slot follows.  (Was atan2(-h/2, dir*w/2) ~= -48deg = down-inboard corner.)  The per-hull mirror carries
+// +X -> the correct inboard side on each hull -- VERIFY by eye (a mirror is probe-invisible; see the L/R memory).
+function wsa(dir) = dir > 0 ? 0 : 180;
 wire_slot_ang = wsa(motor_offset_dir);
 
 // =====================================================================

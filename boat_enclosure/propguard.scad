@@ -241,7 +241,7 @@ module guard_legacy() {
 // a chamfered-top rectangular-section arc (mid ring / proud rim): flat crisp bed, both top corners chamfered.
 module guard_ring_rugged(r_in, w, h)
   let(ch = min(guard_edge_ch, w/2 - 0.2, h - 0.2), ro = r_in + w, ext = guard_full_ring ? 0 : guard_shroud_ext)
-  rotate([0,0,guard_a0 - ext]) rotate_extrude(angle = guard_full_ring ? 360 : guard_arc + 2*ext, $fn = 280)
+  rotate([0,0,guard_a0 - ext]) rotate_extrude(angle = guard_full_ring ? 360 : guard_arc_draw + 2*ext, $fn = 280)
     polygon([[r_in,0],[ro,0],[ro,h-ch],[ro-ch,h],[r_in+ch,h],[r_in,h-ch]]);
 // a straight radial BAR from ri to ro, chamfered top+sides, crisp bed.
 module guard_bar_rugged(a, ri, ro)
