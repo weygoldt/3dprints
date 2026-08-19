@@ -217,8 +217,11 @@ selftap_depth   = 9;         // pilot depth up from the underside
    nothing sticks up inside the housing and no bore breaches the chamber (probe-checked).  Sitting
    right at the ends (Z ~ +/-100) also gives a much WIDER hold-down base than the old +/-79 bosses,
    which the old MOUNT NOTE flagged as too narrow vs the aft mast (less pitch, less bolt tension). */
-corner_mount    = false;     // Patrick 2026-08-16: DEPRECATED -- the boxes now screw to the RECESSED RAILS, not through the
-                             // foam.  (was the external corner-lug hold-down.)  TODO: add box-floor bolt holes at the rail lugs.
+corner_mount    = true;      // 2026-08-19 (Patrick): RE-ENABLED -- the corner "mickey-mouse ear" lugs (hex-nut pocket +
+                             // M4 clearance) are the boxes' hold-down: a socket-cap screw drops through each lug into the
+                             // RECESSED RAIL's heat-set insert below.  They also anchor the elevated centre box's connector
+                             // brackets (see connector.scad).  (Was DEPRECATED 2026-08-16 when the rail hold-down was
+                             // assumed floor-direct; the lugs are the actual bolt bosses, so they belong on every box.)
 hd_post_h       = 16;        // lug height ABOVE the foam (Y) -- sets the (short) hold-down bolt length: foam + this
 hd_w            = 16;        // lug width (X): overlaps the block side for a weld AND stays INBOARD of the box's
                              // rounded corner tangent (W/2-corner_r) so it merges into the FLAT wall, no corner notch
