@@ -59,15 +59,23 @@ module pad_trim() motor_tilted() translate([pad_aft, -600, -600]) cube([600, 120
 // +X through the frozen foot into the block.  All teardrops (apex +Z) -> supportless in the side-print.
 module pylon_cut(rot = mount_rot) {
   seat_x = pad_aft - motor_seat_t;
+  // M3 screw CLEARANCE + boss: TILTED (perpendicular to the pad, so the screw threads square into the tilted motor).
   motor_tilted() {
-    for (h = mholes(rot)) {
-      hy = pylon_rise + h[0]; hz = motor_zc + h[1];
-      translate([-2,     hy, hz]) td_bore(seat_x + 2,       motor_head_d);   // FRONT-access head counterbore
-      translate([seat_x, hy, hz]) td_bore(motor_seat_t + 2, motor_screw_d);  // M3 screw clearance through the seat
-    }
+    for (h = mholes(rot))
+      translate([seat_x, pylon_rise + h[0], motor_zc + h[1]]) td_bore(motor_seat_t + 3, motor_screw_d);  // seat -> into the motor
     if (motor_boss_reach > 0)                                                 // central relief only if a long boss pokes past the guard
       translate([pad_aft - (motor_boss_reach + 1), pylon_rise, motor_zc]) td_bore(motor_boss_reach + 3, motor_boss_d);
   }
+  // DRIVER ACCESS: a STRAIGHT fore-aft tunnel per screw, forward face -> the screw head at the seat.  It must NOT
+  // follow the 13deg tilt: a tilted tunnel exits the forward face ~6 mm too LOW (into the block-mating region) for
+  // the bottom holes, so the driver can't reach them (the defect Patrick spotted).  Straight, each tunnel opens at
+  // the hole's OWN height -- all ABOVE the block top -- and a ball-end M3 key reaches the 13deg-tilted head easily.
+  // (Assembly: bolt the motor to the pylon on the BENCH, front fully open; then bolt the pylon to the boat.)
+  for (h = mholes(rot))
+    let (wy = pylon_rise + h[0]*cos(motor_tilt) - motor_seat_t*sin(motor_tilt),   // head (seat) height, world frame
+         wz = motor_zc + h[1],
+         swx = pad_aft - motor_seat_t*cos(motor_tilt) - h[0]*sin(motor_tilt))     // head (seat) X, world frame
+      translate([-eps, wy, wz]) td_bore(swx + eps, motor_head_d);                 // forward face -> the head
   // 4x M4 FOOT bolts: clearance along +X through the foot to the ACTUAL (buttress) aft face + a socket-head
   // COUNTERBORE recessed from that face (bolt inserted from aft, threads into the block insert; frozen, not tilted).
   // The re-added deep buttress pushed the aft face back to ~base_aft, so the bore MUST reach it -- a pad_aft-length
