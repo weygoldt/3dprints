@@ -66,18 +66,21 @@ module pylon_cut(rot = mount_rot) {
     if (motor_boss_reach > 0)                                                 // central relief only if a long boss pokes past the guard
       translate([pad_aft - (motor_boss_reach + 1), pylon_rise, motor_zc]) td_bore(motor_boss_reach + 3, motor_boss_d);
   }
-  // DRIVER ACCESS: a STRAIGHT fore-aft tunnel per screw, from FORWARD of the gusset -> the screw head at the seat.
-  // Two things it must do: (1) NOT follow the 13deg tilt -- a tilted tunnel exits ~6 mm too LOW (into the block-mating
-  // region) for the bottom holes, so the driver can't reach them; straight, each opens at the hole's OWN height, all
-  // ABOVE the block top.  (2) Pass THROUGH the forward gusset (Patrick 2026-08-19) so the gusset stays (its compression
-  // path to the block top) but the ball-end M3 key still reaches every head.  Start at the gusset front (-fg_reach) so
-  // the approach is bored clear at every height.  The seat depth (motor_seat_t) is uniform -> ALL 4 SCREWS ARE M3x14.
-  // (Assembly: bolt the motor to the pylon on the BENCH, front fully open; then bolt the pylon to the boat.)
-  for (h = mholes(rot))
-    let (wy = pylon_rise + h[0]*cos(motor_tilt) - motor_seat_t*sin(motor_tilt),   // head (seat) height, world frame
-         wz = motor_zc + h[1],
-         swx = pad_aft - motor_seat_t*cos(motor_tilt) - h[0]*sin(motor_tilt))     // head (seat) X, world frame
-      translate([-fg_reach - eps, wy, wz]) td_bore(swx + fg_reach + eps, motor_head_d);  // through the gusset -> the head
+  // HEAD COUNTERBORE + DRIVER ACCESS: one bore per screw, COAXIAL WITH THAT SCREW -- so it lives inside
+  // motor_tilted() with the M3 clearance it continues, and the two are one straight hole from daylight to the motor.
+  //   WHY (Patrick, 2026-08-20 -- "a barrel head will not go in there and pass through the screw hole"): this bore
+  //   used to run STRAIGHT fore-aft while the screw is TILTED, so the two met at a motor_tilt KINK right at the seat.
+  //   A screw is rigid: it can only travel along its own axis, and that axis walked out of the straight tunnel within
+  //   ~5 mm and then bored into solid mast.  _probe_screw.scad measures 571 mm^3 of PLA standing in the 4 screws'
+  //   insertion paths -- all four were blocked, and the seat face was not square to the head either.  The old comment
+  //   here justified the straight bore by "a tilted tunnel exits too low for the bottom holes": true, they now descend
+  //   as they run forward and clip the forward gusset's angled front tip -- which Patrick pre-authorised removing, is
+  //   the least-loaded knife edge of the gusset, and is measured by the driver_bear_clear echo guard in common.scad.
+  //   Access on the boat is unchanged in kind (the mouths still open above the block); the motor goes on at the BENCH
+  //   with the front fully open anyway.  Uniform seat depth -> ALL 4 SCREWS ARE STILL THE SAME LENGTH.
+  motor_tilted() for (h = mholes(rot))
+    translate([-driver_reach, pylon_rise + h[0], motor_zc + h[1]])
+      td_bore(driver_reach + seat_x, motor_head_d);      // daylight -> the head seat (floor square to the screw)
   // 4x M4 FOOT bolts: clearance along +X through the foot to the ACTUAL (buttress) aft face + a socket-head
   // COUNTERBORE recessed from that face (bolt inserted from aft, threads into the block insert; frozen, not tilted).
   // The re-added deep buttress pushed the aft face back to ~base_aft, so the bore MUST reach it -- a pad_aft-length

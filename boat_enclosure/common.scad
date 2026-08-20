@@ -384,11 +384,22 @@ motor_head_d     = 8.0;   // socket-cap head + hex-driver access bore dia (front
 // the dive WORSE).  Implemented as a rotation of the motor pad + bores + guard about the WIDTH (Z) axis at the
 // hub, so it lives entirely in the side-print's 2D plane.
 //   angle = atan(dz/dx):  dz = hub height above the CoM (~46 mm, robust) ; dx = motor distance BEHIND the CoM
-//   (fore-aft; the sensitive term -- depends on where the loaded boat balances).  The motor sits ~131 mm aft of
-//   the back-box centre / ~211 mm aft of the deck centre.  CoM near the deck centre -> ~11 deg ; near the back
-//   boxes (battery+ESC there) -> ~19 deg.  Default a touch steep (a small bow-up reserve beats residual dive;
-//   hull drag adds bow-down).  It is a KNOB -- tune it after a wet test.
-motor_tilt       = 13;    // degrees the prop thrust points DOWN below horizontal (0 = straight forward).  Rotation
+//   (fore-aft; the sensitive term -- depends on where the loaded boat balances).  Measured off THIS model, the
+//   hub sits 131 mm aft of the back-box centre and 251 mm aft of the deck centre (deck_center_z = 40; an earlier
+//   comment said 211 because it measured to the assembly origin, not the deck centre).  So: CoM at the deck
+//   centre -> 10.4 deg ; CoM at the back-box centre -> 19.4 deg.
+//   2026-08-20, Patrick: all 3 boxes now ride in the BACK (the nose-heavy front pair is gone -- both stern
+//   boxes AND the centre box sit at box_back_z), so he reads the loaded CoM as "somewhere in the back third"
+//   and set the tilt to 10 deg.  FLAGGING THE DIRECTION, because it runs the other way: a CoM further AFT sits
+//   CLOSER to the motor, which SHRINKS dx and makes the aim-at-the-CoM angle STEEPER, not shallower.  The
+//   payload is now concentrated at the back-box station, 131 mm ahead of the hub -> aim-at-CoM would be ~19
+//   deg; only the (light, large) foam pulls the balance forward of that.  10 deg instead aims the thrust line
+//   ~10 mm FORWARD of the deck centre, i.e. it deliberately UNDER-corrects and leaves a small residual
+//   bow-down couple.  That is a defensible call on a stern-heavy hull -- over-tilting squats the transom and
+//   costs thrust (sin 10 = 17% of thrust pushed downward, cos 10 = 1.5% lost forward) -- but it is NOT what
+//   the aim-at-CoM formula gives, so record which way to move: if the bow STILL dives, go UP (13 -> 16 -> 19),
+//   not down.  It is a KNOB -- tune it after a wet test.
+motor_tilt       = 10;    // degrees the prop thrust points DOWN below horizontal (0 = straight forward).  Rotation
                           // is about the width axis at the hub; +ve = thrust forward+down (verified by render).
 
 /* [Motor mount + pylon] -- SEPARATE printed pylon bolts to a protruding BLOCK on the
@@ -806,6 +817,19 @@ fg_y0      = foot_h + fwd_gusset_gap;                      // bearing foot (a ha
 // would sit BELOW fg_y0 (inverted).  Climb to the HUB height instead (the thrust application point), clamped just
 // below the pad top -- a stout forward brace bearing on the block top, not a tall climbing slope.
 fg_y1      = min(pylon_rise, pad_y1 - fwd_gusset_top_gap); // apex at the hub (or just below the pad top if shorter)
+// -- driver / head counterbore vs the forward gusset's bearing foot ---------------------------------------
+// The head counterbores are COAXIAL with their screws (pylon.scad), so they follow motor_tilt and DESCEND as
+// they run forward.  The lowest one therefore approaches the gusset's flat block-top bearing face (fg_y0) at
+// the gusset's forward tip.  driver_bear_clear = how much room is left there; negative = the bore has started
+// eating the bearing face (a small negative just nicks the knife-edge tip and is fine, see the echo guard).
+driver_lo_h   = min([for (h = mholes(mount_rot)) h[0]]);      // lowest motor hole, up-mast offset from the hub
+driver_seat_y = pylon_rise + driver_lo_h*cos(motor_tilt) - motor_seat_t*sin(motor_tilt);   // its head seat, world
+driver_seat_x = pad_aft - motor_seat_t*cos(motor_tilt) - driver_lo_h*sin(motor_tilt);
+driver_bear_clear = (driver_seat_y - (driver_seat_x + fg_reach)*tan(motor_tilt)
+                     - (motor_head_d/2)/cos(motor_tilt)) - fg_y0;
+// how far FORWARD of the mating face the coaxial counterbore starts.  Measured in the TILTED frame, so add a
+// margin over the gusset tip (fg_reach): the bore must break out into air at every hole height.
+driver_reach  = fg_reach + 6;
 fg_rise    = fg_y1 - fg_y0;                                // how far up the mast the forward brace climbs (echo/report)
 // aft face of the HEAD, built vertical + OVERSIZED so the tilted-pad trim always has material to cut back to
 // (the pad is most proud at its bottom, ~ (pylon_rise-pad_y0)*tan(tilt) aft of pad_aft).  Used by pylon.scad.
@@ -1255,7 +1279,13 @@ if (mount_to=="motor") {
   echo(str("  SCREW LENGTH: seat ", motor_seat_t, " + guard ", guard_t, " = ", motor_seat_t+guard_t,
            " mm of CLEARANCE before the motor face; the blind A2212 hole is only ~3-4 mm deep.",
            "  ALL 4 SCREWS SAME LENGTH -- the seat depth is uniform, so the head bears at the same depth on every hole",
-           " regardless of the ", motor_tilt, "deg tilt (a ball-end M3 key reaches each head via the straight driver tunnel)."));
+           " regardless of the ", motor_tilt, "deg tilt (the driver bore is COAXIAL with the screw, so a plain M3 key reaches each head)."));
+  echo(str("  HEAD COUNTERBORE is COAXIAL with the screw (tilted ", motor_tilt, " deg): a rigid screw drops straight in and the head",
+           " bears SQUARE on the seat.  (Before 2026-08-20 the bore ran straight fore-aft while the screw was tilted -- the two met at a",
+           " ", motor_tilt, "deg kink and the head jammed; see _probe_screw.scad.)"));
+  echo(str("  lowest driver bore vs the forward gusset's block-top bearing face = ", round(100*driver_bear_clear)/100, " mm ",
+           driver_bear_clear >= -1.0 ? "OK (clears, or grazes only the gusset's knife-edge tip)"
+                                     : "  << WARNING: at this tilt the low driver bores EAT the forward gusset's bearing foot -- shorten fg_reach, or drop fwd_gusset"));
   echo(str("    -> M3 x ", motor_screw_len, " mm is the MAX (", motor_seat_t+guard_t, " + ", motor_engage,
            " engage).  MEASURE your hole depth Hd, buy the nearest M3 <= ", motor_seat_t+guard_t,
            "+Hd, and ROUND DOWN -- a too-long screw BOTTOMS on the hole floor, holds the head proud, and NEVER clamps",
