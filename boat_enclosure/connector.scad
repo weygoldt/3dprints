@@ -66,14 +66,20 @@ module stern_placed(sgn) {
         children();
 }
 
+// The lug negative = the SOLID hold-down lug (its EXACT 3D shape, rounded corners and all), but WITHOUT the
+// box's internal voids: hold_down_lug is the solid post -- the screw hole + hex-nut pocket live in the separate
+// hold_down_lug_cut, which we do NOT subtract, so the notch has NO hex PEG and NO thin WEB (those were the
+// overhangs).  both_ends draws the stern + bow lugs; both X sides are drawn but only the inboard one at z_st
+// lands in the blank.  With clr>0 it is also subtracted shifted +/-clr in X for the drop-on fit.
+module lug_negative(sgn, clr) {
+  module lugs() stern_placed(sgn) both_ends() { hold_down_lug(-1); hold_down_lug(1); }
+  lugs();
+  if (clr > 0) for (dx = [clr, -clr]) translate([dx, 0, 0]) lugs();
+}
+
 // ONE bracket at hull sgn (-1 port / +1 starboard), fore-aft station z_st.  clr = slide-on fit gap.
-//
-// The notch is a clean LUG-SHAPED POCKET (a prism sized to the lug's outer box), NOT the raw box subtracted:
-// the raw box dragged its own INTERNAL voids in -- the lug's hex-nut pocket became a hex PEG and the block's
-// slots/bores became thin WEBS, both nasty overhangs (Patrick 2026-08-19).  Instead the blank simply STOPS clr
-// inboard of the block face (no block overlap -> no block negative needed) and a rectangular pocket clears the
-// lug.  The lug's rounded aft corners just get a touch more clearance; the flat inboard + top faces (which
-// locate + seat the bracket) fit exactly, and the barrel-screw boss stays fully CLOSED.
+// The notch is the EXACT solid lug (snug fit, rounded corners); the blank simply STOPS clr inboard of the block
+// face so the block is never overlapped (no block web) and nothing but the lug is cut.
 module connector_solid(sgn, z_st, clr = 0) {
   scr    = sgn*conn_rail_span/2;                    // outer screw axis (on the inner rail / box inboard lug)
   ins    = sgn*hd_x;                                // inner insert axis (under the centre-box lug)
@@ -81,14 +87,11 @@ module connector_solid(sgn, z_st, clr = 0) {
   xo     = blk_in - sgn*clr;                        // outboard edge: clr inboard of the block face (no overlap)
   xi     = ins - sgn*conn_in;                       // inboard edge (a boss past the insert, toward the centreline)
   xlo = min(xo, xi);  xhi = max(xo, xi);
-  lug_lo = min(scr - hd_w/2, scr + hd_w/2) - clr;   // lug pocket X span (+clr each side for the drop-on fit)
-  lug_hi = max(scr - hd_w/2, scr + hd_w/2) + clr;
   difference() {
     // rectangular blank (front view), block face -> centre-box, deck -> centre-box floor
     translate([xlo, conn_ytop, z_st - conn_w/2]) cube([xhi - xlo, conn_ybot - conn_ytop, conn_w]);
-    // LUG POCKET: a prism from the lug top (Y=hd_top_y, where the bracket SEATS) down past the deck, through
-    // the full width -> the lug drops in from below; no top gap (it rests on the lug), clr on the side faces.
-    translate([lug_lo, hd_top_y, z_st - conn_w/2 - eps]) cube([lug_hi - lug_lo, (D - hd_top_y) + 1, conn_w + 2*eps]);
+    // NEGATIVE: the SOLID lug (exact fit, no internal-void pegs), dilated by clr in X for the slide-on fit
+    lug_negative(sgn, clr);
     // OUTER barrel-head cap: counterbore from the top + M4 clearance all the way down through the lug
     translate([scr, conn_ytop - eps, z_st]) rotate([-90,0,0]) cylinder(h = (conn_ybot - conn_ytop) + float_thickness, d = conn_clear_d);
     translate([scr, conn_ytop - eps, z_st]) rotate([-90,0,0]) cylinder(h = conn_barrel_h + eps, d = conn_barrel_d);
