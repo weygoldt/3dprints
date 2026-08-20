@@ -1,0 +1,85 @@
+// PROBE: did the inboard end actually get rounded, and did rounding it cost anything it shouldn't?
+//
+// Run every mode twice -- once as-is, and once with -D conn_in_round=0.  The second run is the
+// POSITIVE CONTROL: with the round switched off the part is the old sharp one, so a mode that
+// cannot come back non-empty there is a mode that was never measuring anything.
+//
+//  mode="corners" -> 0.8 mm cubes on the 4 CORNERS + the 4 EDGES of the inboard end face.
+//                    rounded: EMPTY.  conn_in_round=0: 8 x 0.512 = 4.096 mm^3.
+//                    The cube is sized to sit provably outside an r=3 round: an edge cylinder is
+//                    cleared when (r-s)*sqrt(2) > r, i.e. s < 0.879, and a corner sphere needs only
+//                    s < 1.27, so 0.8 clears both with margin.
+//  mode="mirror"  -> the part MINUS its own fore-aft mirror about z_st.  Gate on VOLUME, not on
+//                    openscad's "top level object is empty": the two solids' surfaces coincide, so
+//                    the difference comes back as a zero-thickness shell of a few hundred facets
+//                    and openscad reports NoError.  Measured ~1e-7 mm^3 (sub-cubic-micron float
+//                    noise) both directions, and the SHARP part reads the same order -- that is
+//                    the baseline, not a defect.  MUST be ~0 in both
+//                    directions: that mirror symmetry is the whole reason ONE printed piece serves
+//                    both hulls, and a round applied to one width face but not the other would
+//                    quietly put a second bracket on the plate.  (This one is empty for the sharp
+//                    part too -- it is a regression gate, not a discriminator.)
+//  mode="rmirror" -> the reverse difference, so the gate is symmetric.
+//  mode="face_in" -> a 0.5 mm wafer off the INBOARD end.  rounded: 32.252 x 11.265 (inset 1.34 at
+//                    0.5 back from the tip, which is what an r=3 bullnose gives).  sharp: the full
+//                    35 x 14, 12 facets.
+//  mode="face_out"-> the same wafer off the OUTBOARD end.  Rounded and sharp must agree EXACTLY --
+//                    they do: 61.8 mm^3, X -83.200..-82.700, Y 8..27, Z 16.5..23.5 both ways.
+//                    Note that face is only solid over a 7 mm width band and Y 13..27; the notch
+//                    takes the rest.  That is why the corner-cube form of this gate reads empty on
+//                    a perfectly square end, and why this wafer replaced it.
+//  mode="bed"     -> the first layer's footprint: the part sliced at the bed (z0 .. z0+0.2).
+//                    Rounding the width edges is what costs a print overhang here, so this
+//                    measures the cost instead of asserting it away.  1835 -> 1750 mm^2 (-4.6%),
+//                    with the inboard end of the footprint inset 1.96 mm.
+//  mode="outboard"-> the same 0.8 mm cubes on the OUTBOARD end's two width edges.  Must stay
+//                    NON-empty: that end has to remain square to sit flush beside the block face,
+//                    so this is the "did I round the wrong end" gate.
+//                    NOT at the corners: the notch eats this end top AND bottom -- the lug from
+//                    Y=27 down, and the 80 mm^3 wedge the box negative takes out of Y 8..13 (see
+//                    _probe_band.scad).  The face is solid only in Y 13..27, so the cubes sit at
+//                    mid-band.  Probing the corners here reads EMPTY on a perfectly square end.
+include <common.scad>
+use <body.scad>
+include <connector.scad>
+conn_show = "none";
+
+mode = "corners";
+sgn  = -1;
+s    = 0.8;                                  // test-cube side
+z0   = conn_z_fore - conn_w/2;
+xi   = sgn*hd_x - sgn*conn_in;               // the INBOARD end plane
+xo   = sgn*(hull_dx - mm_pad_w/2) - sgn*conn_clr;   // the OUTBOARD end plane
+dir  = (sgn < 0) ? 1 : -1;                   // +X points inboard on port
+
+module part() connector_solid(sgn, conn_z_fore, conn_clr);
+
+// a test cube whose INBOARD face lies on the end plane x, at (y,z)
+module probe_at(x, y, z) translate([x - (dir > 0 ? s : 0), y, z]) cube([s, s, s]);
+
+if (mode == "corners")
+  intersection() {
+    part();
+    union() {
+      for (y = [conn_ytop, conn_ybot - s], z = [z0, z0 + conn_w - s]) probe_at(xi, y, z);   // 4 corners
+      probe_at(xi, conn_ytop,        z0 + conn_w/2 - s/2);                                  // top edge
+      probe_at(xi, conn_ybot - s,    z0 + conn_w/2 - s/2);                                  // bottom edge
+      probe_at(xi, (conn_ytop + conn_ybot - s)/2, z0);                                      // fore edge
+      probe_at(xi, (conn_ytop + conn_ybot - s)/2, z0 + conn_w - s);                         // aft edge
+    }
+  }
+else if (mode == "outboard")
+  intersection() {
+    part();
+    union() for (z = [z0, z0 + conn_w - s]) translate([xo - (dir > 0 ? 0 : s), 20, z]) cube([s, s, s]);
+  }
+else if (mode == "mirror")
+  difference() { part(); translate([0, 0, 2*conn_z_fore]) mirror([0, 0, 1]) part(); }
+else if (mode == "rmirror")
+  difference() { translate([0, 0, 2*conn_z_fore]) mirror([0, 0, 1]) part(); part(); }
+else if (mode == "face_out")   // a 0.5 mm wafer off the OUTBOARD end: its bbox says where that face is solid
+  intersection() { part(); translate([xo - (dir > 0 ? 0 : 0.5), -200, -400]) cube([0.5, 400, 800]); }
+else if (mode == "face_in")    // the same wafer off the INBOARD end
+  intersection() { part(); translate([xi - (dir > 0 ? 0.5 : 0), -200, -400]) cube([0.5, 400, 800]); }
+else if (mode == "bed")
+  intersection() { part(); translate([-200, -200, z0]) cube([400, 400, 0.2]); }

@@ -1,5 +1,6 @@
 // PROBE: what occupies the NEW 5 mm band (Y 8..13) that box3_lift 30 -> 35 added?
-// Answer (measured 2026-08-20, $fn=96): the band is 3867.0 mm^3 of bracket -- a full-span slab
+// Answer (measured 2026-08-20, $fn=96, BEFORE the inboard end was rounded -- it now reads
+// 3816.2, the difference being the round's bite out of this band): the band is 3867.0 mm^3 -- a full-span slab
 // (61.2 x 5 x 14) minus the two bores minus an 80.0 mm^3 wedge the box negative eats at the
 // TOP-OUTBOARD corner (X -83.2..-67.2).  So the notch does follow the box up into the new band;
 // it is not a plain slab.  "ctrl" is the positive control: the negative IS non-empty one band down.
