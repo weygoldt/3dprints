@@ -20,8 +20,9 @@
 //      needs ~30.5 mm + the rail insert (~9) => M4 x ~40 (it was ~35 at lift 30).
 //    * INNER end : its TOP is the centre-box FLOOR plane; an M4 HEAT-SET INSERT
 //      is bored down there and the centre box's own lug screws DOWN into it.
-//      This end is also the one the WIRING runs past (it faces the gap under the
-//      centre box), so all four of its edges carry a round -- see conn_in_round.
+//      This is also the FREE end, reaching toward the centreline, that the WIRING
+//      runs past (it faces the gap under the centre box).  It is shaped as a rounded
+//      TONGUE -- a full semicircle in plan, not a square end -- see conn_in_round.
 //
 //  MEASURED interface (Patrick, 2026-08-19):
 //    inner-rail to inner-rail screw spacing = conn_rail_span = 155 mm
@@ -57,20 +58,19 @@ conn_clear_d  = 5.5;           // M4 clearance shank through the bracket + lug -
                                // hull-width slop is absorbed (the notch self-references to the lug, so the screw
                                // still lands on the rail insert; the head is captured in the 7.5 counterbore)
 
-// ---- INBOARD END ROUND (the free end, pointing away from the stern housing) --
-// The wiring runs through the gap under the centre box, i.e. straight past THIS end,
-// so it gets a full round-over instead of four sharp arrises (Patrick 2026-08-20).
-// It is rounded on ALL FOUR edges of the end face, and it has to be: the part is
-// fore-aft MIRROR-SYMMETRIC about its mid-width plane, and that symmetry is the only
-// reason one printed piece serves both hulls.  Treating the bed-side width edge
-// differently from the other one (a 45 deg chamfer there, say, to keep it strictly
-// self-supporting) would break the symmetry and put two brackets back on the plate.
-// So the bed-side edge carries the same round, and the print pays for it in one
-// small overhang -- see the measured figure in AIRBOAT-NOTES / the commit.
-conn_in_round = 3;             // round radius on the inboard end (0 = old sharp end)
-conn_round_fn = 32;            // facets for the round ONLY.  The part is otherwise exported at
-                               // $fn=128; a 3 mm fillet at 128 buries the mesh in facets for a
-                               // sub-0.1 mm gain, and 32 already puts the chord error at ~0.02 mm.
+// ---- INBOARD END TONGUE (the free end, pointing away from the stern housing) --
+// The free end reaching toward the centreline is shaped as a rounded TONGUE, not a square
+// end with a rounded lump added on (Patrick 2026-08-20): in PLAN it is a full SEMICIRCLE of
+// radius conn_w/2, so the arc runs TANGENT to the two side faces and the round IS the shape
+// of the end -- one continuous solid, top and bottom faces flat and unbroken across the join.
+// The flat top is load-bearing (the centre-box lug seats across the full 14 mm width at the
+// insert axis), so it stays flat; the tongue only reshapes the free stub beyond that seat.
+// The part is fore-aft MIRROR-SYMMETRIC about its mid-width plane -- a semicircle is inherently
+// symmetric there -- which is the only reason ONE printed piece serves both hulls.
+conn_in_round = 3;             // >0 selects the rounded tongue; 0 = old SHARP square end (the probe control).
+                               // The tongue radius is fixed by tangency (conn_w/2), so this is now on/off, not a size.
+conn_round_fn = 32;            // facets for the tongue semicircle ONLY.  The part is otherwise exported at
+                               // $fn=128; 32 already puts the chord error on a 7 mm arc at ~0.05 mm.
 
 // ---- inner fastener: M4 heat-set insert (centre box screws DOWN into it) --
 conn_ins_d    = insert_d;      // 5.6 heat-set hole (common.scad; MEASURE yours)
@@ -101,34 +101,35 @@ module box_negative(sgn, clr, z_st) {
   if (clr > 0) for (dx = [clr, -clr]) translate([dx, 0, 0]) sym();
 }
 
-// A box with EVERY edge rounded to r -- the hull of eight spheres sitting on the inset corners.
-// Used only to shape the inboard nose, where a rounded box is exactly what is wanted; the sharp
-// edges it also produces at its outboard end are deliberately buried inside the main body below.
-module rbox(org, size, r)
-  hull() for (i = [r, size[0]-r], j = [r, size[1]-r], k = [r, size[2]-r])
-    translate([org[0]+i, org[1]+j, org[2]+k]) sphere(r = r, $fn = conn_round_fn);
+// The 2D PLAN outline of the bracket (looking straight down the height): SQUARE at the outboard end
+// (it seats flush beside the block face and its notch mates the lug), and a full SEMICIRCLE of
+// radius R = conn_w/2 at the inboard end.  Because R is exactly half the width, that arc runs
+// TANGENT to the two side faces -- the round IS the shape of the end, flowing straight out of the
+// bar, instead of a rounded lump added onto a rectangular plate (Patrick 2026-08-20).  Centred on
+// fore-aft 0; the caller translates it to z_st.
+module conn_plan(xlo, xhi, sgn, R) {
+  ax  = (sgn < 0) ? xhi - R : xlo + R;               // semicircle centre: R short of the inboard end
+  rlo = (sgn < 0) ? xlo : ax;                         // rectangle spans the bar up to that centre;
+  rhi = (sgn < 0) ? ax  : xhi;                        //   the circle completes the inboard end
+  union() {
+    translate([rlo, -conn_w/2]) square([rhi - rlo, conn_w]);
+    translate([ax, 0])          circle(r = R, $fn = conn_round_fn);
+  }
+}
 
-// The blank: SQUARE at the outboard end, ROUNDED at the inboard one.
-//
-// Built as a full-section main body that stops r short of the inboard end, plus a fully rounded
-// nose 3r long that overlaps it.  The overlap is what makes this exact rather than approximate:
-// the nose's OWN outboard rounding lives in [xin-3r, xin-2r], which the main body fills at full
-// section, so the only rounding that survives into the surface is the last r at the inboard end.
-// Shorten that overlap and a groove appears at the seam where the nose's far rounding pokes out.
+// The blank = that plan outline extruded through the full bracket height.  ONE solid: the inboard
+// end is a genuine rounded tongue (vertical semicircular wall), not a cap butted onto a bar, so the
+// top and bottom faces stay flat and CONTINUOUS across the join -- no seam, no step.  The flat top
+// matters: the centre-box lug (~14.5 mm fore-aft) seats across the full 14 mm top width at the
+// insert axis (|x|=31), so the top must not be rounded; the tongue only reshapes the free stub
+// beyond it (tip at |x|=22).  conn_in_round>0 selects the tongue; 0 restores the old sharp blank.
 module conn_blank(xlo, xhi, z_st, sgn, r) {
   y0 = conn_ytop;  yh = conn_ybot - conn_ytop;  z0 = z_st - conn_w/2;
-  rr = min(r, (yh - eps)/2, (conn_w - eps)/2, (xhi - xlo)/3);   // never let the round eat the section
-  if (rr <= 0) {
-    translate([xlo, y0, z0]) cube([xhi - xlo, yh, conn_w]);
+  R  = min(conn_w/2, (xhi - xlo)/2 - eps);           // tangent semicircle radius = half the width
+  if (r <= 0) {
+    translate([xlo, y0, z0]) cube([xhi - xlo, yh, conn_w]);   // conn_in_round=0 -> old SHARP end (gate control)
   } else {
-    mlo = (sgn < 0) ? xlo            : xlo + rr;      // main body: full section, stops rr short
-    mhi = (sgn < 0) ? xhi - rr       : xhi;           //           of the INBOARD end
-    nlo = (sgn < 0) ? xhi - 3*rr     : xlo;           // nose: 3rr long, rounded all over, its far
-    nhi = (sgn < 0) ? xhi            : xlo + 3*rr;    //       end buried in the main body
-    union() {
-      translate([mlo, y0, z0]) cube([mhi - mlo, yh, conn_w]);
-      rbox([nlo, y0, z0], [nhi - nlo, yh, conn_w], rr);
-    }
+    translate([0, y0, z_st]) rotate([-90, 0, 0]) linear_extrude(yh) conn_plan(xlo, xhi, sgn, R);
   }
 }
 
@@ -175,8 +176,9 @@ echo(str("  reach ", conn_rail_span/2 - hd_x, " mm (screw at X=+/-", conn_rail_s
 echo(str("  block Y ", conn_ytop, "..", conn_ybot, " (centre-box floor ", conn_ytop, " = ", box3_lift, " above deck) ; width ", conn_w));
 echo(str("  outer barrel M4 cap CB ", conn_barrel_d, "x", conn_barrel_h, " / clr ", conn_clear_d,
          " ; inner M4 insert ", conn_ins_d, "x", conn_ins_deep, " ; notch clearance ", conn_clr));
-echo(str("  INBOARD end (the wire side, away from the housing) rounded r=", conn_in_round,
-         " on all 4 edges", conn_in_round > 0 ? "" : "  << OFF: sharp arrises where the wiring runs"));
+echo(str("  INBOARD end (the wire side, away from the housing): ",
+         conn_in_round > 0 ? str("rounded TONGUE, semicircle r=", conn_w/2, " (tangent to the sides)")
+                           : "SHARP square end  << rounding OFF"));
 
 // the four fore-aft lug stations the brackets sit at (box lugs are at box_back_z +/- 100)
 conn_z_fore = box_back_z + 100;   // fore end block  (+20)

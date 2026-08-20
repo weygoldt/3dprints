@@ -5,10 +5,12 @@
 // cannot come back non-empty there is a mode that was never measuring anything.
 //
 //  mode="corners" -> 0.8 mm cubes on the 4 CORNERS + the 4 EDGES of the inboard end face.
-//                    rounded: EMPTY.  conn_in_round=0: 8 x 0.512 = 4.096 mm^3.
-//                    The cube is sized to sit provably outside an r=3 round: an edge cylinder is
-//                    cleared when (r-s)*sqrt(2) > r, i.e. s < 0.879, and a corner sphere needs only
-//                    s < 1.27, so 0.8 clears both with margin.
+//                    The inboard end is now a semicircular TONGUE (r=conn_w/2=7): at the end plane
+//                    the only solid is the APEX LINE at mid-width, full height.  So the 4 corners
+//                    AND the two side (fore/aft) edge cubes read EMPTY, while the top+bottom edge
+//                    cubes sit ON that apex line and stay solid -> 2 x 0.512 = 0.9988 mm^3.
+//                    conn_in_round=0 (sharp): all 8 fill -> 4.096 mm^3.  The 4 CORNERS empty vs full
+//                    is the real discriminator (a square end fills them); 0.9988 vs 4.096 gates it.
 //  mode="mirror"  -> the part MINUS its own fore-aft mirror about z_st.  Gate on VOLUME, not on
 //                    openscad's "top level object is empty": the two solids' surfaces coincide, so
 //                    the difference comes back as a zero-thickness shell of a few hundred facets
@@ -20,18 +22,18 @@
 //                    quietly put a second bracket on the plate.  (This one is empty for the sharp
 //                    part too -- it is a regression gate, not a discriminator.)
 //  mode="rmirror" -> the reverse difference, so the gate is symmetric.
-//  mode="face_in" -> a 0.5 mm wafer off the INBOARD end.  rounded: 32.252 x 11.265 (inset 1.34 at
-//                    0.5 back from the tip, which is what an r=3 bullnose gives).  sharp: the full
-//                    35 x 14, 12 facets.
+//  mode="face_in" -> a 0.5 mm wafer off the INBOARD end.  tongue: vol 56.78, full 35 tall but only
+//                    Z 17.43..22.57 wide -- the semicircle's chord 0.5 back from the apex (2*sqrt(7^2
+//                    -6.5^2)=5.20 predicted).  sharp: the full 35 x 14 = 245 mm^3, 12 facets.
 //  mode="face_out"-> the same wafer off the OUTBOARD end.  Rounded and sharp must agree EXACTLY --
 //                    they do: 61.8 mm^3, X -83.200..-82.700, Y 8..27, Z 16.5..23.5 both ways.
 //                    Note that face is only solid over a 7 mm width band and Y 13..27; the notch
 //                    takes the rest.  That is why the corner-cube form of this gate reads empty on
 //                    a perfectly square end, and why this wafer replaced it.
 //  mode="bed"     -> the first layer's footprint: the part sliced at the bed (z0 .. z0+0.2).
-//                    Rounding the width edges is what costs a print overhang here, so this
-//                    measures the cost instead of asserting it away.  1835 -> 1750 mm^2 (-4.6%),
-//                    with the inboard end of the footprint inset 1.96 mm.
+//                    The tongue is a horizontal half-cylinder in the print pose, so its upper half
+//                    overhangs; this measures the first-layer cost.  area 1834.8 -> 1622.8 mm^2
+//                    (-11.6%; sharp footprint reaches x=-22, tongue only to x=-27.4 at the bed edge).
 //  mode="outboard"-> the same 0.8 mm cubes on the OUTBOARD end's two width edges.  Must stay
 //                    NON-empty: that end has to remain square to sit flush beside the block face,
 //                    so this is the "did I round the wrong end" gate.
