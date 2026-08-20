@@ -47,6 +47,30 @@
 //  something else, taken at face value.  If it was meant to straddle the
 //  rails, 160 (4 x 40) is the nearest span that lands on them.
 //
+//  WHY THE SKELETON IS STIFF ENOUGH, AND WHY 5 mm IS
+//  Two changes pay for each other here.  The BUTTON head (ISO 7380) bears
+//  on the plate FACE, so nothing is recessed and plate_t stops being "deep
+//  enough to swallow a socket cap" -- that alone was what set it at 8.  And
+//  the slab becomes a SKELETON: a pad at every bolt, a pad under every
+//  connector, a strut from each bolt to the connector nearest it, a spine
+//  tying the connectors.  62 x 40 draws an X with a bar through it.
+//  Together: 41.8 -> 17.6 cm^3, 58% less, and 3 mm shorter.
+//
+//  The reason that is not reckless: this plate is not a free beam.  It is
+//  BOLTED FLAT to a rail, sandwiched between four bolt heads and the deck,
+//  so it works as a spreader.  Push down and the deck takes it; pull up and
+//  the bolts take it.  The only real compliance left is the connector pad
+//  tipping under the arm's moment, and the load path for that is short and
+//  is exactly what the struts are drawn along -- each connector pushes into
+//  the two bolts nearest it and leans on its neighbour through the spine.
+//  A 12 x 5 strut over the 24 mm from pad to bolt is far more section than
+//  that needs; a GoPro on a 100 mm arm is only ~0.12 Nm.
+//
+//  What the skeleton DOES give up is the slab's own out-of-plane stiffness
+//  (I falls ~19x under the connector), which would matter if the plate ever
+//  had to span unsupported.  It does not here.  If it ever has to, the cheap
+//  fix is depth, not width: stand a rib proud along each strut.
+//
 //  THE CONNECTOR IS A BLOCK WITH A ROUND TOP, NOT A CIRCLE ON A POINT
 //  A GoPro knuckle is an R7.5 disc about the pivot, and the mating half
 //  is another R7.5 disc about the SAME pivot.  Put that disc straight
@@ -122,8 +146,9 @@
 //  perimeters; the load path is bolt -> plate -> pedestal, all of it in
 //  the walls.
 //
-//  BOM per plate: 4x M4 socket-head cap screw (length = plate_t - cbore_h
-//  + insert depth, so ~12-14 mm into a rail.scad insert), plus per
+//  BOM per plate: 4x M4 BUTTON-head screw (ISO 7380; length = plate_t +
+//  insert depth, so ~12-14 mm into a rail.scad insert -- the head sits
+//  proud, there is nothing to recess), plus per
 //  connector one M5 DIN 934 nut in the nut prong and EITHER a GoPro
 //  thumbscrew (knob outboard of the head seat) or a plain M5 socket cap
 //  screw, which drops flush into the barrel-head counterbore opposite the
@@ -147,16 +172,34 @@ include <twist.scad>
 grid_x    = 62.0;    // rail-to-rail  -> the plate's LONG axis
 grid_y    = 40.0;    // along a rail  -> the plate's SHORT axis
 bolt_d    =  4.5;    // M4 clearance through the plate
-cbore_d   =  7.5;    // M4 socket-head counterbore (DIN 912 head is 7.0)
-cbore_h   =  4.4;    // counterbore depth; head is 4.0 tall -> 0.4 below flush
+// BUTTON head (ISO 7380), not a socket cap.  A button head bears on the plate
+// FACE, so nothing has to be recessed and the plate no longer has to be thick
+// enough to swallow a head -- which is what was setting plate_t at 8.  Set
+// cbore_h > 0 to go back to a recessed socket cap.
+bolt_head_d =  7.6;  // ISO 7380 BUTTON head M4 across; it sits proud, by ~2.2
+cbore_d   =  7.5;    // (only used when cbore_h > 0) socket-cap counterbore
+cbore_h   =  0;      // 0 = no recess, the head sits on the face
 
 /* [Plate] */
-plate_t     = 8.0;   // >= cbore_h + a seat the head can actually pull against
-edge_margin = 8.0;   // hole centre to plate edge -> cbore leaves 4.25 of wall
+plate_t     = 5.0;   // no head to swallow any more, so this is structure only
+edge_margin = 8.0;   // (solid style only) hole centre to plate edge
 plate_square = false; // true -> square plate, side = max(long, short).  The
                       // bolt grid is 40 x 62, so the default is a RECTANGLE
                       // sized off that grid; nothing else changes.
 corner_r    = 4.0;   // rounded plate corners (vertical edges only)
+
+/* [Frame -- the X-shaped skeleton] */
+// A solid slab spends most of its material where nothing is happening.  The
+// load path is short and known: each connector pushes into the two bolts
+// nearest it, and the connectors lean on each other.  So the plate is built as
+// exactly that skeleton -- a pad at every bolt, a pad under every connector, a
+// strut from each bolt to its NEAREST connector, and a spine tying consecutive
+// connectors.  On the 62 x 40 plate that draws an X with a bar through it.
+plate_frame = true;  // false -> the old solid rectangular slab
+pad_r       = 6.0;   // bolt pad radius; d12 around a d7.6 button head
+rib_hw      = 6.0;   // strut half-width where it lands on a connector
+node_margin = 1.5;   // connector pad, out beyond the pedestal's own skirt
+node_r      = 4.0;   // corner radius of that pad
 top_cham    = 1.0;   // 45 deg break on the TOP edge, all the way round.  Top
                      // only: the bottom stays square so the first layer keeps
                      // its full footprint on the bed.
@@ -174,6 +217,9 @@ boss_hw     = 7.50;  // pedestal half-width in X.  MUST be <= tab_r -- at tab_r
 boss_riser  = 5.0;   // pedestal height ABOVE the plate before the disc starts.
                      // Ties the prong roots together with a solid web and gets
                      // an M5 thumbscrew knob off the plate.
+boss_rim_r  = 1.25;  // quarter-round on the OUTSIDE FACE of each outer prong.
+                     // arm_simple.scad's own boss_rim_r, and there for looks.
+rim_stn     = 16;    // stations round that quarter
 boss_skirt  = 1.5;   // 45 deg fillet skirt where the pedestal meets the plate
 slot_sink   = 0.4;   // slot floor, measured BELOW the disc's lowest point
 slot_relief = 1.0;   // slot cut is clipped to tab_r + this in X (see header)
@@ -226,9 +272,14 @@ p_hd_top   = p_pivot_z + (hd_d/2)/cos(oh_ang);
 assert(plate_t - cbore_h >= 2.0,
        str("bolt seat only ", plate_t - cbore_h, " mm thick -- raise plate_t ",
            "or drop cbore_h (an M4 head will dish anything thinner)"));
-assert(edge_margin >= cbore_d/2 + 2.5,
-       str("edge_margin ", edge_margin, " leaves ", edge_margin - cbore_d/2,
-           " mm of wall outside the counterbore"));
+assert(plate_frame || edge_margin >= max(cbore_d, bolt_head_d)/2 + 2.5,
+       str("edge_margin ", edge_margin, " leaves ",
+           edge_margin - max(cbore_d, bolt_head_d)/2,
+           " mm of wall outside the screw head"));
+// The bolt pad has to carry the head with wall left over.
+assert(!plate_frame || pad_r >= bolt_head_d/2 + 1.5,
+       str("pad_r ", pad_r, " leaves only ", pad_r - bolt_head_d/2,
+           " mm of pad outside a d", bolt_head_d, " head"));
 // The pedestal wall is tangent to the disc at boss_hw == tab_r.  Anything
 // wider reaches INSIDE the mating knuckle's R7.5 sweep and jams the hinge.
 assert(boss_hw <= tab_r,
@@ -277,6 +328,57 @@ module gp_boss_profile2d() {
 module gp_knuckle(y0, y1) {
     translate([0, y1, 0]) rotate([90, 0, 0])
         linear_extrude(height = y1 - y0) gp_boss_profile2d();
+}
+
+// The silhouette pulled IN by d -- the section the rim sweep runs through.
+//
+// The prongs keep their SOLID fillets: each outer prong is thickened over its
+// whole length so its pocket has material, and the thickening runs right down
+// to the plate.  arm_simple.scad instead puts a dedicated circular boss at the
+// pivot, which is lighter and leaves the prong freer to flex -- but that boss's
+// underside is a face hanging off a vertical wall, and on a flat supportless
+// print there is nothing to hold it up.  arm_simple gets away with it because
+// it prints on support.  This does not, so solid it is, and the rounding is
+// applied where it costs nothing: the OUTSIDE FACE of each outer prong.
+//
+// arm_simple rounds its rims by offsetting the profile inward the same way, and
+// pays for it there too: its knuckle is tangent to the bed, so shrinking the
+// outline lifts the last boss_rim_r off the bed.  Here the outline is extended
+// DOWNWARD past the plate before offsetting, so the offset eats that tail
+// instead of the bottom.  The rim then stays sitting on the plate at full
+// height and the shrink happens only in X and upward -- directions where a
+// surface that narrows going out is not an overhang.
+module gp_rim_profile2d(d) {
+    offset(delta = -d)
+        union() {
+            gp_boss_profile2d();
+            translate([-boss_hw, plate_t - d - 1])
+                square([2*boss_hw, d + 1.01]);
+        }
+}
+
+// One rounded outside face: a quarter turn swept off the end face at `y_end`,
+// going inboard in direction `dir`.
+module gp_rim(y_end, dir, rr) {
+    for (i = [0 : rim_stn - 1]) hull() for (j = [i, i + 1]) {
+        a = j/rim_stn * 90;
+        translate([0, y_end - dir*rr*(1 - sin(a)), 0]) rotate([90, 0, 0])
+            linear_extrude(height = 0.01) gp_rim_profile2d(rr*(1 - cos(a)));
+    }
+}
+
+// The connector body: ONE prism from p_y_lo to p_y_hi -- the stack and both
+// pocket fillets share the same silhouette, so they were always one solid --
+// with a quarter-round on each outside face.
+module gp_body(y0, y1) {
+    rr = min(boss_rim_r, (y1 - y0)/2);
+    if (rr > 0) {
+        gp_knuckle(y0 + rr, y1 - rr);
+        gp_rim(y1,  1, rr);
+        gp_rim(y0, -1, rr);
+    } else {
+        gp_knuckle(y0, y1);
+    }
 }
 
 // A 45 deg skirt around the pedestal root.  Wider at the plate, dying out
@@ -352,15 +454,11 @@ module gp_head_pocket() {
 module gp_connector() {
     difference() {
         union() {
-            gp_knuckle(-w3_half, w3_half);
-            // Each outer prong is thickened only as far as its own pocket
-            // needs -- boss_h for the nut, the deeper boss_hd for the head.
-            if (plate_nut && boss_h > 0)
-                gp_knuckle(p_nut_side < 0 ? -w3_half - boss_h : w3_half,
-                           p_nut_side < 0 ? -w3_half          : w3_half + boss_h);
-            if (plate_head && boss_hd > 0)
-                gp_knuckle(p_head_side < 0 ? -w3_half - boss_hd : w3_half,
-                           p_head_side < 0 ? -w3_half           : w3_half + boss_hd);
+            // p_y_lo..p_y_hi already accounts for each prong's own pocket
+            // fillet (boss_h for the nut, the deeper boss_hd for the head), and
+            // the stack and both fillets share one silhouette -- so this is a
+            // single rimmed prism rather than three abutting ones.
+            gp_body(p_y_lo, p_y_hi);
             gp_skirt(p_y_lo, p_y_hi);
         }
         bore(0, 6*w3_half, p_pivot_z);
@@ -375,7 +473,8 @@ module gp_connector() {
 // its seat is the top of solid material and there is nothing to bridge.
 module gp_bolt_hole() {
     translate([0, 0, -1]) cylinder(d = bolt_d, h = plate_t + 2);
-    translate([0, 0, plate_t - cbore_h]) cylinder(d = cbore_d, h = cbore_h + 1);
+    if (cbore_h > 0)
+        translate([0, 0, plate_t - cbore_h]) cylinder(d = cbore_d, h = cbore_h + 1);
 }
 
 // The slab: rounded corners on the vertical edges, and a 45 deg break on the
@@ -397,25 +496,85 @@ module gp_plate_slab(px, py) {
     }
 }
 
+// ---------------------------------------------------------------- frame
+// Index of the smallest entry.  (OpenSCAD's search() would do it, but only for
+// exact matches on a value that has to be computed first; this is plainer.)
+function idx_of_min(d, i = 1, best = 0) =
+    i >= len(d) ? best : idx_of_min(d, i + 1, d[i] < d[best] ? i : best);
+
+function nearest_i(b, pos) =
+    idx_of_min([for (p = pos) pow(p[0] - b[0], 2) + pow(p[1] - b[1], 2)]);
+
+// The atom the whole frame is built from: a disc of plate thickness with a
+// 45 deg break on its top rim.  Everything else is a hull of two or four of
+// these, and a hull of chamfered convex solids keeps the chamfer along the
+// swept sides -- so the frame comes out chamfered all the way round without a
+// single special case.  (It has to be done this way: the frame outline is
+// CONCAVE, so the hull-a-shrunk-wafer trick the solid slab uses would just
+// fill the concavities back in.)
+module gp_node(x, y, r) {
+    translate([x, y, 0])
+        cyl(r = r, h = plate_t, chamfer2 = top_cham, anchor = BOTTOM, $fn = 48);
+}
+
+// The pad under one connector, in ITS frame: a rounded rectangle covering the
+// pedestal's whole footprint (skirt included) plus node_margin, drawn as the
+// hull of four corner discs so it is chamfered like everything else.
+module gp_conn_pad() {
+    hw = boss_hw + boss_skirt + node_margin;
+    lo = p_y_lo - boss_skirt - node_margin;
+    hi = p_y_hi + boss_skirt + node_margin;
+    hull() for (sx = [-1, 1], yy = [lo + node_r, hi - node_r])
+        gp_node(sx*(hw - node_r), yy, node_r);
+}
+
+// Pads, struts and spine.  Each bolt reaches for the connector NEAREST it, so
+// the same rule draws an X-with-a-bar on the two-connector plate and a plain X
+// on the one-connector plate, with no special casing.
+module gp_frame(gx, gy, pos, yaw) {
+    bolts = [for (sx = [-1, 1], sy = [-1, 1]) [sx*gx/2, sy*gy/2]];
+    union() {
+        for (b = bolts) {
+            c = pos[nearest_i(b, pos)];
+            hull() { gp_node(b[0], b[1], pad_r); gp_node(c[0], c[1], rib_hw); }
+        }
+        // The bridge between connectors is the hull of their two PADS, not a
+        // strut: it comes out as wide as the connector itself, so the middle
+        // reads as one slab running pad to pad with no waist pinched into it.
+        for (i = [0 : len(pos) - 2])
+            hull() {
+                translate([pos[i][0],   pos[i][1],   0]) rotate([0, 0, yaw])
+                    gp_conn_pad();
+                translate([pos[i+1][0], pos[i+1][1], 0]) rotate([0, 0, yaw])
+                    gp_conn_pad();
+            }
+        for (p = pos)
+            translate([p[0], p[1], 0]) rotate([0, 0, yaw]) gp_conn_pad();
+    }
+}
+
 // ---------------------------------------------------------------- the part
 // Everything the two variants differ in is an argument; everything they share
 // -- bolt, counterbore, pedestal, disc, both screw pockets, the chamfer -- is
 // the file's own parameters and is therefore literally the same geometry.
 // The defaults ARE the globals, so rail_plate() with no arguments is the part
 // it always was, byte for byte.
-module rail_plate(gx = grid_x, gy = grid_y, pos = boss_pos, yaw = boss_yaw) {
+module rail_plate(gx = grid_x, gy = grid_y, pos = boss_pos, yaw = boss_yaw,
+                  frame = plate_frame) {
     px = plate_square ? max(gx, gy) + 2*edge_margin : gx + 2*edge_margin;
     py = plate_square ? max(gx, gy) + 2*edge_margin : gy + 2*edge_margin;
     // A connector must not sit on a bolt.  Its widest point is tab_r from the
     // pivot; the counterbore's inner edge is cbore_d/2 in.  Separation in
     // EITHER axis is enough, hence the or.
+    hd = max(cbore_d, bolt_head_d);
     for (p = pos)
-        assert(abs(abs(p[0]) - gx/2) - tab_r - cbore_d/2 >= 1.0
-            || abs(abs(p[1]) - gy/2) - tab_r - cbore_d/2 >= 1.0,
-               str("connector at ", p, " runs into a bolt counterbore"));
+        assert(abs(abs(p[0]) - gx/2) - tab_r - hd/2 >= 1.0
+            || abs(abs(p[1]) - gy/2) - tab_r - hd/2 >= 1.0,
+               str("connector at ", p, " runs into a bolt head"));
     difference() {
         union() {
-            gp_plate_slab(px, py);
+            if (frame) gp_frame(gx, gy, pos, yaw);
+            else       gp_plate_slab(px, py);
             for (p = pos)
                 translate([p[0], p[1], 0]) rotate([0, 0, yaw]) gp_connector();
         }
@@ -443,17 +602,37 @@ module rail_plate(gx = grid_x, gy = grid_y, pos = boss_pos, yaw = boss_yaw) {
 // One connector and not two, so nothing limits the swing but the plate: the
 // default plate loses its last 30 deg inboard to its OWN second connector,
 // and with a single centred one there is no neighbour to meet.
+// NOTE: this one keeps the SOLID slab for now (frame = false).  The skeleton
+// rule -- each bolt reaches its nearest connector -- draws a perfectly good
+// X-with-a-bar over a 62 mm span, but here it would be four 80 mm legs of
+// 12 x 5 section carrying a camera moment at their meeting point, with nothing
+// tying their far ends together.  That wants its own truss (a perimeter tie,
+// or ribs standing proud), not the same rule stretched twice as far.  It still
+// gets the thinner plate and the button head, so it is 40% lighter than rev 3.
 module rail_plate155() {
-    rail_plate(gx = grid_x_wide, gy = grid_y, pos = wide_pos, yaw = wide_yaw);
+    rail_plate(gx = grid_x_wide, gy = grid_y, pos = wide_pos, yaw = wide_yaw,
+               frame = false);
 }
 
 // ---------------------------------------------------------------- echo
-echo(str("RAIL PLATE  ", plate_x, " x ", plate_y, " x ", plate_t,
-         " mm, ", len(boss_pos), " connector(s), top of knuckle at ", p_tab_top));
+// Envelope: for the frame it is the bolt pads that reach furthest, not the
+// nominal slab, so report what the part actually occupies.
+env_x = plate_frame ? grid_x + 2*pad_r : plate_x;
+env_y = plate_frame ? grid_y + 2*pad_r : plate_y;
+echo(str("RAIL PLATE  ", env_x, " x ", env_y, " x ", plate_t, " mm ",
+         plate_frame ? "X-FRAME (pads + struts + spine)" : "solid slab",
+         ", ", len(boss_pos), " connector(s), top of knuckle at ", p_tab_top));
 echo(str("  bolt grid ", grid_x, " x ", grid_y, " (rail.scad: 62 mm rail gap, ",
-         "40 mm rail_pitch) ; M4 clr ", bolt_d, ", cbore ", cbore_d, "x", cbore_h,
-         " -> ", plate_t - cbore_h, " mm seat, ", edge_margin - cbore_d/2,
-         " mm wall to the edge"));
+         "40 mm rail_pitch) ; M4 clr ", bolt_d, " ; ",
+         cbore_h > 0 ? str("socket cap recessed ", cbore_d, "x", cbore_h,
+                           " -> ", plate_t - cbore_h, " mm seat")
+                     : str("BUTTON head d", bolt_head_d,
+                           " bearing on the face, no recess -> the full ",
+                           plate_t, " mm carries it")));
+if (plate_frame)
+    echo(str("  frame: pad r", pad_r, " at each bolt (", pad_r - bolt_head_d/2,
+             " mm outside the head), ", 2*rib_hw, " mm struts to the nearest ",
+             "connector, ", len(boss_pos) - 1, " spine(s) between connectors"));
 echo(str("  connector: pedestal ", 2*boss_hw, " x ", p_y_hi - p_y_lo, " welded to ",
          "the plate, up ", p_pivot_z - plate_t, " to the pivot at ", p_pivot_z,
          " ; disc starts ", boss_riser, " above the plate, tangent to the wall ",

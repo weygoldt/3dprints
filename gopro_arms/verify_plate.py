@@ -10,7 +10,12 @@ triangles with rays, not out of the .scad file:
   * the bolt grid, measured as the GAP between solid spans along a ray at
     z = 1 mm -- which gives the 62 x 40 spacing AND the clearance diameter
     from the same reading
-  * the counterbore seat and depth
+  * the bolt head seat -- a recessed counterbore, or (default) 32 rays on a
+    button head's rim proving the face under it is flat and full thickness
+  * that the frame is ONE connected shell, and that the bridge between the
+    connectors is as wide as the connectors themselves
+  * the quarter-round on each outer prong's outside face, read at 45 deg
+    where setback == inset
   * the prong / slot grid across the connector, at a height above the nut
     pocket so the pocket cannot be mistaken for a slot
   * the M5 bore radius, read DOWNWARD from the pivot
@@ -47,15 +52,19 @@ from verify import load, volume, bbox, near_axis, ray_intervals, normal  # noqa:
 
 # ---- the spec, copied from plate.scad -------------------------------
 GRID_X, GRID_Y = 62.0, 40.0
-BOLT_D, CBORE_D, CBORE_H = 4.5, 7.5, 4.4
-PLATE_T, EDGE_MARGIN, CORNER_R = 8.0, 8.0, 4.0
-PLATE_X, PLATE_Y = GRID_X + 2*EDGE_MARGIN, GRID_Y + 2*EDGE_MARGIN
+BOLT_D, CBORE_D, CBORE_H = 4.5, 7.5, 0.0
+BOLT_HEAD_D = 7.6                  # ISO 7380 button head, bears on the face
+PLATE_T, EDGE_MARGIN, CORNER_R = 5.0, 8.0, 4.0
+FRAME, PAD_R, RIB_HW = True, 6.0, 6.0
+PLATE_X, PLATE_Y = GRID_X + 2*PAD_R, GRID_Y + 2*PAD_R
 TAB_R, U, SLOT_W, W3_HALF = 7.50, 3.00, 3.10, 7.95
 PRONG_OUT, BORE_D = 3.40, 5.30
 BOSS_H = 2.40                      # nut-side local thickening
 HD_D, HD_DEPTH, BOSS_HD = 8.80, 5.30, 3.40   # barrel head seat, head side
 NUT_DEPTH, NUT_WALL, HEAD_CS = 4.30, 1.50, 0.50
 TOP_CHAM = 1.0
+BOSS_SKIRT, NODE_MARGIN, BOSS_RIM_R = 1.5, 1.5, 1.25
+BOSS_R = 7.50                      # local pocket-boss radius
 BOSS_X, BOSS_HW, BOSS_RISER = 18.0, 7.50, 5.0
 CONNECTORS = [-BOSS_X, BOSS_X]     # centres along X, in the connector's frame
 DISC_Z = PLATE_T + BOSS_RISER      # 13.0 -- lowest point of the knuckle disc
@@ -98,6 +107,68 @@ def fmt(iv):
     return ", ".join(f"[{a:.3f}, {b:.3f}]" for a, b in iv)
 
 
+def hole_near(tris, axis, origin, nominal):
+    """The empty gap in the solid nearest `nominal` along `axis`.
+
+    The solid slab gave one continuous span per ray, so a hole was simply the
+    gap between spans.  The frame does not: a ray along a bolt row meets a pad,
+    then air, then the far pad.  So pick the gap whose centre is nearest where
+    the hole is supposed to be, and let the caller check it landed."""
+    iv = spans(tris, origin, axis, pad=3.0)
+    gaps = [(iv[i][1], iv[i+1][0]) for i in range(len(iv) - 1)]
+    if not gaps:
+        return None
+    return min(gaps, key=lambda g: abs((g[0] + g[1])/2 - nominal))
+
+
+def shell_count(tris, q=1e-3):
+    """Connected components, by shared (quantised) vertices.
+
+    A skeleton is only a part if it is ONE piece.  Every other check here is
+    local -- a strut that failed to reach its pad would leave the pad floating
+    and every measurement of it would still pass."""
+    parent = {}
+
+    def find(a):
+        while parent[a] != a:
+            parent[a] = parent[parent[a]]
+            a = parent[a]
+        return a
+
+    def union(a, b):
+        ra, rb = find(a), find(b)
+        if ra != rb:
+            parent[ra] = rb
+
+    for t in tris:
+        ks = [(round(p[0]/q), round(p[1]/q), round(p[2]/q)) for p in t]
+        for k in ks:
+            parent.setdefault(k, k)
+        union(ks[0], ks[1])
+        union(ks[1], ks[2])
+    return len({find(k) for k in parent})
+
+
+def shell_selftest():
+    """shell_count() is the only check here that could quietly always say 1.
+
+    A cube is one shell; the same cube plus a copy 100 mm away is two.  If this
+    instrument cannot tell those apart it cannot tell a detached pad either.
+    """
+    def cube(dx):
+        v = [[dx+x, y, z] for x, y, z in
+             [[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0],
+              [0, 0, 1], [1, 0, 1], [1, 1, 1], [0, 1, 1]]]
+        f = [[0, 1, 2], [0, 2, 3], [4, 6, 5], [4, 7, 6], [0, 4, 5], [0, 5, 1],
+             [1, 5, 6], [1, 6, 2], [2, 6, 7], [2, 7, 3], [3, 7, 4], [3, 4, 0]]
+        return [[v[i] for i in t] for t in f]
+    one, two = shell_count(cube(0)), shell_count(cube(0) + cube(100))
+    ok = one == 1 and two == 2
+    print(f"  {'OK  ' if ok else 'FAIL'} shell_count: one cube -> {one}, "
+          f"two disjoint cubes -> {two} (want 1 and 2)")
+    return 0 if ok else 1
+
+
 def rotz_minus90(tris):
     """-90 deg about Z: (x, y, z) -> (y, -x, z).  A proper rotation, so winding
     and therefore every normal survives; z is untouched."""
@@ -105,12 +176,18 @@ def rotz_minus90(tris):
 
 
 def main():
-    global GRID_X, GRID_Y, PLATE_X, PLATE_Y, BOSS_X, CONNECTORS
+    global GRID_X, GRID_Y, PLATE_X, PLATE_Y, BOSS_X, CONNECTORS, FRAME
     ap = argparse.ArgumentParser()
-    ap.add_argument('stl')
+    ap.add_argument('stl', nargs='?')
     ap.add_argument('--wide', action='store_true',
                     help='the 155 x 40 variant: one connector, yawed 90 deg')
+    ap.add_argument('--selftest', action='store_true',
+                    help='prove the connectivity instrument can count to two')
     args = ap.parse_args()
+    if args.selftest:
+        return shell_selftest()
+    if not args.stl:
+        ap.error('an STL is required unless --selftest')
 
     tris = load(args.stl)
     if not tris:
@@ -122,10 +199,13 @@ def main():
         # origin.  Everything below is then the default code.
         tris = rotz_minus90(tris)
         GRID_X, GRID_Y = 40.0, 155.0
+        # The wide plate keeps the SOLID slab for now -- its skeleton needs its
+        # own truss, see plate.scad -- so it is sized off edge_margin, not pads.
+        FRAME = False
         PLATE_X, PLATE_Y = GRID_X + 2*EDGE_MARGIN, GRID_Y + 2*EDGE_MARGIN
         BOSS_X, CONNECTORS = 0.0, [0.0]
         print("[--wide] mesh rotated -90 deg about Z; grid now "
-              f"{GRID_X} x {GRID_Y}, plate {PLATE_X} x {PLATE_Y}, "
+              f"{GRID_X} x {GRID_Y}, SOLID slab {PLATE_X} x {PLATE_Y}, "
               f"{len(CONNECTORS)} connector\n")
     lo, hi = bbox(tris)
     vol = volume(tris)
@@ -143,53 +223,93 @@ def main():
           f"stands on the bed and tops out at {hi[2]:.3f} == {TAB_TOP} "
           f"(plate {PLATE_T} + riser {BOSS_RISER} + disc {2*TAB_R})")
 
-    # ---- plate thickness, clear of every feature --------------------
+    # ---- plate thickness, and the frame is ONE piece ----------------
+    # Probed on the spine at the origin rather than out at (0, 24): the frame
+    # has no material out there, which is the whole point of it.
     print("\nplate")
-    iv = spans(tris, [0.0, 24.0, 0.0], 2)
+    at = [0.0, 0.0, 0.0] if FRAME else [0.0, 24.0, 0.0]
+    iv = spans(tris, at, 2)
     check(len(iv) == 1 and abs(iv[0][0]) < TOL and abs(iv[0][1] - PLATE_T) < TOL,
-          f"solid {PLATE_T} mm thick at (0, 24): {fmt(iv)}")
+          f"solid {PLATE_T} mm thick at ({at[0]:.0f}, {at[1]:.0f}): {fmt(iv)}")
+    if FRAME:
+        n = shell_count(tris)
+        check(n == 1,
+              f"the frame is ONE connected shell ({n} found) -- a strut that "
+              f"missed its pad would leave the pad floating and every local "
+              f"measurement of it would still pass")
 
     # ---- the bolt grid, read as the GAPS in a solid span ------------
     # A ray at z = 1 is below the counterbore, so what it sees is the M4
     # clearance hole and nothing else.  Two holes on the ray -> three solid
     # spans; the two gaps ARE the holes, centre and diameter both.
-    print("\nbolt grid (M4 clearance, measured at z = 1.0)")
-    for axis, at, pitch, half, name in [
-            (0, [0.0, GRID_Y/2, 1.0], GRID_X, PLATE_X/2, "X (rail to rail)"),
-            (1, [GRID_X/2, 0.0, 1.0], GRID_Y, PLATE_Y/2, "Y (along a rail)")]:
-        iv = spans(tris, at, axis, pad=3.0)
-        if not check(len(iv) == 3, f"{name}: 3 solid spans (2 holes): {fmt(iv)}"):
-            continue
-        check(abs(iv[0][0] + half) < TOL and abs(iv[2][1] - half) < TOL,
-              f"{name}: edges at +/-{half} ({iv[0][0]:.3f} .. {iv[2][1]:.3f})")
-        holes = [(iv[0][1], iv[1][0]), (iv[1][1], iv[2][0])]
-        cs = [(a+b)/2 for a, b in holes]
-        ds = [b-a for a, b in holes]
-        check(all(abs(d - BOLT_D) < TOL for d in ds),
-              f"{name}: bore d {ds[0]:.3f} / {ds[1]:.3f} == {BOLT_D}")
-        check(abs((cs[1]-cs[0]) - pitch) < TOL and abs(cs[0]+cs[1]) < TOL,
-              f"{name}: centres {cs[0]:+.3f} / {cs[1]:+.3f} -> pitch "
-              f"{cs[1]-cs[0]:.3f} == {pitch}, symmetric about 0")
+    print("\nbolt grid (M4 clearance, measured at z = 1.0, hole by hole)")
+    got = []
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            bx, by = sx*GRID_X/2, sy*GRID_Y/2
+            gx = hole_near(tris, 0, [0.0, by, 1.0], bx)
+            gy = hole_near(tris, 1, [bx, 0.0, 1.0], by)
+            if gx is None or gy is None:
+                check(False, f"no hole found near ({bx:+.1f}, {by:+.1f})")
+                continue
+            cx, dx = (gx[0]+gx[1])/2, gx[1]-gx[0]
+            cy, dy = (gy[0]+gy[1])/2, gy[1]-gy[0]
+            got.append((cx, cy))
+            check(abs(cx - bx) < TOL and abs(cy - by) < TOL
+                  and abs(dx - BOLT_D) < TOL and abs(dy - BOLT_D) < TOL,
+                  f"hole at ({cx:+.3f}, {cy:+.3f}) == ({bx:+.1f}, {by:+.1f}), "
+                  f"d {dx:.3f} x {dy:.3f} == {BOLT_D}")
+    if len(got) == 4:
+        px = max(c[0] for c in got) - min(c[0] for c in got)
+        py = max(c[1] for c in got) - min(c[1] for c in got)
+        check(abs(px - GRID_X) < TOL and abs(py - GRID_Y) < TOL,
+              f"grid measures {px:.3f} x {py:.3f} == {GRID_X} x {GRID_Y}")
 
     # ---- counterbore ------------------------------------------------
     # Straight down the hole axis must be clear THROUGH; a ray 3.0 mm off it
     # is inside the counterbore but outside the clearance hole, so it reads
     # the seat height and nothing else.
-    print("\ncounterbore (M4 socket head)")
+    print("\nbolt head seat"
+          + (" (M4 socket head, recessed)" if CBORE_H > 0
+             else " (M4 BUTTON head, bearing on the face)"))
     iv = spans(tris, [GRID_X/2, GRID_Y/2, 0.0], 2, pad=1.0)
     check(len(iv) == 0, f"hole axis is clear through: {fmt(iv) or 'nothing'}")
-    r = (BOLT_D/2 + CBORE_D/2)/2      # 3.0 -- between the two radii
-    iv = spans(tris, [GRID_X/2 + r, GRID_Y/2, 0.0], 2, pad=1.0)
-    seat = PLATE_T - CBORE_H
-    check(len(iv) == 1 and abs(iv[0][0]) < TOL and abs(iv[0][1] - seat) < TOL,
-          f"seat at z = {iv[0][1] if iv else float('nan'):.3f} == {seat} "
-          f"-> {CBORE_H} deep, {seat} mm of material under the head")
+    if CBORE_H > 0:
+        r = (BOLT_D/2 + CBORE_D/2)/2
+        iv = spans(tris, [GRID_X/2 + r, GRID_Y/2, 0.0], 2, pad=1.0)
+        seat = PLATE_T - CBORE_H
+        check(len(iv) == 1 and abs(iv[0][0]) < TOL and abs(iv[0][1] - seat) < TOL,
+              f"seat at z = {iv[0][1] if iv else float('nan'):.3f} == {seat}")
+    else:
+        # A button head bears on the top face, so what has to be true is that
+        # the face is FLAT and FULL THICKNESS right out to the rim of the head,
+        # and that nothing stands above it for a driver to hit.
+        bad = []
+        for sx in (-1, 1):
+            for sy in (-1, 1):
+                for k in range(8):
+                    a = math.radians(45*k)
+                    o = [sx*GRID_X/2 + (BOLT_HEAD_D/2)*math.cos(a),
+                         sy*GRID_Y/2 + (BOLT_HEAD_D/2)*math.sin(a), 0.0]
+                    iv = spans(tris, o, 2, pad=1.0)
+                    if len(iv) != 1 or abs(iv[0][0]) > TOL \
+                            or abs(iv[0][1] - PLATE_T) > TOL:
+                        bad.append((round(o[0], 2), round(o[1], 2), fmt(iv)))
+        check(not bad,
+              f"32 rays on the d{BOLT_HEAD_D} head rim: full {PLATE_T} mm of "
+              f"flat face under every one, nothing above"
+              + (f" -- {bad[:3]}" if bad else ""))
 
     # ---- the connector's prong / slot grid --------------------------
-    # Read at z = TAB_TOP - 0.6: above the nut pocket's 45 deg peak, so the
-    # pocket cannot be counted as a slot, and still inside the knuckle.
-    print("\nconnector grid (GoPro 3-prong, at z = top - 0.6)")
-    zg = TAB_TOP - 0.6
+    # Read down in the PEDESTAL, at DISC_Z + 1.5.  It used to be read just
+    # under the crown, which was fine until the outer rims were rounded: a
+    # quarter-round pulls the section in near the end faces, so up there the
+    # stack no longer reaches p_y_lo/p_y_hi and the reading was of the rim, not
+    # the grid.  Down here it is below both screw pockets (so neither can be
+    # miscounted as a slot), above the slot floor (so the slots are open), and
+    # well inboard of the rims.
+    zg = DISC_Z + 1.5
+    print(f"\nconnector grid (GoPro 3-prong, at z = disc + 1.5 = {zg})")
     iv = spans(tris, [BOSS_X, 0.0, zg], 1, pad=3.0)
     if check(len(iv) == 3, f"three prongs on the ray: {fmt(iv)}"):
         slots = [(iv[0][1], iv[1][0]), (iv[1][1], iv[2][0])]
@@ -214,6 +334,39 @@ def main():
               f"stack spans {iv[0][0]:.3f} .. {iv[2][1]:.3f} == "
               f"{-(W3_HALF+BOSS_H)} .. {W3_HALF+BOSS_HD} "
               f"({iv[2][1]-iv[0][0]:.3f} mm wide)")
+
+    # ---- the rounded outside faces ----------------------------------
+    # A quarter round is symmetric at 45 deg: however far back from the end face
+    # you stand, the section is pulled in by the same amount.  So one reading
+    # proves both that the rim is there and that its radius is right -- and it
+    # is a reading no square-edged prong can produce.
+    print("\nrounded outside faces of the outer prongs")
+    back = BOSS_RIM_R*(1 - math.sin(math.radians(45)))
+
+    def hw_at(y):
+        allsp = spans(tris, [0.0, y, zg], 0, pad=14.0)
+        mine = [sp for sp in allsp if sp[0] <= BOSS_X <= sp[1]]
+        return (mine[0][1] - mine[0][0])/2 if mine else float('nan')
+
+    for y, want, what in (
+            (W3_HALF + BOSS_HD - BOSS_RIM_R - 0.5, BOSS_HW, "inboard of the rim"),
+            (W3_HALF + BOSS_HD - back, BOSS_HW - back, "45 deg into the rim")):
+        got = hw_at(y)
+        check(abs(got - want) < TOL,
+              f"{what} (y {y:.3f}): half-width {got:.3f} == {want:.3f}")
+
+    # ---- the bridge between connectors ------------------------------
+    if FRAME and len(CONNECTORS) > 1:
+        print("\nbridge between connectors")
+        pad_w = (W3_HALF + BOSS_H) + (W3_HALF + BOSS_HD) \
+            + 2*BOSS_SKIRT + 2*NODE_MARGIN
+        pad_c = ((W3_HALF + BOSS_HD) - (W3_HALF + BOSS_H))/2
+        iv = spans(tris, [0.0, 0.0, 1.0], 1, pad=3.0)
+        w = (iv[0][1] - iv[0][0]) if len(iv) == 1 else float('nan')
+        c = ((iv[0][0] + iv[0][1])/2) if len(iv) == 1 else float('nan')
+        check(len(iv) == 1 and abs(w - pad_w) < TOL and abs(c - pad_c) < TOL,
+              f"{w:.3f} mm wide at the origin == {pad_w:.3f}, centred {c:+.3f} "
+              f"== {pad_c:+.3f} -- as wide as the connector, no waist: {fmt(iv)}")
 
     # ---- the M5 bore, measured downward from the pivot --------------
     print("\nM5 thumbscrew bore")
@@ -295,8 +448,18 @@ def main():
     # Two rays a known distance apart, near the edge: on a 45 deg break the
     # top surface has to drop by exactly the distance they are apart.
     print("\ntop edge chamfer")
-    for axis_name, pt in (("X edge", lambda d: [PLATE_X/2 - d, 0.0, 0.0]),
-                          ("Y edge", lambda d: [0.0, PLATE_Y/2 - d, 0.0])):
+    # On the frame there is no slab edge to probe: the free rim is the OUTBOARD
+    # side of each bolt pad, so walk in from there along the outward radius.
+    if FRAME:
+        bx, by = GRID_X/2, GRID_Y/2
+        n = math.hypot(bx, by)
+        ux, uy = bx/n, by/n
+        probes = (("pad rim", lambda d: [bx + (PAD_R - d)*ux,
+                                         by + (PAD_R - d)*uy, 0.0]),)
+    else:
+        probes = (("X edge", lambda d: [PLATE_X/2 - d, 0.0, 0.0]),
+                  ("Y edge", lambda d: [0.0, PLATE_Y/2 - d, 0.0]))
+    for axis_name, pt in probes:
         a = spans(tris, pt(0.25), 2, pad=1.0)
         b = spans(tris, pt(0.75), 2, pad=1.0)
         if not check(len(a) == 1 and len(b) == 1,
