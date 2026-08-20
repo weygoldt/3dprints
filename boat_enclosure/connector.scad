@@ -3,7 +3,7 @@
 //
 //  The boat now carries THREE boxes: the two stern DRIVE boxes (one per hull,
 //  on their rails) plus a THIRD box floated on the centreline BETWEEN them,
-//  ~3 cm above the deck, so the motor wiring runs in the gap underneath and the
+//  ~3.5 cm above the deck, so the motor wiring runs in the gap underneath and the
 //  mass moves aft+inboard (the 4-box layout was nose-heavy).
 //
 //  There is no rail on the centreline, so the centre box hangs off FOUR of these
@@ -15,13 +15,16 @@
 //    * OUTER end : sits over the stern box's inboard lug.  A barrel/socket-head
 //      cap screw drops through the bracket's COUNTERBORE, through the lug, into
 //      the RAIL heat-set insert below -- one screw clamps bracket + box + rail.
+//      NOTE: this screw spans the FULL bracket height, so box3_lift sets its
+//      length -- at 35 the head seats at Y=12.5 and the deck is Y=43, so it
+//      needs ~30.5 mm + the rail insert (~9) => M4 x ~40 (it was ~35 at lift 30).
 //    * INNER end : its TOP is the centre-box FLOOR plane; an M4 HEAT-SET INSERT
 //      is bored down there and the centre box's own lug screws DOWN into it.
 //
 //  MEASURED interface (Patrick, 2026-08-19):
 //    inner-rail to inner-rail screw spacing = conn_rail_span = 155 mm
 //    centre-box mount spacing (its lug pair) = 2*hd_x         =  62 mm
-//    centre box floats box3_lift = 30 mm above the deck (the wire gap).
+//    centre box floats box3_lift = 35 mm above the deck (the wire gap; was 30, raised 5 mm 2026-08-20).
 //
 //  Built in the ASSEMBLY frame (X athwartship, Y down = model up is -Y, Z fore-
 //  aft) so the box negative lands correctly; main.scad just calls it per corner.
@@ -31,7 +34,9 @@ use <body.scad>
 
 // ---- measured interface + centre-box lift ------------------------------
 conn_rail_span = 155;          // MEASURED inner-rail-to-inner-rail screw spacing (mm)
-box3_lift      = 30;           // centre box floor above the deck (the 3 cm wire gap)
+box3_lift      = 35;           // centre box floor above the deck (the wire gap).  30 -> 35 (Patrick 2026-08-20):
+                               // the ONLY height knob -- the bracket bottom is the deck (conn_ybot) and its top IS
+                               // this plane, so +5 here = a 5 mm taller bracket AND the centre box rides 5 mm higher.
 hull_dx        = conn_rail_span/2 + hd_x;   // stern-box centre so its inboard lug lands on the 155 mm inner rail
 
 // ---- bracket geometry ---------------------------------------------------
