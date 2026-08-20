@@ -777,12 +777,32 @@ flare_y      = foot_h + flare_lift;                       // the foot stays full
 function mholes(rot) =
   let (base = [ [motor_bolt_long/2, 0], [-motor_bolt_long/2, 0], [0, motor_bolt_short/2], [0, -motor_bolt_short/2] ])
   [ for (b = base) [ b[0]*cos(rot) - b[1]*sin(rot), b[0]*sin(rot) + b[1]*cos(rot) ] ];
-// motor CLOCK per hull (deg).  The A2212's wire exits BETWEEN two mounting holes, so the hole pattern must be
-// clocked so a GAP (not a hole) faces the wire slot.  Patrick 2026-08-19: wire exits HORIZONTAL-inboard (slot at
-// 0deg), so clock the "+" pattern 45deg -> holes at 45/135/225/315, gap at 0deg.  ONE source of truth: both the
-// standalone parts (mount_rot) AND the assembly (main.scad) derive the clock from mrot_of(), so the bores can never
-// fall out of sync with the wire slot again.  (Was 0/90 = "+" pattern, which put a HOLE on the horizontal slot.)
-function mrot_of(dir) = (dir < 0) ? 135 : 45;
+// motor CLOCK (deg).  The A2212's wire exits BETWEEN two mounting holes, so the pattern is clocked to put a GAP
+// (not a hole) on the wire slot: any 45deg clock gives holes at 45/135/225/315 and gaps at 0/90/180/270, so the
+// horizontal slot is always clear.  WHICH diagonal carries the LONG (19 mm) axis is what Patrick specified.
+//
+// Patrick 2026-08-20, sighting down the boat from the BOW at a motor's mounting face (i.e. at the screw heads):
+// the LONG screw axis must run TOP-LEFT <-> BOTTOM-RIGHT and the SHORT axis TOP-RIGHT <-> BOTTOM-LEFT, on BOTH
+// motors, so the leads exit INBOARD on each hull.  He also noted the two motors are "just rotated 180 degrees" --
+// exactly right, and it is the key to this whole parameter: the 4-hole cross is 2-FOLD SYMMETRIC, so rotating a
+// motor 180deg maps the hole pattern onto ITSELF while swapping which horizontal gap the leads face.  The wire
+// side is therefore chosen when you BOLT THE MOTOR ON, not by the printed part.
+//
+// Consequence: BOTH hulls take the SAME clock, and the two pylons collapse to ONE part.  The old
+// `(dir < 0) ? 135 : 45` made them a mirror pair, which is only correct if the part is physically MIRRORED onto
+// the other hull -- it is not.  The pylon foot is symmetric across its width (full-width register tongue,
+// symmetric 4-bolt pattern), so one part fits either hull in exactly ONE orientation (pad aft, mast up): a pure
+// TRANSLATION.  Measured that way (_probe_mclock.scad, placement="physical"), clock 45 puts the LONG axis on the
+// top-RIGHT<->bottom-left diagonal on both hulls -- 90deg from what Patrick wants -- and clock 135 puts it on the
+// top-LEFT<->bottom-right.  So: 135, both hulls.  (The old port part at 45 was the wrong one; the old starboard
+// part at 135 was already right.)
+motor_clock = 135;                    // THE motor-cross clock, in PART space.  Both hulls.
+function mrot_of(dir) = motor_clock;  // kept as the single call site so parts + preview cannot drift apart
+// PREVIEW ONLY.  assembly_scene() draws the starboard hull through apply_side_of() = mirror([1,0,0]), because the
+// BODY and LID genuinely are handed and rely on it.  A mirror maps a clock C to -C, and the pattern's 2-fold
+// symmetry makes that the same as 180-C -- so to DISPLAY the real (un-mirrored) part on the mirrored starboard
+// hull, the preview must pass the pre-compensated clock.  Nothing printable uses this.
+function mrot_display(dir) = (dir < 0) ? (180 - motor_clock) : motor_clock;
 mount_rot   = mrot_of(motor_offset_dir);
 motor_holes = mholes(mount_rot);               // global (for the standalone part export); main.scad passes per-hull rot
 // NOSE-DOWN motor tilt (anti-nose-dive): rotate the motor pad + bores + guard + prop about the WIDTH (Z) axis at the
@@ -1229,9 +1249,18 @@ guard_ring_radii = (guard_style=="legacy")
 // mount holes: "motor" = the A2212 cross (guard-local: LONG(19) along Y = up-mast, SHORT(16) along X = width),
 // SYMMETRIC about the hub centre (the one-sided offset is applied where the guard is PLACED, not in its pattern);
 // "plate" = the legacy pad square.
-// derive the guard bolt pattern straight from motor_holes (swap [dY,dZ] -> [X=width, Y=up-mast]) so it ALWAYS matches the
-// motor cross, INCLUDING the 90deg turn (mount_rot) on the wire-routing hull.
-function gmxy(rot) = (mount_to=="motor") ? [ for (h = mholes(rot)) [h[1], h[0]] ]    // guard bolt pattern [X=width, Y=up-mast]
+// derive the guard bolt pattern straight from motor_holes (map [dY,dZ] -> [X, Y=up-mast]) so it ALWAYS matches the
+// motor cross.
+//   SIGN (fixed 2026-08-20): the guard is mounted with `rotate([0,90,0])`, which sends guard-local +X to the
+//   pylon's NEGATIVE width.  The old map used [h[1], h[0]] -- i.e. guard X = +dZ -- so every bore landed at
+//   motor_zc - dZ while the pad's own hole sat at motor_zc + dZ: the guard's pattern was MIRRORED across the
+//   width relative to the pad it bolts to.  The two radii differ (long 19, short 16), so the mirror does NOT
+//   map the pattern onto itself -- it swaps which diagonal carries the long pair and leaves each screw ~1.5 mm
+//   off its bore.  Measured 73 mm^3 of guard standing in the 4 screws' path (_probe_guardbores.scad), and the
+//   same probe comes back EMPTY the moment the width component is negated.  This was independent of the clock
+//   (it fouled at the old 45 too) and would have bitten on assembly, right after the counterbore fix unblocked
+//   it.  So negate dZ here and the guard's bores land on the pad's holes.
+function gmxy(rot) = (mount_to=="motor") ? [ for (h = mholes(rot)) [-h[1], h[0]] ]   // guard bolt pattern [X, Y=up-mast]
                                          : [ for (sx=[-1,1], sy=[-1,1]) [sx*bp_axis, sy*bp_axis] ];
 guard_mount_xy   = gmxy(mount_rot);                                                  // global (standalone); main passes per-hull rot
 guard_shroud_ext = atan((guard_vane_tip/2) / guard_r_tip); // extend the rim arc this far past each end vane so the full

@@ -154,8 +154,9 @@ module centre_connectors() {
 }
 
 module assembly_scene() {
-  stern_drive_hull(-1, mrot_of( 1));                       // port hull: motor clocked so the wire gap faces the slot
-  if (show_both_hulls) stern_drive_hull(1, mrot_of(-1));   // starboard hull: same, mirrored
+  stern_drive_hull(-1, mrot_display( 1));                       // port hull: motor clocked so the wire gap faces the slot
+  if (show_both_hulls) stern_drive_hull(1, mrot_display(-1));   // starboard: PREVIEW clock -- this hull is drawn
+  // through a mirror, so it takes the pre-compensated value and DISPLAYS the same physical part as port.
   centre_box();
   centre_connectors();
   if (show_foam) translate([0, 0, deck_center_z]) foam_body();
