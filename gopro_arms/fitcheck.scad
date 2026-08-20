@@ -108,14 +108,23 @@ module at_ref_pivot(px, a, pz) {
 
 // ---- the RAIL PLATE's frame ----------------------------------------
 // The plate carries its connectors at boss_pos, not at the origin, so the
-// PLATE is slid until connector `i` sits on the origin.  Moving the part and
-// not the probe keeps every pose in the same frame the arms are swept in.
-// i = 0 is the -X connector, so -X is OUTBOARD, and ang = 0 -- ref_2prong's
-// body on -X -- lays a mating part flat outboard, which is the pose the whole
-// raised-pivot argument exists to allow.  ang = 180 lays it flat INBOARD,
-// straight at the other connector; that end of the sweep is expected to bite.
+// PLATE is slid until connector `i` sits on the origin -- and then TURNED
+// until that connector is unyawed, because at_plate() swings about Y and the
+// connectors are yawed a quarter turn.  Moving the part and not the probe
+// keeps every pose in the same frame the arms are swept in; a rotation and a
+// translation are rigid, so the interference volume is unchanged.
+//
+// What ang means changed with the yaw.  Unyawed, ang = 0 laid a mating part
+// flat OUTBOARD over a short edge and ang = 180 laid it flat inboard, straight
+// at the other connector -- so that end of the sweep was expected to bite, and
+// the gate was the outboard quadrant only.  Yawed, the swing plane runs
+// fore-aft and the other connector is 44 mm away ALONG THE HINGE AXIS, out of
+// the plane entirely: ang = 0 and ang = 180 both lie flat over a long edge and
+// neither has anything in it but the plate.  So the arm should now keep the
+// whole half turn, and the sweep says whether it does.
 module plate_at_origin(i = 0) {
-    translate([-boss_pos[i][0], -boss_pos[i][1], 0]) rail_plate();
+    rotate([0, 0, -boss_yaws[i]])
+        translate([-boss_pos[i][0], -boss_pos[i][1], 0]) rail_plate();
 }
 
 // The WIDE plate's one connector is turned a quarter turn, so its hinge axis

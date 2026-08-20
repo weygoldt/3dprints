@@ -101,10 +101,11 @@ Parts, streamlined: `gauge`, `arm50`, `arm75`, `arm100`, `arm140`, `set`,
 `buckle` and `twist`. Arm names are **pivot-to-pivot** distance in mm.
 
 `plate` is the one part that is not an arm and not a cap: a flat base on the
-airboat's 40 × 62 mm M4 rail grid with a 3-prong connector at each end. It is
-where a chain of these starts. `plate155` is the same thing on a 40 × 155 grid
-with a single centred connector turned a quarter turn, so its arm swings
-fore-aft rather than athwartships.
+airboat's 40 × 62 mm M4 rail grid with a 3-prong connector at each end, both
+turned a quarter turn so their arms swing fore-aft, and mirrored so each one's
+head counterbore opens outboard. It is where a chain of these starts.
+`plate155` is the same thing on a 40 × 155 grid with a single centred
+connector.
 
 Not an arm at all, but they cap the pipes the clamp holds: `cap`, `capset` and
 `capgauge` — a press-fit parabolic fairing for the end of a 12 mm PVC tube — and
@@ -1543,11 +1544,11 @@ was trimmed 0.80 → 0.60 when the bore went to 5.5 for exactly this reason — 
 
 ## Rail plate (`part="plate"`)
 
-The ground end of every chain in here. A flat **78 × 56 × 8 mm** plate that
-bolts onto the airboat's mounting rails and stands a GoPro 3-prong connector at
-each end, facing up, on a pedestal that carries it to **28 mm** overall.
-Everything else in this folder — arm, simple arm, `arm_double`, twist adapter,
-buckle — clips straight onto it.
+The ground end of every chain in here. A flat **74 × 52 × 5 mm** skeleton
+(19.0 cm³) that bolts onto the airboat's mounting rails and stands a GoPro
+3-prong connector at each end, facing up, on a pedestal that carries it to
+**25 mm** overall. Everything else in this folder — arm, simple arm,
+`arm_double`, twist adapter, buckle — clips straight onto it.
 
 The bolt pattern is not a choice, it is `boat_enclosure/rail.scad`: **40 mm**
 along one rail (`rail_pitch`, the insert spacing) and **62 mm** rail to rail
@@ -1558,46 +1559,145 @@ Measured off the mesh: bores Ø4.500, centres at ±31.000 and ±20.000, pitch
 62.000 × 40.000, symmetric about zero.
 
 **Orientation.** The grid is 40 mm in Y and 62 mm in X, so the plate's *short*
-edges are the two that run along Y. The connectors' hinge axis runs along Y as
-well, **parallel to those short edges**, which is what makes an arm swing out
-*over* a short edge. Turning that 90° — arms swinging over the long edges
-instead — is one number, `boss_yaw = 90`; where the connectors sit is
-`boss_pos`, also just a list. Both are worth checking against the boat before
-printing, because no measurement in here can tell a correct orientation from a
-plausible one.
+edges are the two that run along Y and its *long* edges run along X. Both
+connectors are **yawed a quarter turn**, which puts their hinge axis along X
+and swings the arms out over the **long** edges — fore-aft on the boat, where
+the 40 mm axis is one rail's own insert pitch. Turning that back (arms swinging
+athwartships, over the short edges) is one number, `boss_yaw = 0`; where the
+connectors sit is `boss_pos`, also just a list. Both are worth checking against
+the boat before printing, because no measurement in here can tell a correct
+orientation from a plausible one.
+
+### Which pocket faces where, and why `boss_yaw` is a list
+
+Yawed, each connector's 21.7 mm prong stack lies along X, so the two of them
+face each other and the two screw pockets are no longer out in open air. That
+matters **asymmetrically**. The nut pocket only ever has a nut pushed into it.
+The head counterbore is where a hex key goes, or where a GoPro thumbscrew's
+Ø20 knob has to turn. So the **counterbores open outboard**, toward their own
+short edge and open sky, and only the **nut pockets face the gap**.
+
+That takes a *mirror*, not a rotation: +90° and −90° give the same hinge axis
+but swap which prong is which. So `boss_yaw` is one angle **per connector**,
+`[90, -90]`. Give both the same yaw and one of them turns its counterbore
+inward — `heads_outboard` is an assert on exactly that, and it fires.
+
+`boss_pos` then moves out from ±18 to **±22**, which is as far as the
+connectors go before their own pads drag the plate past the bolt pads and it
+stops being 74 mm long. It buys the gap: **15.3 mm at ±18, 23.3 mm at ±22**,
+open at the top and at both ends, so an M5 nut goes in from whichever side is
+convenient. Read straight off the mesh, in the plate's own frame:
+
+| connector | head counterbore opens at | nut pocket opens at |
+|---|---|---|
+| (−22, 0) yaw +90 | **x = −33.350** | x = −11.640 |
+| (+22, 0) yaw −90 | **x = +33.350** | x = +11.640 |
+
+Nothing in that check is *told* which prong is which. The head prong is
+thickened by `boss_hd` = 3.40 and the nut prong by the smaller `boss_h` = 2.40,
+so the **thicker of the two outer prongs is the head one by measurement**
+(6.800 vs 5.810), and the only question left is whether that one is outboard.
+Build the plate with the yaws swapped and both connectors fail that line.
+
+### The nut is a press fit here, unlike the arms
+
+`arm.scad` opens its trap `nut_af_clr = 0.20` over the 8.00 AF nut — a slip fit
+that drops in and is then held by the screw. On an arm the trap faces out into
+free air and a nut that rattles falls into your hand. On this plate it faces
+**into the gap** between the connectors and the screw arrives from the far
+side, so a loose nut is one you have to hold in a slot you cannot reach past
+the arm.
+
+`plate_nut_clr = 0.05` puts the pocket at **8.05 nominal**, and a PETG pocket
+comes out a touch under nominal, so the nut goes in with thumb pressure and
+stays where it is put. Drop it to 0 for a harder press; put it back to 0.20 for
+the arms' slip fit.
+
+A press fit needs somewhere to **start**, or the nut sits on the mouth and
+racks. The outermost 0.6 mm is flared 0.35 wider and tapers back to size, so
+the nut enters square and only meets the interference once it is aligned.
+Measured up through the prong — the pocket's flats are top and bottom, so a
+vertical ray reads across-flats directly — **8.050 at 2.0 mm in** (parallel
+section) and **8.313 at 0.15 mm in** (in the funnel), against 8.312 predicted.
+Two depths, because a funnel is a *difference*: one reading alone would pass a
+pocket with no lead-in at all.
 
 ### Two variants
 
 | | `plate` | `plate155` |
 |---|---|---|
 | bolt grid | 62 × 40 | **155 × 40** |
-| plate | 78 × 56 × 8 | **171 × 56 × 8** |
-| connectors | two, at X = ±18 | **one, dead centre** |
-| hinge axis | along the 40 mm axis | **along the 155 mm axis** |
-| arm swings | athwartships, over the short edges | **fore-aft, over the long edges** |
-| clear swing, real arm | 0…150° | **0…180°** |
-| volume | 41.8 cm³ | 79.3 cm³ |
+| plate | 74 × 52 × 5, an H | **171 × 56 × 5, a solid slab** |
+| connectors | two, at X = ±22 | **one, dead centre** |
+| hinge axis | along the 62 mm axis | **along the 155 mm axis** |
+| arm swings | fore-aft, over the long edges | fore-aft, over the long edges |
+| clear swing, real arm | 0…180° | 0…180° |
+| volume | 19.0 cm³ | 51.3 cm³ |
 
 They are the **same module with different arguments** — `rail_plate()` takes the
 grid, the connector list and the yaw, and everything else (bolt, counterbore,
 pedestal, disc, both screw pockets, the chamfer) is shared. `rail_plate()` with
 no arguments renders byte-for-byte what it always did, which is checked.
 
-The yaw is the point of the second one. On the boat the 40 mm direction is
-fore-aft — it is one rail's own insert pitch — and the long span is
-athwartships, so the default plate swings its arms athwartships. Turning the
-connector 90° puts the hinge axis along the long span and the arm swings
-fore-aft instead. Same connector, same pockets; only the plane it articulates in
-changes.
+Both now swing fore-aft; what separates them is the span and the connector
+count. `plate155` was the first to be yawed, back when the default plate still
+swung athwartships, and it carried a single centred connector precisely so that
+nothing limited its swing — the default plate at ±18 used to spend its last
+turn inboard on its **own** second connector, `fitcheck --plate` reading a real
+`arm_simple(100)` biting from 160° on (514 mm³ at 180°).
 
-Its single centred connector also buys back the articulation the default plate
-spends on itself: with no neighbour 36 mm away, a real `arm_simple(100)` keeps
-the **whole 0…180°** instead of stopping at 150°.
+Yawing the default plate makes that limit go away rather than trading around
+it. The two arms now swing in **parallel planes 44 mm apart** instead of toward
+each other, and the neighbour sits along the hinge axis, out of the swing plane
+entirely — so the default plate keeps two connectors *and* the whole 0…180°.
 
 > **`plate155` does not land on the boat's rail grid.** 155 is neither a
 > multiple of the 40 mm `rail_pitch` nor the 62 mm rail gap, so it is a 40 × 155
 > pattern for something else, taken at face value. If it was meant to straddle
 > the rails, **160** (4 × 40) is the nearest span that does.
+
+### The frame is one big H, and every corner in it is a right angle
+
+```
+        o---------------o     the UPRIGHTS run down each bolt COLUMN,
+        |               |     tying that column's two bolts together
+        |###[C]#####[C]#|  <- the CROSSBAR runs along the row the connectors
+        |               |     sit on, tying the uprights together and
+        o---------------o     carrying both connectors
+```
+
+12 mm uprights at x = ±31, a 21 mm crossbar on y = 0, 19.0 cm³ against the
+41.8 cm³ the solid slab cost.
+
+It replaces a rule — *every bolt reaches for the connector nearest it* — that
+drew four **diagonal** struts, an X with a bar through it. That rule made sense
+while the connectors sat inboard at ±18 with clear air between themselves and
+the bolts. It stopped making sense when they moved out to ±22: their pads now
+overlap the bolt columns outright, so a diagonal is a long way round to a place
+the crossbar already touches. The H costs **0.3 cm³ more** and is the better
+shape for the loads the yaw introduced.
+
+Those loads changed direction. An arm's moment on a yawed connector is about
+the **X** axis — it tips the connector fore and aft — and what resists that is
+material reaching out in Y. The crossbar has none to give: a moment about its
+own axis is *torsion* on a 5 mm plate, which is the weakest thing a flat part
+does. The uprights have 52 mm of it, and the connector pad runs out to x = 36.35
+while the upright starts at 25, so the two are continuous over **11 mm** and the
+moment never has to twist the crossbar to get there.
+
+The four inside corners are left **sharp**. Normally a re-entrant corner in a
+loaded plate wants a fillet, because that is where a crack starts — but this
+plate is a spreader bolted flat between four bolt heads and a deck, and the
+biggest thing it ever sees is a camera on a 100 mm arm, about 0.12 Nm. There is
+no stress there to concentrate.
+
+Two rays pin the whole shape, and neither could read this way on the frame it
+replaced, whose diagonals would have crossed both:
+
+- along X at y = 11.5, just **outside** the crossbar → `[-37, -25]` and
+  `[25, 37]`, the two uprights and **nothing** between them
+- along Y at x = 24, just **inside** an upright → `[-10.5, 10.5]`, the crossbar
+  alone, both windows of the H open above and below it
 
 ### A block with a round top, not a circle on a point
 
@@ -1631,15 +1731,15 @@ pad existed to patch, which is what the `-D boss_hw` negative control below
 demonstrates.
 
 `boss_riser = 5.0` then lifts the disc clear of the plate, and buys two things.
-The slots now bottom out at **12.6**, which is 0.4 mm under the disc and still
+The slots now bottom out at **9.6**, which is 0.4 mm under the disc and still
 **4.6 mm above the plate**, so the three prongs are tied together by a solid web
 at their roots instead of each standing alone on the plate. And an M5 thumbscrew
 knob (Ø20 assumed, `knob_d`) turns beside the connector with 2.5 mm to spare
 instead of grounding out on the plate — at riser 0 it would foul, and the echo
-says which way it went.
+says which way it went. Yawed, that knob turns **outboard**, over open plate,
+which is the other half of why the counterbores face that way.
 
-The whole connector is 28.0 mm tall against rev 1's 23.0, and the part went from
-37.2 to 40.6 cm³.
+The part tops out at **25.0 mm** overall.
 
 ### Both screw pockets, and a chamfered top edge
 
@@ -1651,7 +1751,10 @@ drops in flush from that side and nothing has to be held on the far end. A 45°
 has somewhere to go and the head bears on a flat annulus instead of on the
 bore's edge. Each prong is thickened only as far as its own pocket needs —
 `boss_h` = 2.40 for the nut, the deeper `boss_hd` = 3.40 for the head — so the
-stack is deliberately **not** symmetric: 21.7 mm across, −10.35 to +11.35.
+stack is deliberately **not** symmetric: 21.7 mm across, −10.35 to +11.35. That
+asymmetry is what lets the harness work out which prong is which from the mesh
+alone; see *Which pocket faces where* above, and *The nut is a press fit here*
+for the one number that differs from `arm_simple`'s.
 
 One thing departs from `arm_simple`: the counterbore is a **teardrop**, not a
 plain cylinder. Same seat, same head, and the extra material above the bore is
@@ -1660,7 +1763,7 @@ only air, but the pocket's ceiling comes to a 45° point instead of a round arch
 supportless everywhere else and one pocket is not a reason to start. What it
 costs is height — the **apex** is what has to stay under the crown, not the bore
 radius, and checking the radius would happily pass a pocket whose point had
-already broken out. Measured: apex at 26.723, crown at 28.0, 1.277 mm of roof.
+already broken out. Measured: apex at 23.723, crown at 25.0, 1.277 mm of roof.
 
 The plate's top edge takes a 1.0 mm chamfer all the way round. The bottom edge
 does not, and that is deliberate — a chamfer there would lift the first layer's

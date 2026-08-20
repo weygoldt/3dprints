@@ -45,6 +45,14 @@ TMP = os.environ.get('TMPDIR', '/tmp')
 
 def run(test, ang, armL=100):
     out = os.path.join(TMP, f'fc_{test}_{ang}.stl')
+    # An EMPTY intersection makes no file at all, and the read below treats a
+    # file that exists as this render's answer.  So anything left at that path
+    # by an earlier run -- one that died between rendering and the os.remove()
+    # further down -- would be read as the volume for THIS angle.  Clear it
+    # first: the only thing at `out` after this line is what openscad puts
+    # there.
+    if os.path.exists(out):
+        os.remove(out)
     cmd = ['openscad', '-o', out, '--render',
            '-D', f'ang={ang}', '-D', f'armL={armL}', '-D', f'test="{test}"',
            os.path.join(HERE, 'fitcheck.scad')]
