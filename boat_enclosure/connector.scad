@@ -45,6 +45,7 @@ conn_clr      = 0.3;           // notch slide-on clearance: the box negative is 
 // ---- outer fastener: barrel / socket-head cap screw, DOWN into the rail --
 conn_barrel_d = 7.5;           // socket-head cap counterbore dia (DIN912 M4 head ~7.0 + slop)
 conn_barrel_h = 4.5;           // counterbore depth (recesses the head)
+conn_hex_d    = 9.5;           // bore over the lug hex-nut-pocket depth: > the M4 nut across-corners (~8.3) so no hex peg
 conn_clear_d  = 5.5;           // M4 clearance shank through the bracket + lug -- generous so the ~1 mm hand-shaped
                                // hull-width slop is absorbed (the notch self-references to the lug, so the screw
                                // still lands on the rail insert; the head is captured in the 7.5 counterbore)
@@ -66,20 +67,22 @@ module stern_placed(sgn) {
         children();
 }
 
-// The lug negative = the SOLID hold-down lug (its EXACT 3D shape, rounded corners and all), but WITHOUT the
-// box's internal voids: hold_down_lug is the solid post -- the screw hole + hex-nut pocket live in the separate
-// hold_down_lug_cut, which we do NOT subtract, so the notch has NO hex PEG and NO thin WEB (those were the
-// overhangs).  both_ends draws the stern + bow lugs; both X sides are drawn but only the inboard one at z_st
-// lands in the blank.  With clr>0 it is also subtracted shifted +/-clr in X for the drop-on fit.
-module lug_negative(sgn, clr) {
-  module lugs() stern_placed(sgn) both_ends() { hold_down_lug(-1); hold_down_lug(1); }
-  lugs();
-  if (clr > 0) for (dx = [clr, -clr]) translate([dx, 0, 0]) lugs();
+// The box negative = the simple, no-fuss 3D subtract of the REAL box, PLUS its own FORE-AFT MIRROR about the
+// station z_st.  Mirroring makes the lug notch symmetric front-to-back -> the whole bracket becomes fore-aft
+// symmetric, so ONE printed piece serves BOTH hulls: flip it 180 deg about the vertical and the left bracket
+// becomes the right one (Patrick 2026-08-19).  With clr>0 it is also subtracted shifted +/-clr in X for the fit.
+module box_negative(sgn, clr, z_st) {
+  b = role_of_side(sgn < 0 ? "port" : "starboard");
+  module one() stern_placed(sgn) body(b);
+  module sym() { one(); translate([0, 0, 2*z_st]) mirror([0, 0, 1]) one(); }   // box + its mirror about Z=z_st
+  sym();
+  if (clr > 0) for (dx = [clr, -clr]) translate([dx, 0, 0]) sym();
 }
 
 // ONE bracket at hull sgn (-1 port / +1 starboard), fore-aft station z_st.  clr = slide-on fit gap.
-// The notch is the EXACT solid lug (snug fit, rounded corners); the blank simply STOPS clr inboard of the block
-// face so the block is never overlapped (no block web) and nothing but the lug is cut.
+// Simple 3D box subtract (mirrored fore-aft, so one piece fits either hull); the blank stops clr inboard of the
+// block face so the block is never overlapped.  The lug's hex-nut POCKET would leave a hex peg in the notch --
+// an overhang -- so the barrel bore is widened over the pocket depth (conn_hex_d) to clear it.
 module connector_solid(sgn, z_st, clr = 0) {
   scr    = sgn*conn_rail_span/2;                    // outer screw axis (on the inner rail / box inboard lug)
   ins    = sgn*hd_x;                                // inner insert axis (under the centre-box lug)
@@ -90,11 +93,13 @@ module connector_solid(sgn, z_st, clr = 0) {
   difference() {
     // rectangular blank (front view), block face -> centre-box, deck -> centre-box floor
     translate([xlo, conn_ytop, z_st - conn_w/2]) cube([xhi - xlo, conn_ybot - conn_ytop, conn_w]);
-    // NEGATIVE: the SOLID lug (exact fit, no internal-void pegs), dilated by clr in X for the slide-on fit
-    lug_negative(sgn, clr);
+    // NEGATIVE: the real box, mirrored fore-aft, dilated by clr in X for the slide-on fit
+    box_negative(sgn, clr, z_st);
     // OUTER barrel-head cap: counterbore from the top + M4 clearance all the way down through the lug
     translate([scr, conn_ytop - eps, z_st]) rotate([-90,0,0]) cylinder(h = (conn_ybot - conn_ytop) + float_thickness, d = conn_clear_d);
     translate([scr, conn_ytop - eps, z_st]) rotate([-90,0,0]) cylinder(h = conn_barrel_h + eps, d = conn_barrel_d);
+    // clear the lug's hex-nut-pocket PEG: widen the bore to > the hex over the pocket's depth (both fore + aft mirror)
+    translate([scr, hd_top_y - eps, z_st]) rotate([-90,0,0]) cylinder(h = hd_nut_depth + eps, d = conn_hex_d);
     // INNER M4 heat-set insert bored DOWN from the centre-box floor plane, mouth chamfer
     translate([ins, conn_ytop - eps, z_st]) rotate([-90,0,0]) cylinder(h = conn_ins_deep + eps, d = conn_ins_d);
     translate([ins, conn_ytop - eps, z_st]) rotate([-90,0,0]) cylinder(h = conn_ins_cham + eps, d1 = conn_ins_d, d2 = conn_ins_d + 2*conn_ins_cham);
@@ -102,8 +107,8 @@ module connector_solid(sgn, z_st, clr = 0) {
 }
 
 // PRINT pose: one bracket laid with a flat side (the prismatic Z-face) on the bed (Z=0), centred at the origin.
-// The notch is a through-profile feature (no overhang); the two bores print horizontal (fine for a clearance
-// hole and a heat-set insert).  main.scad / STL export renders this; the assembly uses connector_solid.
+// The bracket is FORE-AFT symmetric, so ONE printed piece serves BOTH hulls -- flip it 180 deg about the
+// vertical and the port bracket becomes the starboard one (conn_side -1 and +1 export the identical part).
 module connector_print(sgn) {
   ins = sgn*hd_x;   blk_in = sgn*(hull_dx - mm_pad_w/2);
   xo  = blk_in - sgn*conn_clr;   xi = ins - sgn*conn_in;
@@ -122,9 +127,9 @@ conn_z_fore = box_back_z + 100;   // fore end block  (+20)
 conn_z_aft  = box_back_z - 100;   // aft  end block  (-180)
 
 // standalone render (main.scad sets conn_show="none" after include to suppress this):
-//   "solo"  -- one PORT bracket at the fore lug station with the box it notches onto ghosted (inspection)
-//   "print" -- the PRINT-pose bracket alone, for STL export.  conn_side = -1 left / +1 right.
-//     export:  openscad -o connector_left.stl  --export-format=binstl -D 'conn_show="print"' -D 'conn_side=-1' -D '$fn=96' connector.scad
+//   "solo"  -- one bracket at the fore lug station with the box it notches onto ghosted (inspection)
+//   "print" -- the PRINT-pose bracket alone, for STL export.  ONE part serves both hulls (fore-aft symmetric).
+//     export:  openscad -o airboat_centrebox_connector.stl --export-format=binstl -D 'conn_show="print"' -D '$fn=128' connector.scad
 conn_show = "solo";
 conn_side = -1;
 if (conn_show == "print")     color("Goldenrod") connector_print(conn_side);
