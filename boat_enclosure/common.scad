@@ -399,7 +399,7 @@ motor_head_d     = 8.0;   // socket-cap head + hex-driver access bore dia (front
 //   costs thrust (sin 10 = 17% of thrust pushed downward, cos 10 = 1.5% lost forward) -- but it is NOT what
 //   the aim-at-CoM formula gives, so record which way to move: if the bow STILL dives, go UP (13 -> 16 -> 19),
 //   not down.  It is a KNOB -- tune it after a wet test.
-motor_tilt       = 10;    // degrees the prop thrust points DOWN below horizontal (0 = straight forward).  Rotation
+motor_tilt       = 13;    // degrees the prop thrust points DOWN below horizontal (0 = straight forward).  Rotation
                           // is about the width axis at the hub; +ve = thrust forward+down (verified by render).
 
 /* [Motor mount + pylon] -- SEPARATE printed pylon bolts to a protruding BLOCK on the
