@@ -2,5 +2,6 @@ BOSL2/
 GoProScad/
 *.gcode
 *.stl
+**/stl/.*.hash
 .claude/
 __pycache__/
