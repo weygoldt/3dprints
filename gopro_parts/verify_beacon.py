@@ -5,34 +5,29 @@ Everything here is read off the exported STL, not out of the .scad, so it
 catches modelling mistakes as well as parameter typos.
 
     python3 verify_beacon.py --selftest
-    python3 verify_beacon.py --body B.stl --carrier C.stl --dome D.stl \
-                             --same-as stl/dome_AS_PRINTED.stl \
-                             --probes FIT.stl HOOK.stl
+    python3 verify_beacon.py --body B.stl --dome D.stl \
+                             --same-as stl/dome_AS_PRINTED.stl
 
-WHY THIS FILE EXISTS
+WHAT THIS IS FOR NOW
 --------------------
-v1 shipped a snap that could not snap.  Nothing in the model was "wrong" --
-every parameter had a sensible name and a plausible value -- but the number
-that decides whether a snap clicks was 0.15 mm of interference between two
-rigid bodies, and no check anywhere ever computed it.  So the gate that matters
-here is a SUBTRACTION ACROSS TWO MESHES: the carrier's barb crest radius minus
-the body's bore radius.  If that is not comfortably positive the parts stack
-instead of snapping, and this exits non-zero.
+v3 dropped the LED carrier: the dome threads straight onto the body.  That
+deletes the snap this file used to exist to gate, and leaves ONE joint that
+matters -- the thread and boss the already-printed dome screws onto.  So the
+headline check is a cross-mesh one: take the boss off the body, take the skirt
+bore off the dome, and confirm one goes into the other with clearance and at
+the same stand-off.  Neither part alone can be asked that.
 
 HOW IT MEASURES
 ---------------
 By slicing the mesh with a horizontal plane and casting a ray out from the
-axis, NOT by looking at where vertices happen to be.  The first version of this
-file did the latter and every radius check came back "nothing found" -- a
-cylindrical wall between z=a and z=b has vertices at a and b and nowhere in
-between, so sampling a band strictly inside a face finds an empty set.  An
-empty set then reads as -1 or None, which is at least loud; the same mistake
-with a max() over "everything below this z" would have quietly measured the
-wrong feature and passed.  Hence ray_hits(), which returns the actual wall
-crossings at a height, and raises if a probe finds nothing.
+axis, NOT by looking at where vertices happen to be.  A cylindrical wall
+between z=a and z=b has vertices at a and b and nowhere in between, so
+sampling a band strictly inside a face finds an empty set -- which then reads
+as a clean answer.  A single bearing is the same trap one level up: on a
+thread it lands in a groove and confidently reports the minor diameter, so
+anything hunting a local feature sweeps every bearing.
 """
 import argparse
-import hashlib
 import math
 import os
 import struct
@@ -41,48 +36,26 @@ from collections import defaultdict
 
 # ---- spec (must mirror rc_boat_blink_beacon.scad) ------------------------
 BODY_D        = 33.00
-BODY_WALL     = 2.25
-BODY_H        = 11.00
-BODY_FLOOR    = 3.00
-CARRIER_D     = 30.00
-CARRIER_PROUD = 1.80
-RIM_H         = 3.20
-SKIRT_H       = 6.40
-SKIRT_WALL    = 1.40
-TONGUE_WALL   = 0.90
-TONGUE_N      = 6
-TONGUE_W      = 3.50
-TONGUE_CUT    = 1.50
-SNAP_CLR      = 0.25
-SNAP_ENGAGE   = 0.40
-SNAP_BARB_Z   = 0.60
-SNAP_LEAD     = 30.0
-SNAP_HOLD     = 45.0
-SNAP_PLAY     = 0.15
-SNAP_GROOVE_CLR = 0.10
-SKIRT_LEAD    = 0.60
+BODY_WALL     = 2.00
+BODY_H        = 9.50
+BODY_FLOOR    = 2.20
+BOSS_D        = 30.00
+BOSS_PROUD    = 1.80
 THREAD_D      = 28.00
 THREAD_L      = 6.00
-STAR_POCKET_D = 20.40
+COLLAR_WALL   = 2.00
+COLLAR_BORE   = THREAD_D - 2 * COLLAR_WALL      # 24.00
+GENERAL_FIT   = 0.25
+DOME_H        = 20.30
+DOME_D        = 33.00
+COLLAR_TOP    = BODY_H + BOSS_PROUD + THREAD_L  # 17.30
+BORE_R        = BODY_D / 2 - BODY_WALL          # 14.50
 
-CARRIER_T     = SKIRT_H + RIM_H              # 9.60
-SEAT_DEPTH    = CARRIER_T - CARRIER_PROUD    # 7.80
-SEAT_BORE     = RIM_H - CARRIER_PROUD        # 1.40
-BORE_R        = BODY_D / 2 - BODY_WALL       # 14.25
-SKIRT_OR      = BORE_R - SNAP_CLR            # 14.00
-SKIRT_IR      = SKIRT_OR - SKIRT_WALL        # 12.60
-TONGUE_IR     = SKIRT_OR - TONGUE_WALL       # 13.10
-BARB_OR       = BORE_R + SNAP_ENGAGE         # 14.65
-GROOVE_OR     = BARB_OR + SNAP_GROOVE_CLR    # 14.75
-BARB_PROUD    = BARB_OR - SKIRT_OR           # 0.65
-BARB_LEAD_DZ  = BARB_PROUD * math.tan(math.radians(SNAP_LEAD))
-BARB_HOLD_DZ  = BARB_PROUD * math.tan(math.radians(SNAP_HOLD))
-BARB_LAND     = BARB_LEAD_DZ
-BARB_TOP_Z    = SNAP_BARB_Z + BARB_LEAD_DZ + BARB_LAND + BARB_HOLD_DZ
-BARB_MID_Z    = SNAP_BARB_Z + BARB_LEAD_DZ + BARB_LAND / 2
-CUT_OFF       = math.degrees(math.asin((TONGUE_W + TONGUE_CUT) / (2 * SKIRT_OR)))
-FLOOR_Z       = BODY_H - SEAT_DEPTH          # 3.20  carrier free end, body frame
-GROOVE_Z0     = FLOOR_Z + SNAP_BARB_Z - SNAP_PLAY
+PCB_L         = 18.00
+PCB_W         = 10.00
+PCB_T         = 4.50
+STAR_D        = 20.00
+STAR_T        = 2.00
 
 # GoPro joint -- these mirror arm.scad, which is what it has to mate with.
 GP_FING_T     = 2.90     # arm.scad  u - fing_under
@@ -96,11 +69,6 @@ ARM_TAB_R     = 7.50     # our arms
 REAL_GOPRO_R  = 7.75     # a genuine GoPro knuckle -- the bigger of the two
 ARM_SLOT_W    = 3.10
 
-# PETG.  What the snap was sized against.  Reported, and the strain is gated:
-# a snap that yields on first assembly is still broken.
-E_PETG        = 2000.0   # MPa
-STRAIN_LIMIT  = 3.0      # %
-
 TOL = 0.03               # mm -- faceting slop on a d=30 circle at $fn=128
 
 
@@ -113,8 +81,7 @@ def load(path, allow_empty=False):
     """Read an STL, ASCII or binary, and return a list of (v0,v1,v2) triples.
 
     Raises rather than returning [] for anything it cannot make sense of.  An
-    empty mesh is the one failure mode that looks like success downstream, so
-    callers that genuinely expect one have to say so.
+    empty mesh is the one failure mode that looks like success downstream.
     """
     if not os.path.exists(path):
         raise MeshError("no such file: %s" % path)
@@ -269,21 +236,11 @@ def wall_at(tris, z, ang, lo, hi, which="min"):
     return min(hits) if which == "min" else max(hits)
 
 
-def outer_at(tris, z, ang=17.0):
-    """Outermost material radius at a height, on ONE bearing."""
-    hits = ray_hits(section(tris, z), ang)
-    if not hits:
-        raise MeshError("no material at z=%.3f bearing=%.1f" % (z, ang))
-    return max(hits)
-
-
 def max_outer(tris, z, step=1.0):
     """Outermost material radius at a height, over EVERY bearing.
 
-    Single-bearing probes are a trap on this part: the barbs occupy six 15 deg
-    windows and the thread is a helix, so a fixed bearing lands between them
-    and confidently reports the plain wall behind.  It reads as a clean number,
-    not as a miss.
+    A thread is a helix: a fixed bearing lands in a groove and reports the
+    minor diameter as though it were the crest.
     """
     segs = section(tris, z)
     best = -1.0
@@ -296,32 +253,55 @@ def max_outer(tris, z, step=1.0):
     return best
 
 
-def angular_extents(tris, z, r_thresh, step=0.2):
-    """Bearings at which the outer radius exceeds r_thresh, grouped into runs.
-
-    This is how the tongues get COUNTED off the mesh instead of being taken on
-    trust from the for-loop that made them.
-    """
+def _wall_extreme(tris, z, lo, hi, pick, step=1.0):
     segs = section(tris, z)
-    hot = []
-    n = int(360 / step)
-    for i in range(n):
-        a = i * step
-        h = ray_hits(segs, a)
-        if h and max(h) >= r_thresh:
-            hot.append(a)
-    if not hot:
-        return []
-    runs = [[hot[0]]]
-    for a in hot[1:]:
-        if a - runs[-1][-1] <= step * 1.5:
-            runs[-1].append(a)
-        else:
-            runs.append([a])
-    if len(runs) > 1 and (runs[0][0] + 360.0) - runs[-1][-1] <= step * 1.5:
-        runs[0] = [x - 360.0 for x in runs[-1]] + runs[0]
-        runs.pop()
-    return runs
+    best = None
+    for i in range(int(360 / step)):
+        for s in ray_hits(segs, i * step):
+            if lo <= s <= hi and (best is None or pick(s, best)):
+                best = s
+    if best is None:
+        raise MeshError("no wall in [%.2f,%.2f] at z=%.3f" % (lo, hi, z))
+    return best
+
+
+def min_inner(tris, z, lo, hi, step=1.0):
+    """Innermost wall crossing inside a window, over every bearing.
+
+    On a FEMALE thread this is the crest -- the thread's minor diameter, the
+    bit that pokes inward into the male's groove.
+    """
+    return _wall_extreme(tris, z, lo, hi, lambda s, b: s < b, step)
+
+
+def max_inner(tris, z, lo, hi, step=1.0):
+    """Outermost wall crossing inside a window, over every bearing.
+
+    On a FEMALE thread this is the ROOT -- the thread's major diameter, which
+    is what a male crest actually has to fit inside.  The window has to
+    exclude the part's own outside wall or this just measures that.
+    """
+    return _wall_extreme(tris, z, lo, hi, lambda s, b: s > b, step)
+
+
+def transition_z(fn, z0, z1, want, tol=0.05, steps=240):
+    """Walk z and return where fn(z) stops being `want` (within tol).
+
+    Used to measure a STAND-OFF -- how far the boss runs before the thread
+    starts -- off the mesh instead of trusting the parameter that drew it.
+    """
+    last = None
+    for i in range(steps + 1):
+        z = z0 + (z1 - z0) * i / steps
+        try:
+            v = fn(z)
+        except MeshError:
+            v = None
+        ok = v is not None and abs(v - want) <= tol
+        if last is not None and last and not ok:
+            return z
+        last = ok
+    return None
 
 
 # ---- selftest -------------------------------------------------------------
@@ -336,18 +316,18 @@ CUBE = [
 
 
 def _tube(ri, ro, h, n=64):
-    """A closed annular tube, built here so the ray probes are checked against
-    a shape whose answers are known exactly rather than against the part."""
+    """A closed annular tube, so the ray probes get checked against a shape
+    whose answers are known exactly rather than against the part."""
     tris = []
     ring = lambda r, z: [(r * math.cos(2 * math.pi * i / n),
                           r * math.sin(2 * math.pi * i / n), z) for i in range(n)]
     bi, bo, ti, to = ring(ri, 0), ring(ro, 0), ring(ri, h), ring(ro, h)
     for i in range(n):
         j = (i + 1) % n
-        tris += [(bo[i], bo[j], to[j]), (bo[i], to[j], to[i])]        # outside
-        tris += [(bi[j], bi[i], ti[i]), (bi[j], ti[i], ti[j])]        # inside
-        tris += [(bi[i], bi[j], bo[j]), (bi[i], bo[j], bo[i])]        # bottom
-        tris += [(ti[j], ti[i], to[i]), (ti[j], to[i], to[j])]        # top
+        tris += [(bo[i], bo[j], to[j]), (bo[i], to[j], to[i])]
+        tris += [(bi[j], bi[i], ti[i]), (bi[j], ti[i], ti[j])]
+        tris += [(bi[i], bi[j], bo[j]), (bi[i], bo[j], bo[i])]
+        tris += [(ti[j], ti[i], to[i]), (ti[j], to[i], to[j])]
     return tris
 
 
@@ -406,11 +386,10 @@ def selftest(tmp):
     except MeshError:
         chk("truncated binary raises", True)
 
-    # The ray probes, against a tube whose walls are known exactly.  This is
-    # the instrument every radius below is taken with; the previous version of
-    # this file measured vertices instead and silently found nothing at all.
+    # The ray probes, against a tube whose walls are known exactly.
     tube = _tube(4.0, 5.0, 3.0)
-    chk("tube inner wall found at r=4", abs(wall_at(tube, 1.5, 33.0, 3, 6) - 4.0) < 0.01,
+    chk("tube inner wall found at r=4",
+        abs(wall_at(tube, 1.5, 33.0, 3, 6) - 4.0) < 0.01,
         "%.4f" % wall_at(tube, 1.5, 33.0, 3, 6))
     chk("tube outer wall found at r=5",
         abs(wall_at(tube, 1.5, 33.0, 3, 6, "max") - 5.0) < 0.01)
@@ -422,14 +401,20 @@ def selftest(tmp):
     except MeshError:
         chk("wall_at raises when the window is empty", True)
     try:
-        outer_at(tube, 99.0)
-        chk("outer_at raises above the part", False, "returned a number")
+        max_outer(tube, 99.0)
+        chk("max_outer raises above the part", False, "returned a number")
     except MeshError:
-        chk("outer_at raises above the part", True)
-    chk("angular_extents finds nothing above a tube's OD",
-        angular_extents(tube, 1.5, 5.5, step=2.0) == [])
-    chk("angular_extents finds the whole ring below its OD",
-        len(angular_extents(tube, 1.5, 4.9, step=2.0)) == 1)
+        chk("max_outer raises above the part", True)
+
+    # A stepped tube, so transition_z is checked against a step whose height
+    # is known.  Without this the stand-off measurement is unfalsifiable.
+    step = _tube(4.0, 5.0, 2.0) + [((p[0], p[1], p[2] + 2.0) for p in t)
+                                   for t in []]
+    two = _tube(4.0, 6.0, 2.0)
+    shifted = [tuple((p[0], p[1], p[2] + 2.0) for p in t) for t in _tube(4.0, 5.0, 2.0)]
+    z = transition_z(lambda zz: max_outer(two + shifted, zz), 0.1, 3.9, 6.0)
+    chk("transition_z finds a step at 2.0", z is not None and abs(z - 2.0) < 0.08,
+        "%.3f" % z if z else "none")
     return fails
 
 
@@ -449,88 +434,6 @@ def gate(name, ok, detail):
     return ok
 
 
-def check_carrier(t):
-    print("--- carrier")
-    f = []
-    bad, ne = closed(t)
-    f.append(gate("mesh closed (every edge in 2 facets)", bad == 0,
-                  "%d bad of %d edges" % (bad, ne)))
-    f.append(gate("single shell", shells(t) == 1, "%d shell(s)" % shells(t)))
-
-    lo, hi = bbox(t)
-    f.append(report("overall height (skirt base to thread top)",
-                    hi[2] - lo[2], CARRIER_T + THREAD_L, TOL))
-
-    # Everything the printed dome can reach.
-    f.append(report("rim outside diameter (the dome rides on this)",
-                    2 * outer_at(t, SKIRT_H + RIM_H / 2), CARRIER_D, TOL,
-                    "the printed dome's skirt bore is %.2f" % (CARRIER_D + 2 * SNAP_CLR)))
-    f.append(report("thread crest diameter",
-                    2 * max_outer(t, CARRIER_T + THREAD_L / 2, 0.5), THREAD_D, 0.15))
-    f.append(report("rim height above the seat (dome thread datum)",
-                    hi[2] - THREAD_L - SKIRT_H, RIM_H, TOL))
-
-    # The snap.
-    f.append(report("barb crest radius", max_outer(t, BARB_MID_Z), BARB_OR, TOL))
-    f.append(report("skirt outside radius, above the barb",
-                    max_outer(t, (BARB_TOP_Z + SKIRT_H) / 2), SKIRT_OR, TOL))
-
-    # Tongue vs ring: the two wall thicknesses that decide whether it bends.
-    z = (BARB_TOP_Z + SKIRT_H) / 2
-    t_in = wall_at(t, z, 0.0, 11.0, 14.4)
-    r_in = wall_at(t, z, 360.0 / TONGUE_N / 2, 11.0, 14.4)
-    f.append(report("tongue inner radius (thinned for flex)", t_in, TONGUE_IR, TOL))
-    f.append(report("ring inner radius (between tongues)", r_in, SKIRT_IR, TOL))
-    f.append(gate("tongue is thinner than the ring it sits in",
-                  t_in > r_in + 0.3,
-                  "tongue wall %.2f, ring wall %.2f"
-                  % (SKIRT_OR - t_in, SKIRT_OR - r_in)))
-    f.append(gate("relief behind the tongue exceeds its deflection",
-                  t_in - r_in >= SNAP_ENGAGE + 0.05,
-                  "%.2f mm of room for %.2f mm of bend" % (t_in - r_in, SNAP_ENGAGE)))
-
-    # Count the tongues off the mesh, and measure one.
-    runs = angular_extents(t, BARB_MID_Z, BARB_OR - 0.15)
-    f.append(gate("tongue count", len(runs) == TONGUE_N,
-                  "%d barb(s) found around the crest" % len(runs)))
-    if runs:
-        # The cuts are parallel slabs, so a tongue is exactly TONGUE_W at the
-        # skirt OD and fans out slightly by the time it reaches the crest.
-        half = CUT_OFF - math.degrees(math.asin(TONGUE_CUT / 2 / BARB_OR))
-        want = 2 * BARB_OR * math.sin(math.radians(half))
-        widths = [2 * BARB_OR * math.sin(math.radians((r[-1] - r[0]) / 2)) for r in runs]
-        f.append(report("barb width at the crest",
-                        sum(widths) / len(widths), want, 0.25))
-    # The skirt's footprint on the bed, and the rim's bridge anchor above it,
-    # are the same annulus -- so what matters is how much of the circumference
-    # survives the cuts and how wide the widest gap is.  (The twelve cuts DO
-    # sever the ring into twelve arcs; the design note used to claim otherwise.
-    # Twelve 1.5 mm gaps in 88 mm is a fine anchor.  Six bare towers would not
-    # be, which is what this is really guarding against.)
-    runs_od = angular_extents(t, z, SKIRT_OR - 0.15)
-    cover = sum(r[-1] - r[0] for r in runs_od)
-    gaps = sorted(360.0 - cover for _ in [0])
-    widest = max((runs_od[(i + 1) % len(runs_od)][0] - r[-1]) % 360.0
-                 for i, r in enumerate(runs_od)) if len(runs_od) > 1 else 0.0
-    f.append(gate("skirt keeps most of its circumference on the bed",
-                  cover / 360.0 >= 0.75,
-                  "%.0f %% of the ring present in %d arc(s)"
-                  % (100 * cover / 360.0, len(runs_od))))
-    f.append(gate("no gap wide enough to spoil the rim's bridge",
-                  widest * math.pi * SKIRT_OR / 180.0 <= 2.5,
-                  "widest gap %.2f mm" % (widest * math.pi * SKIRT_OR / 180.0)))
-
-    # Strain and force, from the geometry.
-    L = SKIRT_H - BARB_MID_Z
-    strain = 100.0 * 3 * TONGUE_WALL * SNAP_ENGAGE / (2 * L * L)
-    force = TONGUE_N * TONGUE_W * TONGUE_WALL ** 3 * E_PETG * SNAP_ENGAGE / (4 * L ** 3)
-    print("    tongue free length %.2f mm -> peak strain %.2f %% (PETG limit ~%.0f %%),"
-          " spring force ~%.0f N" % (L, strain, STRAIN_LIMIT, force))
-    f.append(gate("peak bending strain within PETG", strain <= STRAIN_LIMIT,
-                  "%.2f %%" % strain))
-    return all(f)
-
-
 def check_body(t):
     print("--- body")
     f = []
@@ -540,29 +443,41 @@ def check_body(t):
     f.append(gate("single shell", shells(t) == 1, "%d shell(s)" % shells(t)))
 
     lo, hi = bbox(t)
-    f.append(report("body top face", hi[2], BODY_H, TOL))
+    f.append(report("overall height", hi[2] - lo[2], COLLAR_TOP + GP_DROP, TOL))
     f.append(report("GoPro finger tip (lowest point)", lo[2], -GP_DROP, TOL))
     f.append(report("outside diameter", hi[0] - lo[0], BODY_D, TOL))
+    f.append(report("top of the thread", hi[2], COLLAR_TOP, TOL))
 
-    # Counterbore, groove, bore -- the three radii the carrier lives in.
-    ANG = 31.0                       # clear of the cable slot and the rails
-    f.append(report("counterbore radius (accepts the OD30 rim)",
-                    wall_at(t, BODY_H - SEAT_BORE / 2, ANG, 13.0, 15.9),
-                    CARRIER_D / 2 + SNAP_CLR, TOL))
-    gz = GROOVE_Z0 + BARB_LEAD_DZ + (BARB_LAND + 2 * SNAP_PLAY) / 2
-    f.append(report("snap groove outer radius", wall_at(t, gz, ANG, 13.0, 15.9),
-                    GROOVE_OR, TOL))
-    bore_z = FLOOR_Z + BARB_TOP_Z + (SKIRT_H - BARB_TOP_Z) / 2
-    f.append(report("plain bore radius", wall_at(t, bore_z, ANG, 13.0, 15.9),
-                    BORE_R, TOL))
-    f.append(gate("groove is a full annulus (snaps at any rotation)",
-                  len(angular_extents(t, gz, GROOVE_OR - 0.05)) == 1,
-                  "one continuous groove"))
+    # The collar -- everything the printed dome screws onto.
+    f.append(report("body face the dome seats on",
+                    2 * max_outer(t, BODY_H - 0.3), BODY_D, TOL))
+    f.append(report("boss diameter (dome's skirt bore rides here)",
+                    2 * max_outer(t, BODY_H + BOSS_PROUD / 2), BOSS_D, TOL))
+    f.append(report("thread crest diameter",
+                    2 * max_outer(t, BODY_H + BOSS_PROUD + THREAD_L / 2, 0.5),
+                    THREAD_D, 0.15))
+    f.append(report("collar bore (light out, electronics in)",
+                    2 * min_inner(t, BODY_H + BOSS_PROUD / 2, 8.0, 14.0),
+                    COLLAR_BORE, TOL))
 
-    # Seat: the ledge the carrier's rim lands on, and how wide it is.
-    seat = (CARRIER_D / 2 + SNAP_CLR) - BORE_R
-    f.append(gate("seat ledge width", seat >= 0.8,
-                  "%.2f mm of annulus under the rim" % seat))
+    # Measured, not assumed: how far the boss runs before the thread starts.
+    z = transition_z(lambda zz: max_outer(t, zz, 2.0), BODY_H + 0.05,
+                     BODY_H + BOSS_PROUD + 1.0, BOSS_D / 2, tol=0.06)
+    f.append(report("boss stand-off before the thread",
+                    (z - BODY_H) if z else None, BOSS_PROUD, 0.10,
+                    "this is where the dome's internal thread starts"))
+
+    # The compartment, and whether the parts can physically be assembled.
+    f.append(gate("driver + star fit under the collar",
+                  BODY_H - BODY_FLOOR >= PCB_T + STAR_T,
+                  "%.1f mm of compartment for %.1f mm of stack"
+                  % (BODY_H - BODY_FLOOR, PCB_T + STAR_T)))
+    diag = math.hypot(PCB_L, PCB_W)
+    f.append(gate("driver passes through the collar bore", COLLAR_BORE > diag + 1.0,
+                  "bore %.1f vs driver diagonal %.1f" % (COLLAR_BORE, diag)))
+    f.append(gate("LED star passes through the collar bore",
+                  COLLAR_BORE > STAR_D + 1.0,
+                  "bore %.1f vs star %.1f" % (COLLAR_BORE, STAR_D)))
 
     # GoPro grid.
     ys = sorted({round(p[1], 3) for p in verts(t) if p[2] < -GP_WEB_T - 0.5})
@@ -588,20 +503,20 @@ def check_dome(t, same_as):
     print("--- dome")
     f = []
     lo, hi = bbox(t)
-    f.append(report("dome height", hi[2] - lo[2], 20.30, TOL))
-    f.append(report("dome outside diameter", hi[0] - lo[0], 33.00, TOL))
-    f.append(report("skirt bore (rides on the carrier rim)",
-                    2 * wall_at(t, CARRIER_PROUD / 2, 31.0, 13.0, 17.0),
-                    CARRIER_D + 2 * SNAP_CLR, TOL))
+    f.append(report("dome height", hi[2] - lo[2], DOME_H, TOL))
+    f.append(report("dome outside diameter", hi[0] - lo[0], DOME_D, TOL))
+    f.append(report("skirt bore (rides on the body's boss)",
+                    2 * wall_at(t, BOSS_PROUD / 2, 31.0, 13.0, 17.0),
+                    BOSS_D + 2 * GENERAL_FIT, TOL))
     if same_as:
         ref = load(same_as)
         # The reference was exported ASCII (full double precision); this one is
         # binary (float32).  They cannot be compared byte for byte -- and a
         # hash of the triangle list answers the wrong question anyway, because
-        # the same solid can come out with its facets in a different order and
+        # the same solid comes back with its facets in a different order and
         # each facet started from a different one of its three corners.  What
-        # is actually being asked is "did any point of this surface MOVE", so
-        # compare the two SORTED VERTEX CLOUDS, which no reordering disturbs.
+        # is being asked is "did any point of this surface MOVE", so compare
+        # the two SORTED VERTEX CLOUDS, which no reordering disturbs.
         a, b = sorted(verts(t)), sorted(verts(ref))
         dev = (max(abs(x - y) for pa, pb in zip(a, b) for x, y in zip(pa, pb))
                if len(a) == len(b) else float('inf'))
@@ -618,63 +533,72 @@ def check_dome(t, same_as):
     return all(f)
 
 
-def check_probes(fit_path, hook_path):
-    print("--- probes")
-    f = []
-    # An empty intersection is the CORRECT answer here, and OpenSCAD writes a
-    # zero-facet STL for it, so this is the one caller allowed to see one.
-    fit = load(fit_path, allow_empty=True)
-    v = abs(volume(fit)) if fit else 0.0
-    f.append(gate("seated carrier does not interfere with the body", v < 1e-3,
-                  "overlap %.4f mm^3" % v))
+def check_fit(body, dome):
+    """The one joint left, asked across both meshes at once.
 
-    hook = load(hook_path)
-    hv = abs(volume(hook))
-    want = TONGUE_N * TONGUE_W * SNAP_ENGAGE * (
-        BARB_LAND + 0.5 * (BARB_LEAD_DZ + BARB_HOLD_DZ) * (SNAP_ENGAGE / BARB_PROUD))
-    f.append(gate("barbs actually stand outside the bore", hv > 1.0,
-                  "%.2f mm^3 has to spring past (closed form ~%.2f; v1: 0.00)"
-                  % (hv, want)))
+    Neither part can answer this alone: the body knows how far its boss stands
+    proud, the dome knows how deep its skirt bore runs before the thread
+    starts, and the beacon only closes if those two are the same number.
+    """
+    print("--- THE JOINT (body boss vs the dome that is already printed)")
+    f = []
+    boss = 2 * max_outer(body, BODY_H + BOSS_PROUD / 2)
+    skirt = 2 * wall_at(dome, BOSS_PROUD / 2, 31.0, 13.0, 17.0)
+    clr = skirt - boss
+    print("    boss %.3f  into skirt bore %.3f  =  %.3f mm diametral clearance"
+          % (boss, skirt, clr))
+    f.append(gate("boss enters the dome's skirt bore", 0.2 <= clr <= 1.0,
+                  "%.3f mm" % clr))
+
+    zb = transition_z(lambda zz: max_outer(body, zz, 2.0), BODY_H + 0.05,
+                      BODY_H + BOSS_PROUD + 1.0, BOSS_D / 2, tol=0.06)
+    zd = transition_z(lambda zz: wall_at(dome, zz, 31.0, 13.0, 17.0),
+                      0.05, BOSS_PROUD + 1.0, (BOSS_D + 2 * GENERAL_FIT) / 2,
+                      tol=0.06)
+    body_off = (zb - BODY_H) if zb else None
+    print("    thread starts %.3f above the body face, %.3f into the dome"
+          % (body_off or -1, zd or -1))
+    f.append(gate("thread datums agree",
+                  body_off is not None and zd is not None
+                  and abs(body_off - zd) < 0.12,
+                  "%.3f vs %.3f mm" % (body_off or -1, zd or -1)))
+
+    zt = BOSS_PROUD + THREAD_L / 2
+    crest = 2 * max_outer(body, BODY_H + BOSS_PROUD + THREAD_L / 2, 0.5)
+    # The female ROOT (major diameter), not its crest: 15.5 keeps the dome's
+    # own 33 mm outside wall out of the window.
+    root = 2 * max_inner(dome, zt, 12.0, 15.5, 0.5)
+    fem_crest = 2 * min_inner(dome, zt, 12.0, 15.5, 0.5)
+    print("    male crest %.3f into female root %.3f  =  %.3f mm diametral slop"
+          % (crest, root, root - crest))
+    print("    female crest %.3f sits in the male groove" % fem_crest)
+    f.append(gate("thread has clearance and is not loose",
+                  0.2 <= (root - crest) <= 1.4, "%.3f mm" % (root - crest)))
+    f.append(gate("female crest clears the male root", fem_crest < crest,
+                  "%.3f vs %.3f" % (fem_crest, crest)))
     return all(f)
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--selftest", action="store_true")
-    ap.add_argument("--carrier")
     ap.add_argument("--body")
     ap.add_argument("--dome")
     ap.add_argument("--same-as")
-    ap.add_argument("--probes", nargs=2, metavar=("FIT", "HOOK"))
     a = ap.parse_args()
 
     ok = True
     if a.selftest:
         print("--- loader + probe selftest")
         ok = not selftest(os.environ.get("TMPDIR", "/tmp")) and ok
-    carrier = load(a.carrier) if a.carrier else None
     body = load(a.body) if a.body else None
-    if carrier:
-        ok = check_carrier(carrier) and ok
+    dome = load(a.dome) if a.dome else None
     if body:
         ok = check_body(body) and ok
-    if a.dome:
-        ok = check_dome(load(a.dome), a.same_as) and ok
-    if a.probes:
-        ok = check_probes(*a.probes) and ok
-
-    # The number the whole redesign exists for: one mesh minus the other.
-    if carrier and body:
-        barb = max_outer(carrier, BARB_MID_Z)
-        bore_z = FLOOR_Z + BARB_TOP_Z + (SKIRT_H - BARB_TOP_Z) / 2
-        bore = wall_at(body, bore_z, 31.0, 13.0, 15.9)
-        interf = barb - bore
-        print("--- THE SNAP")
-        print("    barb crest %.3f  -  bore %.3f  =  %.3f mm of interference"
-              % (barb, bore, interf))
-        print("    v1 measured 0.150 mm against a rigid ring, and did not click.")
-        ok = gate("interference is enough to snap", interf >= 0.30,
-                  "%.3f mm" % interf) and ok
+    if dome:
+        ok = check_dome(dome, a.same_as) and ok
+    if body and dome:
+        ok = check_fit(body, dome) and ok
 
     print("\n%s" % ("ALL CHECKS PASSED" if ok else "*** CHECKS FAILED"))
     sys.exit(0 if ok else 1)

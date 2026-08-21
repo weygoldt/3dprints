@@ -1,81 +1,64 @@
 /*
-  RC boat blink beacon v2
-  -----------------------
+  RC boat blink beacon v3 -- TWO PARTS
+  -----------------------------------
   Requires BOSL2. Install it as an OpenSCAD library so these resolve:
     include <BOSL2/std.scad>
     include <BOSL2/threading.scad>
 
-  Three printable parts:
-    1. opaque body with integrated GoPro-compatible two-prong mount
-    2. opaque LED carrier for a 20 mm star board
-    3. translucent diffuser dome
+  Two printable parts:
+    1. opaque body -- driver compartment, GoPro two-prong mount, and the male
+       thread the dome screws straight onto
+    2. translucent diffuser dome  (UNCHANGED since v1 -- already printed)
 
   Select a part with `part` before exporting an STL.
   Units: millimetres.  Material: PETG.
 
   ---------------------------------------------------------------------------
-  WHAT CHANGED IN v2, AND WHY
+  WHY THE CARRIER IS GONE
   ---------------------------------------------------------------------------
-  v1's carrier did not snap into the body -- it dropped in and sat there.  The
-  retention was eight d=1.4 spheres half-buried in the carrier's rim, standing
-  0.40 mm proud of a 30.0 disc that entered a 30.5 socket.  Subtract the 0.25
-  clearance and the actual interference was 0.15 mm, and it had to be taken up
-  by a solid disc pushing a closed ring open: there was no cantilever anywhere
-  in the joint, so 0.15 mm of "interference" meant 1 % hoop strain in a 30 mm
-  ring.  Nothing that stiff yields politely -- it either refuses to enter or,
-  as here, the bumps print away to a rounding error and the parts just stack.
+  v1 and v2 had a third part: an LED carrier that snapped into the body and
+  carried the thread.  v2 finally made that snap work -- 0.40 mm of engagement
+  on six cantilever tongues instead of v1's 0.144 mm against a rigid ring --
+  and it was still the wrong part to have.
 
-  v2 puts a real cantilever in the joint.  The carrier grows a SLOTTED SKIRT
-  below its rim: a 1.4 mm ring with six 0.9 mm tongues freed by axial cuts, each
-  rooted at the rim and carrying an outward barb near its free end.  The body's
-  bore gets one continuous internal groove for those barbs to fall into.  The
-  tongues bend; the ring does not have to stretch.  Engagement went 0.15 -> 0.40
-  mm, and the barb now has to spring 0.40 mm to get past the bore -- which is
-  the number that decides whether it clicks.
+  It was a shallow cup printed open-end-down, so its rim underside was a flat
+  25.2 mm roof, and no chamfer fixes that: closing the bore at 45 deg needs
+  12.6 mm of height and the rim had 3.2.  Sliced with support that roof cost
+  1.96 cm^3 -- against a part that was only 2.71 cm^3.  Support very nearly as
+  large as the part it held up, to mount an LED board that can simply be glued
+  to the driver.
 
-  Three things were deliberately NOT touched, because the diffuser dome is
-  already on the printer:
-    * carrier_diameter (30.0) and general_fit (0.25) -- the dome's skirt bore
-    * the male thread, its pitch, length and diameter
-    * carrier_proud (1.8) -- how far the carrier stands above the body's top
-      face, which is where the dome's internal thread starts
-  Everything the dome can see is asserted below.  The dome STL is unchanged.
+  So the dome now threads DIRECTLY onto the body, the LED star is glued to the
+  driver, and the whole 25 mm roof problem stops existing rather than being
+  managed.  Everything the dome touches is unchanged, so the printed dome
+  still fits:
+    * boss diameter 30.0 and its 1.8 mm of stand-off  -- the dome's skirt bore
+    * thread 28.0 x 2.0, 6 mm long                    -- the dome's thread
+    * body diameter 33.0                              -- flush with the dome
+  Those are asserted below and the build re-renders the dome every run and
+  compares it against the mesh that is actually on the printer.
 
   ---------------------------------------------------------------------------
-  PRINT ORIENTATION -- unchanged from v1, and the snap is designed around it
+  PRINT ORIENTATION
   ---------------------------------------------------------------------------
-  ALL THREE PARTS PRINT WITH SUPPORT OFF.  That is a design constraint here,
-  not a hope: verify_slice.py slices each one and fails the build if any layer
-  contains a region with nothing beneath it.
-
-  BODY:    top face (the carrier socket) DOWN on the bed, GoPro fork UP.  So
-           the socket, the seat ledge and the snap groove are all printed in
-           the first four layers, where detail is best.  The groove's roof is a
-           0.40 mm step -- it needs no support at any flank angle.  Printed
-           this way the floor is the LAST thing laid down, so nothing may stand
-           up off it; see pcb_pocket().
-  CARRIER: skirt DOWN on the bed, thread UP.  The skirt is a ring, so it lands
-           on a 1.4 mm annulus rather than six separate towers.  The tongue
-           cuts are vertical gaps and the barbs' lead ramps sit 0.6 mm off the
-           bed.  Its rim underside is a flat 25.2 mm roof over the skirt bore
-           and no chamfer fixes that -- closing the bore at 45 deg needs
-           12.6 mm of height and the rim has 3.2, which puts the cone at 14
-           deg.  It is a shallow cup, and a cup printed open-end-down has a
-           roof.  But a roof is not an island: this one is anchored right
-           around its rim, so it BRIDGES, and the slicer only wraps it in
-           support if you ask for support.  Do not.
-  DOME:    flat top face down, as before.
-
-  This is why the flexing member is on the CARRIER and not on the body: body-
-  side fingers would need slots cut through the outer wall (a splash path), and
-  the carrier cannot carry anything that hangs below a flat disc -- but it can
-  carry a ring, which is what a skirt is.
+  BODY:  thread DOWN on the bed, GoPro fork UP.  USE A BRIM -- the bed contact
+         is the thread's end face, a 28/24 annulus of about 163 mm^2 under a
+         part 37 mm tall, which is tippy without one.  Everything above it
+         then builds the right way up: the thread's flanks are self-supporting
+         printed this way, the collar and body walls are vertical, and the
+         floor comes out as a bridge anchored right around its rim.
+         It DOES want support, for the two PCB rails: printed this way up the
+         floor is the last thing laid down, so the rails -- which stand on it
+         -- start in mid-air.  That is a deliberate trade.  Rails cost two thin
+         walls; the pocket that would replace them costs a solid floor to sink
+         it into, which is more material than the support saves.
+  DOME:  flat top face down, as before.  Needs nothing.
 */
 
 include <../BOSL2/std.scad>
 include <../BOSL2/threading.scad>
 
-part = "body"; // [assembly,body,carrier,dome]
+part = "body"; // [assembly,body,dome]
 
 $fn = 128;
 eps = 0.05;
@@ -98,101 +81,41 @@ led_emitter_height = 4.5;
 wire_diameter = 1.3;
 
 // FDM fit tuning ------------------------------------------------------------
-pcb_xy_clearance = 0.45;       // clearance on each side
 pcb_z_clearance = 0.50;
-general_fit = 0.25;            // radial fit for removable parts -- DOME SEES THIS
+general_fit = 0.25;            // radial fit -- DOME SEES THIS
 wire_hole_clearance = 0.35;
 
 // Beacon proportions --------------------------------------------------------
-// body_height went 9.5 -> 11.0 to buy the carrier skirt its travel.  The
-// compartment did not shrink for it: the skirt is a ring, so the PCB now lives
-// INSIDE it and the usable headroom actually went up (5.9 -> 7.4).
+// Back to v1's 9.5 with the carrier gone: the compartment only has to hold the
+// driver and the star glued on top of it, and the collar above carries the
+// thread.  v2 needed 11.0 purely to give the snap tongues their travel.
 body_diameter = 33.0;
-body_wall = 2.25;              // was 2.00 -- widens the carrier's seat ledge
-// The floor went 2.2 -> 3.0 so the PCB pocket can be sunk INTO it and still
-// leave 1.8 mm of sealed floor underneath.  It costs the compartment nothing:
-// the pocket gives back exactly what the thicker floor took.
-body_floor = 3.0;
-body_height = 11.0;            // was 9.5
+body_wall = 2.0;
+body_floor = 2.2;
+body_height = 9.5;
+pcb_compartment_wall = 1.2;
+pcb_rail_length = pcb_length + 1.0;
+// Exactly the driver's own thickness, so the rails guide it for its full
+// height and then stop -- the star is glued on top of the driver and would
+// foul anything that carried on past it.
+rail_height = pcb_total_thickness;
 
-// The PCB is located by a shallow pocket sunk into the floor, NOT by rails
-// standing up off it.  Measured, on this exact geometry: the body prints
-// socket-down, so anything rising from the floor is printed BEFORE the floor
-// and starts in mid-air -- the old 19 mm rails came out as floating overhang
-// perimeters at Z 3.6, and they were the ONLY reason either part needed
-// support.  Dropping them took the pair from 11.54 cm^3 / 2h13m to
-// 7.92 cm^3 / 1h11m.  A pocket cannot float: it is a void in a floor that is
-// already there.
-pcb_pocket_clr = 0.60;         // total, so 0.30 a side
-pcb_pocket_depth = 1.20;       // enough to stop it sliding; shallow enough
-                               // that any bridge droop lands harmlessly in it
-pcb_pocket_round = 1.50;
-
-carrier_diameter = 30.0;       // DOME SEES THIS -- do not change
-carrier_rim_height = 3.2;      // the OD30 section: rim seat + the proud part
-carrier_proud = 1.8;           // how far the carrier stands above the body face
-star_pocket_depth = 2.15;
-
-// Snap: a slotted skirt under the carrier rim, a groove in the body bore -----
-// Sized for PETG (E ~ 2.0 GPa, permissible strain ~3 %).  The tongue is a
-// straight cantilever, so peak strain is  3*t*y / (2*L^2)  -- with t = 0.90,
-// y = 0.40 and L = 5.24 (root at the rim, load at the barb crest) that is
-// 1.97 %, a third under the material and still a firm click.
-skirt_height = 6.40;           // == tongue free length
-skirt_wall = 1.40;             // the ring between tongues: stiff, prints the rim
-tongue_wall = 0.90;            // the tongues themselves: 2 perimeters at 0.45
-tongue_count = 6;
-tongue_width = 3.50;           // narrow on purpose -- force goes as the width
-tongue_cut = 1.50;             // axial gap either side of a tongue
-snap_clr = 0.25;               // skirt OD to body bore, radial
-snap_engage = 0.40;            // how deep the barb sits in the groove
-snap_barb_z = 0.60;            // barb starts this far above the skirt's free end
-snap_lead_ang = 30;            // insertion ramp, from horizontal -- easy in
-snap_hold_ang = 45;            // retention flank, from horizontal -- hard out
-snap_play = 0.15;              // groove taller than barb, so the SEAT is the stop
-// The groove is cut DEEPER than the barb is tall.  Line-to-line, the crest and
-// the groove floor are the same surface: it seats, but it binds, and the
-// interference probe cannot tell that apart from a real overlap.  The extra
-// depth costs no retention -- what the barb has to spring over on the way out
-// is how far it stands past the BORE, which is snap_engage either way.
-snap_groove_clr = 0.10;
-skirt_lead = 0.60;             // 45 deg entry chamfer on the skirt's free end
-
-carrier_thickness = skirt_height + carrier_rim_height;   // 9.60
-carrier_seat_depth = carrier_thickness - carrier_proud;  // 7.80
-carrier_seat_bore = carrier_rim_height - carrier_proud;  // 1.40 -- counterbore
-
-body_bore_r = body_diameter / 2 - body_wall;   // 14.25
-skirt_or = body_bore_r - snap_clr;             // 14.00
-skirt_ir = skirt_or - skirt_wall;              // 12.60
-tongue_ir = skirt_or - tongue_wall;            // 13.10
-barb_or = body_bore_r + snap_engage;           // 14.65
-barb_proud = barb_or - skirt_or;               // 0.65 -- 0.40 of it interferes
-barb_lead_dz = barb_proud * tan(snap_lead_ang);
-barb_hold_dz = barb_proud * tan(snap_hold_ang);
-barb_land = barb_lead_dz;                      // flat crest between the flanks
-barb_top_z = snap_barb_z + barb_lead_dz + barb_land + barb_hold_dz;
-barb_mid_z = snap_barb_z + barb_lead_dz + barb_land / 2;
-// Cut centrelines sit half a cut outboard of the tongue edge, so the tongue
-// comes out exactly tongue_width wide at the skirt OD.
-tongue_cut_off = asin((tongue_width + tongue_cut) / (2 * skirt_or));
-
-carrier_floor_z = body_height - carrier_seat_depth;   // skirt's free end, in body Z
-snap_groove_z0 = carrier_floor_z + snap_barb_z - snap_play;
-
-carrier_bore_ceiling = carrier_floor_z + skirt_height; // ceiling over the PCB
-pcb_pocket_floor = body_floor - pcb_pocket_depth;      // PCB rests here
-
-// Thread and dome -- FROZEN.  The dome is already printed.
+// The light collar: the boss the dome's skirt rides on, and the thread -----
+// FROZEN.  The dome is already printed; these are every dimension it touches.
+collar_boss_diameter = 30.0;
+collar_proud = 1.8;            // stand-off before the thread starts
 thread_diameter = 28.0;
 thread_pitch = 2.0;
 thread_length = 6.0;
 thread_slop = 0.20;
 thread_collar_wall = 2.0;
+// What the light actually leaves through, and what the driver plus its glued
+// star has to be posted in through on assembly.
+collar_bore = thread_diameter - 2 * thread_collar_wall;   // 24.0
 
 dome_wall = 1.6;
 dome_top_thickness = 2.0;
-dome_thread_start = carrier_proud;
+dome_thread_start = collar_proud;
 dome_skirt_height = dome_thread_start + thread_length + 0.5;
 dome_height_above_skirt = 12.0;
 dome_total_height = dome_skirt_height + dome_height_above_skirt;
@@ -219,6 +142,9 @@ gopro_web_thickness = 3.0;
 gopro_pivot_z = -gopro_finger_drop + gopro_tip_diameter / 2;
 gopro_pivot_clear = -gopro_web_thickness - gopro_pivot_z;
 
+body_bore_r = body_diameter / 2 - body_wall;
+collar_top = body_height + collar_proud + thread_length;
+
 pcb_cavity = [
     pcb_compartment_length,
     pcb_compartment_width,
@@ -227,41 +153,33 @@ pcb_cavity = [
 
 // ---- invariants ----------------------------------------------------------
 // The dome is on the printer.  These are every dimension it can reach; if one
-// of them moves, the printed dome no longer fits and the assert says so
-// instead of the mesh saying nothing.
-assert(carrier_diameter == 30.0, "dome skirt bore rides on carrier_diameter");
-assert(general_fit == 0.25, "dome skirt bore is carrier_diameter + 2*general_fit");
-assert(dome_thread_start == 1.8, "dome thread starts 1.8 above its own bottom face");
-assert(carrier_proud == dome_thread_start,
-       "the carrier must stand exactly dome_thread_start above the body face");
+// moves, the printed dome no longer fits and the assert says so instead of the
+// mesh saying nothing.
+assert(collar_boss_diameter == 30.0, "dome skirt bore rides on the boss");
+assert(general_fit == 0.25, "dome skirt bore is boss + 2*general_fit");
+assert(dome_thread_start == 1.8, "dome thread starts 1.8 above its bottom face");
+assert(collar_proud == dome_thread_start,
+       "the boss must stand exactly dome_thread_start above the body face");
 assert(thread_diameter == 28.0 && thread_pitch == 2.0 && thread_length == 6.0,
        "male thread must match the printed dome");
 assert(dome_total_height == 20.3, "dome height changed -- the printed one is 20.3");
+assert(body_diameter == dome_outer_diameter, "dome should sit flush on the body");
 
-// The snap only exists if the barb actually sticks out past the bore.
-assert(snap_engage > 0.30, "engagement below 0.30 is what failed in v1");
-assert(skirt_ir > 0 && tongue_ir > skirt_ir,
-       "tongue must be thinner than the ring it sits in, or it cannot flex");
-// The tongue deflects into open air inside the skirt, but only if the relief
-// behind it is deeper than the deflection.
-assert(tongue_ir - skirt_ir >= snap_engage + 0.05,
-       "no room behind the tongue to deflect into");
+// The stack has to fit under the collar, and the driver plus its glued-on star
+// has to be able to go IN, which means through the collar bore.
+assert(body_height - body_floor >= pcb_total_thickness + led_star_thickness,
+       "compartment too short for the driver plus the star glued on it");
+assert(collar_bore > sqrt(pow(pcb_length, 2) + pow(pcb_width, 2)) + 1.0,
+       "driver will not pass through the collar bore on assembly");
+assert(collar_bore > led_star_diameter + 1.0,
+       "LED star will not pass through the collar bore on assembly");
 
-// PCB has to fit under the skirt, not just inside the body.
-assert(carrier_bore_ceiling - pcb_pocket_floor >= pcb_cavity[2] + 1.0,
-       "PCB compartment too short");
-// The pocket is sunk into the floor, so the floor has to have the depth to
-// spare -- otherwise it stops being a sealed floor.
-assert(pcb_pocket_floor >= 1.5,
-       "PCB pocket leaves too little floor under it");
-// It also has to stay clear of the skirt landing above it, and inside the bore.
-assert(sqrt(pow((pcb_length + pcb_pocket_clr) / 2, 2) +
-            pow((pcb_width + pcb_pocket_clr) / 2, 2)) < body_bore_r - 1.0,
-       "PCB pocket runs out through the bore wall");
-// NOTHING may stand up off the floor.  The body prints socket-down, so a
-// feature rising from the floor is printed before the floor exists and starts
-// in mid-air -- which is the whole reason this part used to need support.
-assert(pcb_pocket_depth > 0, "locate the PCB with a pocket, never with rails");
+// Rails guide the driver and must stop before the star that sits on it.
+assert(body_floor + rail_height <= body_floor + pcb_total_thickness,
+       "rails run past the driver and would foul the star glued on top");
+assert(sqrt(pow(pcb_rail_length / 2, 2) +
+            pow(pcb_cavity[1] / 2 + pcb_compartment_wall, 2)) < body_bore_r,
+       "PCB rails run out through the bore wall");
 
 // GoPro joint: the web must clear the mating knuckle or the screw cannot pass.
 assert(gopro_pivot_clear >= 7.75 + 1.0,
@@ -275,46 +193,43 @@ module rounded_box(size, radius) {
                 translate([x, y, 0]) cylinder(r = radius, h = size[2]);
 }
 
-// A pie slice centred on +X.  Used to cut a body of revolution down to the
-// angular span of one tongue, so the barb is a real ring profile rather than a
-// box pretending to be one.
-module sector(ang, h, r) {
-    rotate([0, 0, -ang / 2])
-        linear_extrude(height = h)
-            polygon(concat([[0, 0]],
-                    [for (i = [0 : 48]) let (t = ang * i / 48)
-                        [r * cos(t), r * sin(t)]]));
-}
-
-// Lightweight body core: a sealed floor and a thin cylindrical exterior.
-//
-// There is deliberately NOTHING standing up inside it.  This part prints
-// socket-face down, which means the floor is the LAST thing laid down and
-// anything rising off it is printed first, in mid-air.  The two PCB rails that
-// used to live here came out of the slicer as floating overhang perimeters and
-// were, on their own, the reason the beacon needed support at all.  The floor
-// itself is fine unsupported: it is a ceiling anchored right around its rim,
-// which slicers bridge.  So the rule for this cavity is that a feature may be
-// cut INTO the floor and may never be built ON it.
+// Body core: a sealed floor, a thin cylindrical exterior, and two PCB rails.
 module lightweight_body_shell() {
-    // Subtracting only above body_floor leaves a continuous sealed floor.
-    difference() {
-        cylinder(d = body_diameter, h = body_height);
-        translate([0, 0, body_floor])
-            cylinder(d = body_diameter - 2 * body_wall,
-                     h = body_height - body_floor + eps);
+    union() {
+        // Subtracting only above body_floor leaves a continuous sealed floor.
+        difference() {
+            cylinder(d = body_diameter, h = body_height);
+            translate([0, 0, body_floor])
+                cylinder(d = body_diameter - 2 * body_wall,
+                         h = body_height - body_floor + eps);
+        }
+
+        // Two rails locate the driver laterally without enclosing its ends,
+        // so the surrounding annulus stays free for solder joints and wire.
+        for (y = [-(pcb_cavity[1] / 2 + pcb_compartment_wall),
+                   pcb_cavity[1] / 2])
+            translate([-pcb_rail_length / 2, y, body_floor - eps])
+                rounded_box([pcb_rail_length,
+                             pcb_compartment_wall,
+                             rail_height + eps], pcb_compartment_wall / 2);
     }
 }
 
-// The PCB's seat: a shallow rounded pocket sunk into the floor.  Shallow on
-// purpose -- it only has to stop the board sliding, and keeping it shallow
-// means the bridged floor above it can sag into the pocket without the board
-// ever noticing.
-module pcb_pocket() {
-    w = pcb_length + pcb_pocket_clr;
-    d = pcb_width + pcb_pocket_clr;
-    translate([-w / 2, -d / 2, pcb_pocket_floor])
-        rounded_box([w, d, pcb_pocket_depth + eps], pcb_pocket_round);
+// The collar the dome screws onto: a plain boss for the dome's skirt bore to
+// ride on, then the male thread.  Hollow all the way through -- it is the
+// light path out, and the hole the electronics go in through.
+module light_collar() {
+    translate([0, 0, body_height - eps])
+        cylinder(d = collar_boss_diameter, h = collar_proud + eps);
+
+    translate([0, 0, body_height + collar_proud - eps])
+        threaded_rod(d = thread_diameter,
+                     l = thread_length + eps,
+                     pitch = thread_pitch,
+                     anchor = BOTTOM,
+                     blunt_start = true,
+                     bevel = false,
+                     $slop = 0);
 }
 
 // A GoPro-style pair of fingers. Screw axis runs along Y.
@@ -328,8 +243,7 @@ module gopro_two_prong() {
 
     // After rotate([90,0,0]), linear_extrude grows in negative Y.  Start at
     // each finger's positive-Y face so the pair remains centered on Y=0.
-    for (y = [-gopro_center_gap / 2,
-              total_y / 2])
+    for (y = [-gopro_center_gap / 2, total_y / 2])
         translate([0, y, 0])
             rotate([90, 0, 0])
                 linear_extrude(height = gopro_finger_thickness)
@@ -340,67 +254,45 @@ module gopro_two_prong() {
                             translate([0, tip_z])
                                 circle(d = gopro_tip_diameter);
                         }
-                        // The body is intended to print upside down with the
-                        // GoPro fingers pointing upward.  Pointing this BOSL2
-                        // teardrop toward model -Z therefore puts its pointed
+                        // The body prints with the GoPro fingers pointing UP.
+                        // Pointing this BOSL2 teardrop toward model -Z puts its
                         // self-supporting roof upward in the print orientation.
                         translate([0, tip_z])
                             rotate(180)
-                                teardrop2d(
-                                    d = gopro_hole_diameter,
-                                    ang = gopro_hole_teardrop_angle
-                                );
+                                teardrop2d(d = gopro_hole_diameter,
+                                           ang = gopro_hole_teardrop_angle);
                     }
-}
-
-// The groove the carrier's barbs fall into.  One continuous annulus, NOT six
-// pockets: the carrier then snaps home at any rotation, which is worth more
-// than the anti-rotation a segmented groove would have bought.  Profile is the
-// barb's own, opened by snap_play top and bottom so the seat ledge -- not the
-// barb -- is what stops the carrier going down.
-module snap_groove() {
-    z0 = snap_groove_z0;
-    gr = barb_or + snap_groove_clr;
-    rotate_extrude()
-        polygon([
-            [body_bore_r - 0.5, z0],
-            [gr,                z0 + barb_lead_dz],
-            [gr,                z0 + barb_lead_dz + barb_land + 2 * snap_play],
-            [body_bore_r - 0.5, z0 + barb_lead_dz + barb_land + 2 * snap_play
-                                   + barb_hold_dz]
-        ]);
 }
 
 module body() {
     difference() {
         union() {
             lightweight_body_shell();
+            light_collar();
             gopro_two_prong();
         }
 
-        // The PCB's seat.  The compartment itself is just the bore -- there is
-        // no separate cavity cut any more, because with the rails gone there
-        // was nothing left for it to cut.
-        pcb_pocket();
+        // Driver compartment.
+        translate([-pcb_cavity[0] / 2, -pcb_cavity[1] / 2, body_floor])
+            rounded_box([pcb_cavity[0],
+                         pcb_cavity[1],
+                         body_height - body_floor + eps], 1.0);
 
-        // Counterbore for the carrier's rim.  Its floor is the seat: a 1.0 mm
-        // annulus the rim lands on, and the only thing setting how deep the
-        // carrier goes.
-        translate([0, 0, body_height - carrier_seat_bore])
-            cylinder(d = carrier_diameter + 2 * general_fit,
-                     h = carrier_seat_bore + 2 * eps);
-
-        snap_groove();
+        // The collar bore: light out, electronics in.  It starts at the body
+        // face, NOT at the floor -- the compartment below is already hollow,
+        // and a d=24 bore taken all the way down eats everything inside r=12,
+        // which is the PCB rails (they reach r=11.77) and most of what makes
+        // this a compartment at all.  It deleted them silently; the rails were
+        // simply absent from the mesh.
+        translate([0, 0, body_height - eps])
+            cylinder(d = collar_bore, h = collar_top - body_height + 2 * eps);
 
         // One rounded slot lets all three external wires pass through the
-        // bottom together.  It exits beside the GoPro fork, so there is no
-        // hidden connecting tunnel.
+        // bottom together.  It overlaps the compartment and exits beside the
+        // GoPro fork, so there is no hidden connecting tunnel.
         cable_slot_width = wire_diameter + 1.7;
         cable_slot_length = 3 * wire_diameter + 3.0;
-        // Sat just outboard of the PCB pocket, where the wires leave the board
-        // -- clear of the pocket so it does not chew a notch in the seat, and
-        // well inside the bore so it does not break out through the wall.
-        slot_x = (pcb_length + pcb_pocket_clr) / 2 + cable_slot_width / 2 + 0.3;
+        slot_x = pcb_cavity[0] / 2 - cable_slot_width * 0.08;
         hull()
             for (y = [-(cable_slot_length - cable_slot_width) / 2,
                        (cable_slot_length - cable_slot_width) / 2])
@@ -410,160 +302,30 @@ module body() {
     }
 }
 
-// The flexing half of the joint.  A continuous ring so the rim above it has
-// something to bridge onto and the part has a real footprint on the bed; six
-// tongues cut out of that ring so the retention is bending, not hoop strain.
-// NOTE the render().  Without it this module previews as NOTHING -- and so do
-// the carrier and the assembly -- while F6 renders all three correctly, which
-// is a confusing way to lose an evening.  Preview normalizes the CSG tree by
-// distributing the difference over the union, and this is a union of SEVEN
-// solids (ring + six barbs) inside a difference with EIGHTEEN cutters (six
-// reliefs, twelve slots).  That product runs past OpenSCAD's element ceiling,
-// at which point it gives up:
-//     WARNING: Normalized tree is growing past 100000 elements. Aborting
-//     WARNING: CSG normalization resulted in an empty tree
-// -- an empty viewport, explained only by two warnings that scroll past in the
-// console.  render() puts this subtree through CGAL instead, so preview sees
-// one mesh and normalization has nothing left to expand.  It costs ~60 ms and
-// changes no geometry: the exported STLs are byte for byte what they were.
-module carrier_skirt() {
-    span = 2 * tongue_cut_off;           // tongue + half a cut either side
-    render()
-    difference() {
-        union() {
-            // Ring, with a 45 deg chamfer on the free end so it finds the bore.
-            // It runs eps PAST skirt_height so it overlaps the rim instead of
-            // sharing a face with it -- stacked flush, the union comes back as
-            // eleven separate shells that still report "manifold".  The overlap
-            // goes on THIS side because the rim's own OD is the seat: grow the
-            // rim downward instead and 0.05 mm of OD30 hangs below the
-            // counterbore floor, where it fouls the bore.
-            rotate_extrude()
-                polygon([
-                    [skirt_ir, 0],
-                    [skirt_or - skirt_lead, 0],
-                    [skirt_or, skirt_lead],
-                    [skirt_or, skirt_height + eps],
-                    [skirt_ir, skirt_height + eps]
-                ]);
-
-            // One barb per tongue.  Cut from a ring of revolution so its crest
-            // is a true arc against the bore, then trimmed to the tongue span.
-            for (i = [0 : tongue_count - 1])
-                rotate([0, 0, i * 360 / tongue_count])
-                    intersection() {
-                        rotate_extrude()
-                            polygon([
-                                [skirt_or - 0.5, snap_barb_z],
-                                [barb_or, snap_barb_z + barb_lead_dz],
-                                [barb_or, snap_barb_z + barb_lead_dz + barb_land],
-                                [skirt_or - 0.5, barb_top_z]
-                            ]);
-                        sector(span, barb_top_z + eps, barb_or + 1);
-                    }
-        }
-
-        // Thin the ring down to tongue_wall behind each tongue.  Everything
-        // inside skirt_ir is already open air, so this is all the relief the
-        // tongue needs to bend into.
-        for (i = [0 : tongue_count - 1])
-            rotate([0, 0, i * 360 / tongue_count])
-                intersection() {
-                    difference() {
-                        translate([0, 0, -eps])
-                            cylinder(r = tongue_ir, h = skirt_height + 2 * eps);
-                        translate([0, 0, -2 * eps])
-                            cylinder(r = skirt_ir - 0.5, h = skirt_height + 4 * eps);
-                    }
-                    translate([0, 0, -eps])
-                        sector(span, skirt_height + 2 * eps, tongue_ir + 1);
-                }
-
-        // The axial cuts that make them tongues at all.
-        for (i = [0 : tongue_count - 1])
-            for (s = [-1, 1])
-                rotate([0, 0, i * 360 / tongue_count + s * tongue_cut_off])
-                    translate([skirt_ir - 1, -tongue_cut / 2, -eps])
-                        cube([barb_or + 1 - (skirt_ir - 1),
-                              tongue_cut,
-                              skirt_height + eps]);
-    }
-}
-
-module carrier() {
-    difference() {
-        union() {
-            carrier_skirt();
-
-            // The rim: OD30 for carrier_rim_height.  carrier_seat_bore of it
-            // sits in the body's counterbore, carrier_proud of it stands above
-            // the body's face and is what the dome's skirt bore rides on.
-            // Its underside IS the seat, so it starts exactly at skirt_height;
-            // the skirt below is what carries the overlap.
-            translate([0, 0, skirt_height])
-                cylinder(d = carrier_diameter, h = carrier_rim_height);
-
-            // Male BOSL2 thread onto which the diffuser dome screws.
-            translate([0, 0, carrier_thickness - eps])
-                threaded_rod(
-                    d = thread_diameter,
-                    l = thread_length + eps,
-                    pitch = thread_pitch,
-                    anchor = BOTTOM,
-                    blunt_start = true,
-                    bevel = false,
-                    $slop = 0
-                );
-        }
-
-        // Circular pocket accepts the maximum diameter of the star board.
-        translate([0, 0, carrier_thickness - star_pocket_depth])
-            cylinder(d = led_star_diameter + 0.40,
-                     h = star_pocket_depth + eps);
-
-        // Two internal driver-to-LED wire passages. Their angle around the
-        // carrier can be changed to match the star's solder pads.  They only
-        // cut real material through the rim -- the skirt below is open.
-        for (a = [0, 180])
-            rotate([0, 0, a])
-                translate([led_star_diameter / 2 - 2.2, 0, skirt_height - eps])
-                    cylinder(d = wire_diameter + 2 * wire_hole_clearance,
-                             h = carrier_rim_height + 2 * eps);
-
-        // Hollow the threaded collar so it surrounds rather than covers the
-        // LED.  The carrier floor beneath the star remains opaque.
-        translate([0, 0, carrier_thickness - eps])
-            cylinder(d = thread_diameter - 2 * thread_collar_wall,
-                     h = thread_length + 2 * eps);
-    }
-}
-
 module dome() {
     difference() {
         // A flat-ended cylinder can be printed inverted on its top face.
         // The thread and hollow interior then build upward without support.
         cylinder(d = dome_outer_diameter, h = dome_total_height);
 
-        // Clearance around the exposed carrier edge.  This lets the dome
-        // skirt descend until its lower face seats directly on the body.
+        // Clearance around the boss.  This lets the dome skirt descend until
+        // its lower face seats directly on the body.
         translate([0, 0, -eps])
-            cylinder(d = carrier_diameter + 2 * general_fit,
+            cylinder(d = collar_boss_diameter + 2 * general_fit,
                      h = dome_thread_start + 2 * eps);
 
         // Matching female BOSL2 thread.  With thread_slop=0.20, BOSL2 adds
         // 0.80 mm diametral clearance to this internal thread.  Its vertical
         // offset aligns it with the male collar when the dome is body-flush.
         translate([0, 0, dome_thread_start - eps])
-            threaded_rod(
-                d = thread_diameter,
-                l = thread_length + 2 * eps,
-                pitch = thread_pitch,
-                internal = true,
-                anchor = BOTTOM,
-                blunt_start = true,
-                bevel = false,
-                $slop = thread_slop
-            );
+            threaded_rod(d = thread_diameter,
+                         l = thread_length + 2 * eps,
+                         pitch = thread_pitch,
+                         internal = true,
+                         anchor = BOTTOM,
+                         blunt_start = true,
+                         bevel = false,
+                         $slop = thread_slop);
 
         // Open the full optical cavity above the threaded section.  Its
         // diameter leaves 1.6 mm translucent side walls.  The thicker 2 mm
@@ -579,73 +341,32 @@ module dome() {
 module assembly(exploded = 0) {
     color("dimgray") body();
 
-    color("black")
-        translate([0, 0, carrier_floor_z + exploded])
-            carrier();
-
     color([0.88, 0.92, 0.85, 0.50])
         translate([0, 0, body_height + 2 * exploded])
             dome();
 
-    // Component preview only; not exported as a printable part.
+    // Component preview only; not exported as a printable part.  The star is
+    // GLUED to the driver -- that is what replaced the carrier.
     if (part == "assembly") {
+        color("green")
+            translate([-pcb_length / 2, -pcb_width / 2, body_floor + exploded])
+                cube([pcb_length, pcb_width, pcb_total_thickness]);
+
         color("silver")
-            translate([0, 0,
-                       carrier_floor_z + carrier_thickness
-                       - led_star_thickness + exploded])
-                cylinder(d = led_star_diameter,
-                         h = led_star_thickness,
-                         $fn = 6);
+            translate([0, 0, body_floor + pcb_total_thickness + exploded])
+                cylinder(d = led_star_diameter, h = led_star_thickness, $fn = 6);
 
         color("gold")
-            translate([0, 0, carrier_floor_z + carrier_thickness + exploded])
-                cylinder(d = led_emitter_diameter,
-                         h = led_emitter_height);
-    }
-}
-
-// ---- probes ---------------------------------------------------------------
-// Not printable parts.  Each renders a solid whose VOLUME answers one question
-// that no single-part measurement can, and each is checked by verify_beacon.py.
-//
-// probe_fit   what the seated carrier and the body have in common.  Must be
-//             EMPTY.  If the groove sits at the wrong height, or the skirt is
-//             fatter than the bore, this is where it shows up.
-// probe_hook  the carrier material standing outside the plain bore, in the
-//             stretch of bore the barbs have to travel down.  Must NOT be
-//             empty: it is literally the plastic that has to spring past, and
-//             v1 -- whose bumps only ever entered the shallow counterbore --
-//             renders this as nothing at all.
-module seated_carrier() {
-    translate([0, 0, carrier_floor_z]) carrier();
-}
-
-module probe_fit() {
-    intersection() { body(); seated_carrier(); }
-}
-
-module probe_hook() {
-    intersection() {
-        difference() {
-            seated_carrier();
-            cylinder(r = body_bore_r, h = 4 * body_height, center = true);
-        }
-        // ... and only over the plain bore, below the counterbore.
-        translate([0, 0, body_floor])
-            cylinder(r = body_diameter,
-                     h = body_height - carrier_seat_bore - body_floor);
+            translate([0, 0,
+                       body_floor + pcb_total_thickness + led_star_thickness
+                       + exploded])
+                cylinder(d = led_emitter_diameter, h = led_emitter_height);
     }
 }
 
 if (part == "body")
     body();
-else if (part == "carrier")
-    carrier();
 else if (part == "dome")
     dome();
-else if (part == "probe_fit")
-    probe_fit();
-else if (part == "probe_hook")
-    probe_hook();
 else
     assembly(exploded = 0);

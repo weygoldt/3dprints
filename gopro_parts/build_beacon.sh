@@ -3,6 +3,11 @@
 #
 #   ./build_beacon.sh
 #
+# Two parts now: the dome threads straight onto the body.  The LED carrier that
+# used to sit between them is gone -- it was a shallow cup printed open-end-down
+# whose 25.2 mm roof cost 1.96 cm^3 of support against a 2.71 cm^3 part, to
+# mount a board that can be glued to the driver instead.
+#
 # The beacon is NOT part of build.sh: it does not come off main.scad's include
 # chain, it is its own file with its own part picker.  Keeping it separate also
 # keeps build.sh's CHAIN_HASH from rebuilding thirty arm variants every time a
@@ -21,10 +26,10 @@ SRC=rc_boat_blink_beacon.scad
 # still renders that exact mesh; if it does not, the printed part is scrap and
 # the check says so out loud.
 REF=stl/dome_AS_PRINTED.stl
-# A real slicer profile, so the printability gate below is answered with the
-# settings these parts are actually printed with rather than with defaults.
-# Committed, because a gate whose config is a local artifact is a gate that
-# quietly stops running on the next machine.
+# A real slicer profile, so the printability gate is answered with the settings
+# these parts are actually printed with rather than with defaults.  Committed,
+# because a gate whose config is a local artifact is a gate that quietly stops
+# running on the next machine.
 SLICE_CFG=beacon_print.ini
 
 scad() {   # scad <out> <part>
@@ -39,15 +44,11 @@ scad() {   # scad <out> <part>
 }
 
 # Does it PREVIEW?  Every other check in here reads an STL, and an STL comes
-# from F6 -- so all of them passed with flying colours on a carrier that drew
+# from F6 -- so all of them once passed with flying colours on a part that drew
 # absolutely nothing in the interactive viewport.  F5 normalizes the CSG tree
-# by distributing differences over unions; a union of seven solids inside a
-# difference with eighteen cutters blows past the element ceiling, and OpenSCAD
-# gives up with "Aborting normalization" / "resulted in an empty tree".  Two
-# warnings in a console nobody is watching, and an empty screen.
-#
-# The fix is render() on the offending subtree.  This is the check that would
-# have caught needing it.
+# by distributing differences over unions, and past the element ceiling
+# OpenSCAD gives up with "Aborting normalization" / "resulted in an empty
+# tree": two warnings in a console nobody is watching, and an empty screen.
 preview_ok() {   # preview_ok <part>
     local part="$1" png msg
     png=$(mktemp -t beacon_prev_XXXX.png)
@@ -71,7 +72,6 @@ preview_ok() {   # preview_ok <part>
 
 echo "--- previews (F5), because everything below this line only tests F6"
 preview_ok body
-preview_ok carrier
 preview_ok dome
 preview_ok assembly
 
@@ -79,46 +79,35 @@ preview_ok assembly
 # loader that returns an empty mesh does not error -- it measures 0.0 mm^3 and
 # an inverted bbox, which reads as a perfect fit.
 echo "--- loader selftest"
-python3 verify_beacon.py --selftest | tail -12
+python3 verify_beacon.py --selftest | tail -14
 
 echo "--- body"
 scad stl/rc_boat_blink_beacon_body.stl body
-echo "--- carrier"
-scad stl/rc_boat_blink_beacon_carrier.stl carrier
 echo "--- dome"
 scad stl/rc_boat_blink_beacon_dome.stl dome
 
-# The two probes.  Neither is printable; each is a boolean whose VOLUME answers
-# a question no single part can be asked.
-echo "--- probe: seated carrier vs body (must be empty)"
-scad stl/beacon_probe_fit.stl probe_fit
-echo "--- probe: barb material outside the bore (must NOT be empty)"
-scad stl/beacon_probe_hook.stl probe_hook
-
-# Does it SLICE support-free?  The mesh checks cannot see this either: the
-# body's two old PCB rails were a perfectly good mesh that happened to start in
-# mid-air, and they were the only reason this thing needed support at all.
-# A bridge is fine, an ISLAND is not, and only the slicer knows which is which.
-echo "--- slicing (support off), because a good mesh can still be unprintable"
+# Does it SLICE?  The mesh checks cannot see this: the body's two PCB rails are
+# a perfectly good mesh that happens to start in mid-air.  A bridge is fine, an
+# ISLAND is not, and only the slicer knows which is which.
+#
+# The body's two rails ARE islands and they stay: two thin walls cost less
+# material than the solid floor a pocket would have to be sunk into, so the
+# body is printed with support and the count is pinned at 2.  A THIRD island
+# still fails the build.  The dome must stay at zero.
+echo "--- slicing, because a good mesh can still be unprintable"
 if command -v prusa-slicer >/dev/null 2>&1 && [ -f "$SLICE_CFG" ]; then
     python3 verify_slice.py --selftest | sed 's/^/  /'
-    # The body is printed SOCKET DOWN, which is not how the STL sits, so the
+    # The body is printed THREAD DOWN, which is not how the STL sits, so the
     # check has to rotate it or it measures a part nobody prints.
     python3 verify_slice.py --config "$SLICE_CFG" --rotate-x 180 \
-            --label body stl/rc_boat_blink_beacon_body.stl
-    python3 verify_slice.py --config "$SLICE_CFG" \
-            --label carrier stl/rc_boat_blink_beacon_carrier.stl
+            --expect-islands 2 --label body stl/rc_boat_blink_beacon_body.stl
     python3 verify_slice.py --config "$SLICE_CFG" \
             --label dome stl/rc_boat_blink_beacon_dome.stl
 else
-    echo "!!! prusa-slicer or $SLICE_CFG missing -- the support-free proof did NOT run."
-    echo "!!! Regenerate the config with:  prusa-slicer --save $SLICE_CFG"
+    echo "!!! prusa-slicer or $SLICE_CFG missing -- the printability proof did NOT run."
 fi
 
 echo
-# stl/ is gitignored, so the reference dome is a LOCAL artifact -- a fresh
-# clone will not have one.  Say so loudly rather than quietly dropping the one
-# check that protects a part which is already printed.
 SAME=()
 if [ -f "$REF" ]; then
     SAME=(--same-as "$REF")
@@ -128,11 +117,9 @@ else
 fi
 
 python3 verify_beacon.py \
-    --body    stl/rc_boat_blink_beacon_body.stl \
-    --carrier stl/rc_boat_blink_beacon_carrier.stl \
-    --dome    stl/rc_boat_blink_beacon_dome.stl \
-    "${SAME[@]}" \
-    --probes  stl/beacon_probe_fit.stl stl/beacon_probe_hook.stl
+    --body stl/rc_boat_blink_beacon_body.stl \
+    --dome stl/rc_boat_blink_beacon_dome.stl \
+    "${SAME[@]}"
 
 echo
 ls -la stl/rc_boat_blink_beacon_*.stl

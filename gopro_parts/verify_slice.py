@@ -204,6 +204,11 @@ def main():
     ap.add_argument("--rotate-x", type=float, default=0)
     ap.add_argument("--label", default="")
     ap.add_argument("--selftest", action="store_true")
+    # Some islands are a deliberate trade, not a defect: the body's two PCB
+    # rails cost less material than the solid floor a pocket would need to be
+    # sunk into, so they stay and the body is printed with support.  Pinning
+    # the COUNT keeps this a gate -- a third island still fails the build.
+    ap.add_argument("--expect-islands", type=int, default=0)
     a = ap.parse_args()
 
     if a.selftest:
@@ -220,15 +225,23 @@ def main():
     os.unlink(g)
 
     name = a.label or os.path.basename(a.stl)
-    if bad:
-        print("    %-28s FAIL  %d island(s) with nothing beneath them:" % (name, len(bad)))
+    if len(bad) != a.expect_islands:
+        print("    %-28s FAIL  %d island(s) with nothing beneath them, expected %d:"
+              % (name, len(bad), a.expect_islands))
         for z, nc, xr, yr in bad[:6]:
             print("        Z=%.2f  %d cells  x %.1f..%.1f  y %.1f..%.1f"
                   % (z, nc, xr[0], xr[1], yr[0], yr[1]))
-        print("        -- these need support.  Cut the feature INTO a surface")
-        print("           instead of standing it ON one, or accept support.")
+        print("        -- an island needs support.  Cut the feature INTO a")
+        print("           surface instead of standing it ON one, or if the")
+        print("           support is a deliberate trade, raise --expect-islands.")
         sys.exit(1)
-    print("    %-28s ok    prints support-free (%s, %d layers)" % (name, used, n))
+    if bad:
+        print("    %-28s ok    %d known island(s), prints WITH support (%s, %d layers)"
+              % (name, len(bad), used, n))
+        for z, nc, xr, yr in bad:
+            print("        Z=%.2f  x %.1f..%.1f  y %.1f..%.1f" % (z, xr[0], xr[1], yr[0], yr[1]))
+    else:
+        print("    %-28s ok    prints support-free (%s, %d layers)" % (name, used, n))
 
 
 if __name__ == "__main__":
