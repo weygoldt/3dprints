@@ -2344,3 +2344,108 @@ On the **simple arm that last number is 4.85 mm**, not 2.65 — with the pivot
 centred the bore sits dead centre in the prong and carries the full 4.85 on
 *both* sides, which is what the originals had. The reverse-load direction stops
 being a weak direction at all on that variant.
+
+## RC boat blink beacon (`rc_boat_blink_beacon.scad`)
+
+Not an arm — a lit beacon that hangs off one. Its own file, its own part
+picker, its own build script:
+
+```
+./build_beacon.sh          # renders body / carrier / dome, then gates them
+```
+
+Three printed parts: an opaque **body** with a two-prong GoPro mount, an
+opaque **carrier** holding a 20 mm LED star, and a translucent **dome** that
+screws onto the carrier. PETG.
+
+### The snap that was not a snap
+
+v1's carrier did not click into the body — it dropped in and rested there.
+The retention was eight ⌀1.4 spheres half-buried in the carrier rim, standing
+0.40 mm proud of a 30.0 disc that entered a 30.5 socket. Take the 0.25 mm of
+clearance back out and the real interference was **0.144 mm** (measured off
+the v1 mesh, not estimated) — and it had to be absorbed by a solid disc
+pushing a *closed ring* open. There was no cantilever anywhere in the joint,
+so 0.15 mm of "interference" meant about 1 % hoop strain in a 30 mm ring.
+Nothing that stiff yields politely. The bumps printed away to a rounding
+error and the parts just stacked.
+
+v2 puts a real cantilever in it. The carrier grows a **slotted skirt** below
+its rim — a 1.4 mm ring, six 0.9 mm tongues freed by axial cuts, each rooted
+at the rim with an outward barb near its free end — and the body's bore gets
+one continuous internal groove. The tongues bend; the ring never has to
+stretch. Engagement went **0.144 → 0.400 mm**, at 1.97 % peak bending strain,
+which is a third of what PETG will take.
+
+The groove is a **full annulus, not six pockets**. A segmented groove would
+have given anti-rotation for free, but it would also mean the carrier only
+snaps home at six discrete angles — and a lid that sometimes refuses to seat
+is a worse part than one that can be spun. There is no anti-rotation feature;
+hold the carrier when you tighten the dome.
+
+### Which half flexes, and why it is not a choice
+
+The body prints **socket-face down on the bed, GoPro fork up**; the carrier
+prints **skirt down, thread up**. That settles it:
+
+* Body-side fingers would need slots cut clean through the outer wall — a
+  splash path into the electronics on a boat.
+* The carrier cannot carry anything hanging below a flat disc; printed
+  thread-up, a leg points into the bed. But it *can* carry a **ring**, and a
+  ring is what a skirt is. It lands on a 1.4 mm annulus instead of six bare
+  towers, and the rim bridges a plain 25.2 mm circle above it.
+
+The twelve cuts do sever that ring into twelve arcs — 79 % of the
+circumference survives, widest gap 1.51 mm, which is a fine bridge anchor and
+a fine footprint. Six towers would not have been.
+
+### The dome was already on the printer
+
+`carrier_diameter`, `general_fit`, the thread, and `carrier_proud` (how far
+the carrier stands above the body's face, which is where the dome's internal
+thread starts) are frozen and asserted in the source. `build_beacon.sh`
+re-renders the dome every run and compares it against `stl/dome_AS_PRINTED.stl`
+— sorted vertex cloud, not a file hash, because the reference was exported
+ASCII and the current one binary, and because the same solid can come out with
+its facets reordered. Largest vertex movement: 7.6e-07 mm, i.e. float32
+rounding. **The printed dome still fits.**
+
+### The prongs
+
+Rebuilt on the same 3 mm grid as `arm.scad`: fingers 2.90 into the arm's 3.10
+slots, centre gap 3.10, knuckle ⌀15.0 = 2 × `tab_r`. v1 ran 3.00 fingers on a
+3.50 gap, which sat 0.20 mm outboard of the arm's slot — it went together, but
+it was fighting.
+
+The real fault was **length**. v1's `gopro_finger_drop = 17.0` put the pivot
+only 6.50 mm below the web, which is *inside* the mating knuckle's R7.5
+(R7.75 on a genuine GoPro). The beacon bottomed out on the knuckle about a
+millimetre before the bores lined up, so the thumbscrew would not pass. 19.5
+puts the pivot 9.00 mm down: 1.50 clear of our arms, 1.25 clear of a real
+GoPro, and enough for the joint to actually swing.
+
+### The gate
+
+`verify_beacon.py` measures the exported meshes, never the `.scad`. It slices
+the mesh with a horizontal plane and casts a ray out from the axis, because
+the obvious approach — look at where the vertices are — finds *nothing*: a
+cylindrical wall between z=a and z=b has vertices at a and b and nowhere in
+between, and an empty set reads as a perfect score. Same trap one level up:
+a single-bearing ray lands between two of the six barbs and confidently
+reports the plain wall behind, so anything that hunts for a local feature
+sweeps every bearing.
+
+Two of the checks are booleans rendered by OpenSCAD, because they ask
+questions no single part can be asked:
+
+* `probe_fit` — what the seated carrier and the body have in common. **0.0000
+  mm³.** This is what caught the barb crest sitting line-to-line with the
+  groove floor (it seats, but it binds) and a 0.05 mm sliver of rim hanging
+  below the seat.
+* `probe_hook` — carrier material standing outside the plain bore, over the
+  stretch the barbs travel down. **4.89 mm³** of plastic has to spring past.
+  On v1 this renders as *nothing at all*.
+
+And the gate the whole rewrite exists for is a subtraction across two meshes:
+barb crest 14.650 − bore 14.250 = **0.400 mm**. Run against the v1 meshes it
+returns 0.144 and fails, which is the only reason to trust that it passes.
