@@ -1,0 +1,4 @@
+- [ ] Gopro to 12 mm PVC tube adapter
+- [ ] More blind caps for unused ports including 19 mm and make it snappier
+- [ ] Gopro 90 degree adapter for the pipe clamp on the hull sides
+- [ ] Put conference talk on main machine
