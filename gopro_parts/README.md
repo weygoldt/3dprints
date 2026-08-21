@@ -2381,19 +2381,50 @@ The body lost its PCB rails at the same time — free-standing walls standing on
 a floor that, printed this way up, does not exist yet. They were the only
 islands in the whole beacon. The driver is held with tape.
 
-### Anti-rotation, for free
+### How it stays together — a quarter-turn bayonet
 
-The carrier's seat is **keyed with two flats** so screwing the dome down cannot
-spin it and wind up the LED wires. A flat costs nothing on a part that is
-already flat on the bed. Two things make it actually work:
+This was missing, and it was not a detail. The dome screws onto the **carrier**,
+so tightening it clamps the dome and carrier *to each other* and does nothing at
+all to the body — the whole top assembly lifted straight off a 1.8 mm
+counterbore. v1 had a snap here and it got deleted as a "convenience". It was
+not a convenience; it was the only retention there was.
 
-* The body's plain bore **stops at the counterbore** rather than running the
-  full height. It is ⌀29, wider than the key is across its flats — run it to
-  the top and it silently erases the key, leaving a round seat that spins.
-* The carrier is **one cylinder with the flats cut out of its lower band**, not
-  a keyed extrusion unioned under a round one. Those two share a curved face
-  over their whole overlap, and the union exported with **140 non-manifold
-  edges** while still reporting `manifold`.
+The carrier now has **two 60° lobes** at the very bottom of its shank, standing
+out to the full ⌀30. The body's socket is three cuts: a ⌀27.2 bore the shank
+turns in, two full-depth **entry slots** the lobes drop through, and two
+**grooves** at the bottom only. What is left between a groove and the body's top
+face is the **ledge**, and that ledge is what holds the beacon shut. Drop in,
+twist a quarter turn, done.
+
+The lock direction is **clockwise seen from above** — the same direction the
+dome's right-hand thread drives the carrier as you tighten it. So doing the dome
+up pushes each lobe harder into its stop instead of backing it out, and that
+stop is also what keeps the carrier from spinning and winding up the LED wires.
+Undoing the dome backs it off the stop, and the top comes away as a unit.
+
+A bayonet rather than another snap because **nothing in it needs elastic
+tuning**: every fit is a loose 0.2 mm clearance, and it either engages or
+visibly does not. v1's snap failed on 0.144 mm of interference against a rigid
+ring; there is no equivalent number here to get wrong.
+
+### Retention, answered by geometry
+
+Three booleans, rendered by OpenSCAD, because "is it held down" is not something
+a single mesh can be asked:
+
+| probe | | |
+|---|---|---|
+| locked, seated | **0.0000 mm³** | it can reach the locked position |
+| locked, lifted 1 mm | **33.60 mm³** | lobe driven into ledge — this is what has to fail before the beacon comes apart |
+| entry angle, lifted 1 mm | **0.0000 mm³** | it still goes in and out where it should |
+
+The middle one is the point. On the revision before this it came back **empty**,
+which is exactly what "the dome and carrier just lift off" looks like when you
+render it. Note it is gated on **volume, not facet count**: the flange rests
+exactly on the body's face, so the seated probe exports 564 zero-thickness
+facets around a volume of zero.
+
+Each lobe reaches **1.40 mm** under its ledge, all the way round its 60°.
 
 ### The printed dome still fits
 

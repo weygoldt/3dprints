@@ -50,8 +50,13 @@ DOME_H        = 20.30
 DOME_D        = 33.00
 SEAT_DEPTH    = 1.80
 CARRIER_T     = SEAT_DEPTH + CARRIER_PROUD      # 3.60
-KEY_ACROSS    = 28.00
 SEAT_FIT      = 0.20
+BAY_SEAT_D    = 27.00
+BAY_LOBE_ANG  = 60.0
+BAY_LOBE_H    = 0.80
+BAY_TRAVEL    = 90.0
+BAY_FIT       = 0.20
+BAY_LOBE_ZFIT = 0.15
 STAR_POCKET_D = 20.40
 STAR_POCKET_DEPTH = 2.15
 CARRIER_FLOOR_Z = BODY_H - SEAT_DEPTH           # 8.20
@@ -470,12 +475,24 @@ def check_body(t):
 
     # The counterbore the carrier drops into, and its key.
     zc = CARRIER_FLOOR_Z + SEAT_DEPTH / 2
-    f.append(report("counterbore bore (round direction)",
-                    2 * wall_at(t, zc, 0.0, 10.0, 16.0),
-                    CARRIER_D + SEAT_FIT, 0.06))
-    f.append(report("counterbore key (across the flats)",
-                    2 * wall_at(t, zc, 90.0, 10.0, 16.0),
-                    KEY_ACROSS + SEAT_FIT, 0.06))
+    # The bayonet socket.  Three radii, at two heights, on two bearings -- and
+    # the LEDGE is the one that matters: it is all that holds the beacon shut.
+    z_ledge = CARRIER_FLOOR_Z + BAY_LOBE_H + BAY_LOBE_ZFIT + 0.4
+    z_groove = CARRIER_FLOOR_Z + BAY_LOBE_H / 2
+    f.append(report("shank bore (what the carrier turns in)",
+                    2 * wall_at(t, z_ledge, 90.0, 10.0, 16.0),
+                    BAY_SEAT_D + BAY_FIT, 0.06))
+    f.append(report("entry slot, at the height of the ledge",
+                    2 * wall_at(t, z_ledge, 0.0, 10.0, 16.0),
+                    CARRIER_D + BAY_FIT, 0.06))
+    f.append(report("groove the lobes twist along",
+                    2 * wall_at(t, z_groove, -BAY_TRAVEL, 10.0, 16.0),
+                    CARRIER_D + BAY_FIT, 0.06))
+    f.append(gate("there IS a ledge over the locked position",
+                  abs(2 * wall_at(t, z_ledge, -BAY_TRAVEL, 10.0, 16.0)
+                      - (BAY_SEAT_D + BAY_FIT)) < 0.06,
+                  "bore is back to the shank diameter a quarter turn round, "
+                  "which is the material the lobe hooks under"))
     f.append(report("plain bore below the counterbore",
                     2 * wall_at(t, (BODY_FLOOR + CARRIER_FLOOR_Z) / 2,
                                 31.0, 10.0, 16.0),
@@ -522,12 +539,36 @@ def check_carrier(t):
     f.append(report("rim diameter (the dome rides on this)",
                     2 * max_outer(t, CARRIER_T - CARRIER_PROUD / 2),
                     CARRIER_D, TOL))
-    rnd, key = across_flats(t, SEAT_DEPTH / 2)
-    f.append(report("keyed seat, round direction", rnd, CARRIER_D, TOL))
-    f.append(report("keyed seat, across the flats", key, KEY_ACROSS, TOL))
-    f.append(gate("the seat really is keyed, not round", rnd - key > 1.0,
-                  "%.2f mm of flat, which is what stops it spinning"
-                  % (rnd - key)))
+    # Shank and lobes.  Measured a hair above the lobes and inside them, so a
+    # missing lobe cannot hide behind the shank's own diameter.
+    z_shank = BAY_LOBE_H + (SEAT_DEPTH - BAY_LOBE_H) / 2
+    f.append(report("shank diameter above the lobes",
+                    2 * max_outer(t, z_shank), BAY_SEAT_D, TOL))
+    f.append(report("lobe diameter", 2 * max_outer(t, BAY_LOBE_H / 2),
+                    CARRIER_D, TOL))
+    runs = []
+    segs = section(t, BAY_LOBE_H / 2)
+    hot = []
+    for i in range(720):
+        a = i * 0.5
+        h = ray_hits(segs, a)
+        if h and max(h) > (BAY_SEAT_D + CARRIER_D) / 4:
+            hot.append(a)
+    if hot:
+        runs = [[hot[0]]]
+        for a in hot[1:]:
+            if a - runs[-1][-1] <= 0.75:
+                runs[-1].append(a)
+            else:
+                runs.append([a])
+        if len(runs) > 1 and (runs[0][0] + 360.0) - runs[-1][-1] <= 0.75:
+            runs[0] = [x - 360.0 for x in runs[-1]] + runs[0]
+            runs.pop()
+    f.append(gate("two lobes, counted off the mesh", len(runs) == 2,
+                  "%d found" % len(runs)))
+    if runs:
+        w = sum(r[-1] - r[0] for r in runs) / len(runs)
+        f.append(report("lobe arc", w, BAY_LOBE_ANG, 2.0))
     f.append(report("thread crest diameter",
                     2 * max_outer(t, CARRIER_T + THREAD_L / 2, 0.5),
                     THREAD_D, 0.15))
@@ -600,19 +641,68 @@ def check_fit(carrier, body, dome):
     # carrier turning while the dome is screwed down onto it.
     zc_b = CARRIER_FLOOR_Z + SEAT_DEPTH / 2
     zc_c = SEAT_DEPTH / 2
-    # The BODY's seat is a HOLE, so it is measured by ray -- the first wall the
-    # ray meets on each axis.  The CARRIER's seat is SOLID, so it is measured by
-    # extent.  Using a ray on the carrier too is what reported "13.600 into
-    # 30.200": the innermost thing a ray meets there is a wire hole.
-    c_rnd, c_key = across_flats(carrier, zc_c)
-    b_rnd = 2 * wall_at(body, zc_b, 0.0, 10.0, 16.0)
-    b_key = 2 * wall_at(body, zc_b, 90.0, 10.0, 16.0)
-    for name, seat, part_w in [("round", b_rnd, c_rnd), ("key  ", b_key, c_key)]:
+    # The BODY's socket is a HOLE, measured by ray.  The CARRIER's shank and
+    # lobes are SOLID, measured by extent.  Using a ray on the carrier too is
+    # what once reported "13.600 into 30.200": the innermost thing a ray meets
+    # there is a wire hole.
+    z_ledge = CARRIER_FLOOR_Z + BAY_LOBE_H + BAY_LOBE_ZFIT + 0.4
+    shank = 2 * max_outer(carrier, BAY_LOBE_H + (SEAT_DEPTH - BAY_LOBE_H) / 2)
+    lobe = 2 * max_outer(carrier, BAY_LOBE_H / 2)
+    b_shank = 2 * wall_at(body, z_ledge, 90.0, 10.0, 16.0)
+    b_slot = 2 * wall_at(body, z_ledge, 0.0, 10.0, 16.0)
+    for name, seat, part_w in [("shank", b_shank, shank), ("lobe ", b_slot, lobe)]:
         clr = seat - part_w
         print("    seat %s carrier %.3f into body %.3f  =  %.3f mm"
               % (name, part_w, seat, clr))
-        f.append(gate("carrier seats in the body (%s)" % name.strip(),
+        f.append(gate("carrier fits the body (%s)" % name.strip(),
                       0.05 <= clr <= 0.6, "%.3f mm" % clr))
+
+    # The ledge itself: how far the lobe reaches under it.  This is the number
+    # that decides whether the beacon can be pulled apart.
+    grip = (lobe - (BAY_SEAT_D + BAY_FIT)) / 2
+    f.append(gate("lobe reaches under the ledge", grip >= 1.0,
+                  "%.2f mm of engagement all the way round each lobe" % grip))
+    return all(f)
+
+
+def check_probes(seated, lift, entry):
+    """Retention, answered by geometry rather than by argument.
+
+    Three booleans.  The middle one is the whole point: lift the LOCKED carrier
+    and it has to run into the body.  On the version before this one it came
+    back empty, which is exactly what "the dome and carrier just lift off"
+    looks like when you render it.
+    """
+    print("--- RETENTION")
+    f = []
+
+    def vol(path):
+        # An empty intersection is a legitimate answer here, and OpenSCAD
+        # writes a zero-facet STL for it, so these are allowed to be empty.
+        try:
+            m = load(path, allow_empty=True)
+        except MeshError as e:
+            if "ZERO triangles" in str(e):
+                return 0.0
+            raise
+        return abs(volume(m)) if m else 0.0
+
+    vs, vl, ve = vol(seated), vol(lift), vol(entry)
+    # NOTE volume, not facet count: the flange rests exactly on the body's face,
+    # so the seated probe exports hundreds of zero-thickness facets around a
+    # volume of zero.
+    print("    locked and seated     %8.4f mm^3   (must be 0 -- it has to reach the lock)"
+          % vs)
+    print("    locked and lifted 1mm %8.4f mm^3   (must NOT be 0 -- lobe into ledge)"
+          % vl)
+    print("    at entry, lifted 1mm  %8.4f mm^3   (must be 0 -- or it never goes in)"
+          % ve)
+    f.append(gate("carrier reaches the locked position", vs < 1e-3,
+                  "%.4f mm^3" % vs))
+    f.append(gate("LOCKED CARRIER CANNOT BE LIFTED OUT", vl > 5.0,
+                  "%.2f mm^3 of lobe under ledge has to fail first" % vl))
+    f.append(gate("carrier still goes in at the entry angle", ve < 1e-3,
+                  "%.4f mm^3" % ve))
     return all(f)
 
 
@@ -623,6 +713,7 @@ def main():
     ap.add_argument("--carrier")
     ap.add_argument("--dome")
     ap.add_argument("--same-as")
+    ap.add_argument("--probes", nargs=3, metavar=("SEATED", "LIFT", "ENTRY"))
     a = ap.parse_args()
 
     ok = True
@@ -640,6 +731,8 @@ def main():
         ok = check_dome(dome, a.same_as) and ok
     if body and carrier and dome:
         ok = check_fit(carrier, body, dome) and ok
+    if a.probes:
+        ok = check_probes(*a.probes) and ok
 
     print("\n%s" % ("ALL CHECKS PASSED" if ok else "*** CHECKS FAILED"))
     sys.exit(0 if ok else 1)

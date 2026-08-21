@@ -100,9 +100,28 @@ carrier_proud = 1.8;           // stand-off above the body face == dome datum
 carrier_seat_depth = 1.8;      // how much of it sits in the body counterbore
 carrier_thickness = carrier_seat_depth + carrier_proud;   // 3.60
 star_pocket_depth = 2.15;
-// Flat-to-flat across the keyed seat.  Two flats, so there are two ways in and
-// neither of them lets the carrier turn.
-carrier_key_across = 28.0;
+// BAYONET.  The carrier drops in and twists a quarter turn to lock under two
+// ledges in the body.  This is what actually holds the beacon together, and it
+// took a wrong turn to see why: the dome screws onto the CARRIER, so tightening
+// it clamps the dome and carrier to each other and does nothing at all to the
+// body -- the whole top assembly just lifts off.  v1 had a snap here and I
+// deleted it as a convenience.  It was not; it was the only retention there
+// was.
+//
+// A bayonet rather than another snap because it needs no elastic tuning: every
+// fit in it is a loose clearance, and it either engages or visibly does not.
+// The lock direction is CLOCKWISE seen from above, which is the direction the
+// dome's right-hand thread drives the carrier when you tighten it -- so doing
+// up the dome pushes the lobes harder into their stops instead of backing them
+// out, and that is also what keeps the carrier from spinning and winding up the
+// LED wires.
+bay_seat_diameter = 27.0;      // the carrier's shank, below the flange
+bay_lobe_angle = 60;           // arc each lobe covers
+bay_lobe_height = 0.80;        // axial thickness of a lobe
+bay_travel = 90;               // quarter turn from slot to stop
+bay_fit = 0.20;                // diametral clearance, lobes and shank
+bay_fit_angle = 1.0;           // angular clearance either side of a lobe
+bay_lobe_z_fit = 0.15;         // axial slack in the groove
 
 // Thread and dome -- FROZEN.  The dome is already printed.
 thread_diameter = 28.0;
@@ -161,10 +180,19 @@ assert(star_pocket_floor >= 1.0,
        "too little opaque floor left under the star pocket");
 assert(led_star_diameter + star_pocket_fit < collar_bore,
        "star cannot be dropped in through the threaded collar");
-assert(carrier_key_across < carrier_diameter,
-       "key flats must actually cut the circle or they key nothing");
-assert(carrier_key_across > collar_bore + 1.0,
-       "key flats cut into the collar bore");
+// The bayonet only retains anything if the ledge it hooks under is real: the
+// lobes must be WIDER than the shank the body's counterbore is bored to, and
+// there must be body left outboard of them to be a ledge at all.
+assert(carrier_diameter > bay_seat_diameter + 1.0,
+       "lobes barely stand proud of the shank -- nothing to hook under");
+assert(bay_lobe_height + bay_lobe_z_fit < carrier_seat_depth,
+       "groove is as deep as the seat, so there is no ledge above the lobes");
+assert(body_diameter / 2 - (carrier_diameter + bay_fit) / 2 >= 1.2,
+       "too little wall left outboard of the bayonet slots");
+assert(bay_lobe_angle * 2 + bay_travel < 360,
+       "lobes cannot travel a quarter turn without meeting each other");
+assert(bay_seat_diameter > collar_bore,
+       "shank is narrower than the collar bore it has to clear");
 
 // The compartment only holds the driver now -- the star lives in the carrier.
 assert(carrier_floor_z - body_floor >= pcb_total_thickness + 1.0,
@@ -176,15 +204,21 @@ assert(gopro_tip_diameter / 2 == 7.5, "knuckle must match arm.scad tab_r");
 
 // ---- geometry -------------------------------------------------------------
 
-// The keyed seat, defined ONCE.  The carrier is extruded from it and the
-// body's counterbore is cut with it one clearance larger, so the two cannot
-// drift apart the way two hand-matched profiles would.
-module keyed_profile(d, across) {
-    intersection() {
-        circle(d = d);
-        square([d + 1, across], center = true);
-    }
+// One pie-slice, from a0 to a1 degrees.  Both the carrier's lobes and the
+// body's slots and grooves are cut from this, so a lobe and the pocket it has
+// to enter cannot drift apart the way two hand-matched profiles would.
+module arc_sector_2d(a0, a1, r) {
+    polygon(concat([[0, 0]],
+            [for (i = [0 : 64]) let (t = a0 + (a1 - a0) * i / 64)
+                [r * cos(t), r * sin(t)]]));
 }
+
+module arc_sector(a0, a1, r, h) {
+    linear_extrude(height = h) arc_sector_2d(a0, a1, r);
+}
+
+// Where each lobe sits when the carrier is dropped in, before the twist.
+function bay_entry(i) = i * 360 / 2;
 
 module body() {
     difference() {
@@ -203,11 +237,33 @@ module body() {
             gopro_two_prong();
         }
 
-        // Counterbore the carrier drops into, keyed so it cannot turn.
-        translate([0, 0, carrier_floor_z])
-            linear_extrude(height = carrier_seat_depth + eps)
-                keyed_profile(carrier_diameter + carrier_seat_fit,
-                              carrier_key_across + carrier_seat_fit);
+        // The bayonet socket, in three pieces:
+        //   the bore the carrier's shank turns in, full depth;
+        //   two entry slots, also full depth, that the lobes drop through;
+        //   two grooves at the BOTTOM only, that the lobes twist along.
+        // What is left between a groove and the body's top face is the ledge,
+        // and that ledge is the entire reason the beacon stays together.
+        translate([0, 0, carrier_floor_z - eps])
+            cylinder(d = bay_seat_diameter + bay_fit,
+                     h = carrier_seat_depth + 2 * eps);
+
+        for (i = [0 : 1]) {
+            e = bay_entry(i);
+            // Entry slot: straight down, one lobe wide plus clearance.
+            translate([0, 0, carrier_floor_z - eps])
+                arc_sector(e - bay_lobe_angle / 2 - bay_fit_angle,
+                           e + bay_lobe_angle / 2 + bay_fit_angle,
+                           (carrier_diameter + bay_fit) / 2,
+                           carrier_seat_depth + 2 * eps);
+
+            // Groove: runs CLOCKWISE from the slot by a quarter turn, and stops
+            // there.  The stop is what the dome tightens the lobe against.
+            translate([0, 0, carrier_floor_z - eps])
+                arc_sector(e - bay_lobe_angle / 2 - bay_travel - bay_fit_angle,
+                           e + bay_lobe_angle / 2 + bay_fit_angle,
+                           (carrier_diameter + bay_fit) / 2,
+                           bay_lobe_height + bay_lobe_z_fit + eps);
+        }
 
         // One rounded slot lets all three external wires pass through the
         // bottom together.  It exits beside the GoPro fork, so there is no
@@ -258,12 +314,39 @@ module gopro_two_prong() {
 module carrier() {
     difference() {
         union() {
-            // One cylinder for the whole disc.  The key is CUT out of its
-            // lower band further down rather than being a second solid unioned
-            // on: a keyed extrusion stacked under a round one shares a curved
-            // face over the entire overlap, and that union exports with ~140
-            // non-manifold edges while still reporting "manifold".
-            cylinder(d = carrier_diameter, h = carrier_thickness);
+            // Flange: the full-diameter part, from the top of the shank up.
+            // Its underside IS a datum -- it lands on the body's face -- so it
+            // starts exactly at carrier_seat_depth, and the shank below carries
+            // the eps overlap instead.  Growing the flange DOWN by eps buries
+            // 0.05 mm of full-diameter disc in the body's top face, which the
+            // interference probe reports as 4.12 mm^3 of foul.
+            translate([0, 0, carrier_seat_depth])
+                cylinder(d = carrier_diameter, h = carrier_proud);
+
+            // The lobe band, extruded from ONE 2D profile rather than unioned
+            // together as solids.  Unioning the sectors onto the shank in 3D
+            // exported two non-manifold edges where a lobe's radial face
+            // crossed the shank's wall -- a 2D union has no such seam to get
+            // wrong, and it is one extrusion instead of three.
+            // The band's round part is deliberately 0.2 UNDER the shank above
+            // it.  Made equal, the two solids share an identical cylindrical
+            // face across their overlap and the union exports 136 non-manifold
+            // edges; offset, there is no coincident surface anywhere and it
+            // comes out clean.  The 0.1 mm step it leaves is inside the body's
+            // bore and does nothing.
+            linear_extrude(height = bay_lobe_height)
+                union() {
+                    circle(d = bay_seat_diameter - 0.2);
+                    for (i = [0 : 1])
+                        arc_sector_2d(bay_entry(i) - bay_lobe_angle / 2,
+                                      bay_entry(i) + bay_lobe_angle / 2,
+                                      carrier_diameter / 2);
+                }
+
+            // Shank: narrower, so the body has somewhere to put a ledge.
+            translate([0, 0, bay_lobe_height - eps])
+                cylinder(d = bay_seat_diameter,
+                         h = carrier_seat_depth - bay_lobe_height + 2 * eps);
 
             // Male BOSL2 thread the dome screws onto.
             translate([0, 0, carrier_thickness - eps])
@@ -275,17 +358,6 @@ module carrier() {
                              bevel = false,
                              $slop = 0);
         }
-
-        // The key: two flats on the seat only.  The rim above them returns to
-        // full diameter, so each flat is capped by a ~1 mm ledge -- short
-        // enough to print unsupported, and it is what stops the carrier
-        // turning when the dome is screwed down onto it.
-        for (m = [0, 1])
-            mirror([0, m, 0])
-                translate([-carrier_diameter, carrier_key_across / 2, -eps])
-                    cube([2 * carrier_diameter,
-                          carrier_diameter,
-                          carrier_seat_depth + eps]);
 
         // The star's pocket -- opens upward, so it costs nothing to print.
         translate([0, 0, star_pocket_floor])
@@ -340,9 +412,18 @@ module dome() {
     }
 }
 
+// The carrier where it actually lives: dropped in and twisted CLOCKWISE to the
+// stop.  Everything below is measured against this, not against the angle it
+// goes in at.
+module carrier_locked(lift = 0) {
+    translate([0, 0, carrier_floor_z + lift])
+        rotate([0, 0, -bay_travel])
+            carrier();
+}
+
 module assembly(exploded = 0) {
     color("dimgray") body();
-    color("black") translate([0, 0, carrier_floor_z + exploded]) carrier();
+    color("black") carrier_locked(exploded);
     color([0.88, 0.92, 0.85, 0.50])
         translate([0, 0, body_height + 2 * exploded]) dome();
 
@@ -360,11 +441,44 @@ module assembly(exploded = 0) {
     }
 }
 
+// ---- probes ---------------------------------------------------------------
+// Two booleans that between them answer the question the whole revision exists
+// for: is the carrier actually held down, or does it just rest there?
+//
+// probe_seated  the locked carrier against the body.  Must be EMPTY -- it has
+//               to be able to reach the locked position at all.
+// probe_lift    the same carrier lifted 1 mm.  Must NOT be empty: the volume it
+//               reports is lobe driven into ledge, which is exactly the
+//               material that has to fail before the beacon comes apart.  On
+//               the version I shipped before this one it renders as nothing.
+module probe_seated() {
+    intersection() { body(); carrier_locked(); }
+}
+
+module probe_lift() {
+    intersection() { body(); carrier_locked(lift = 1.0); }
+}
+
+// And the third case, which has to stay clear or it could never be assembled:
+// the carrier at the ENTRY angle, lifted.  Nothing should be in its way.
+module probe_entry() {
+    intersection() {
+        body();
+        translate([0, 0, carrier_floor_z + 1.0]) carrier();
+    }
+}
+
 if (part == "body")
     body();
 else if (part == "carrier")
     carrier();
 else if (part == "dome")
     dome();
+else if (part == "probe_seated")
+    probe_seated();
+else if (part == "probe_lift")
+    probe_lift();
+else if (part == "probe_entry")
+    probe_entry();
 else
     assembly(exploded = 0);

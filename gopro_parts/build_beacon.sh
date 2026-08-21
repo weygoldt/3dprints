@@ -89,6 +89,33 @@ scad stl/rc_boat_blink_beacon_carrier.stl carrier
 echo "--- dome"
 scad stl/rc_boat_blink_beacon_dome.stl dome
 
+# Retention, rendered as three booleans.  An empty intersection makes OpenSCAD
+# exit 1 with "Current top level object is empty" -- and for two of these three
+# that is the PASS signal, not an error.  So they do not go through scad(), and
+# an empty result is written out as a real zero-facet STL rather than left as a
+# missing file: "the render produced nothing" and "the render never ran" must
+# not arrive at the verifier looking the same.
+echo "--- retention probes"
+probe() {
+    local pr="$1" msg
+    msg=$(openscad -o "stl/$pr.stl" --export-format binstl --render=force \
+                   -D "part=\"$pr\"" "$SRC" 2>&1) && \
+        { printf "    %-14s rendered\n" "$pr"; return 0; }
+    if grep -q "top level object is empty" <<<"$msg"; then
+        # 80-byte header + a uint32 zero: a valid STL containing nothing.
+        printf '%080d' 0 > "stl/$pr.stl"
+        printf '\0\0\0\0' >> "stl/$pr.stl"
+        printf "    %-14s EMPTY (the intersection really is nothing)\n" "$pr"
+        return 0
+    fi
+    echo "$msg"
+    echo "*** openscad failed rendering $pr"
+    exit 1
+}
+probe probe_seated
+probe probe_lift
+probe probe_entry
+
 # Does it SLICE?  The mesh checks cannot see this: the body's two PCB rails are
 # a perfectly good mesh that happens to start in mid-air.  A bridge is fine, an
 # ISLAND is not, and only the slicer knows which is which.
@@ -124,6 +151,7 @@ python3 verify_beacon.py \
     --body    stl/rc_boat_blink_beacon_body.stl \
     --carrier stl/rc_boat_blink_beacon_carrier.stl \
     --dome    stl/rc_boat_blink_beacon_dome.stl \
+    --probes  stl/probe_seated.stl stl/probe_lift.stl stl/probe_entry.stl \
     "${SAME[@]}"
 
 echo
