@@ -126,13 +126,22 @@ probe probe_entry
 echo "--- slicing, because a good mesh can still be unprintable"
 if command -v prusa-slicer >/dev/null 2>&1 && [ -f "$SLICE_CFG" ]; then
     python3 verify_slice.py --selftest | sed 's/^/  /'
-    # The body is printed THREAD DOWN, which is not how the STL sits, so the
-    # check has to rotate it or it measures a part nobody prints.
+    # ORIENTATION MATTERS MORE THAN THE CHECK DOES.  Two of these three do not
+    # sit on the bed the way the STL sits in space, and slicing them unrotated
+    # measures a part nobody prints.  The dome was doing exactly that: sliced
+    # open-end-down it passes, because its 29.8 mm cavity ceiling is a bridge
+    # and a bridge is not an island -- but printed the way it is designed to
+    # be, flat top face down, it has no bridge at all.  Same verdict, different
+    # part.  A gate that answers about the wrong orientation is not a gate.
+    #
+    # body:    counterbore face DOWN, GoPro fork up   -> flip
+    # carrier: flat underside DOWN, thread up         -> as it sits
+    # dome:    flat top face DOWN                     -> flip
     python3 verify_slice.py --config "$SLICE_CFG" --rotate-x 180 \
             --label body stl/rc_boat_blink_beacon_body.stl
     python3 verify_slice.py --config "$SLICE_CFG" \
             --label carrier stl/rc_boat_blink_beacon_carrier.stl
-    python3 verify_slice.py --config "$SLICE_CFG" \
+    python3 verify_slice.py --config "$SLICE_CFG" --rotate-x 180 \
             --label dome stl/rc_boat_blink_beacon_dome.stl
 else
     echo "!!! prusa-slicer or $SLICE_CFG missing -- the printability proof did NOT run."

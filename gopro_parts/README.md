@@ -2355,11 +2355,31 @@ A lit beacon that hangs off a GoPro arm. Its own file, its own build script:
 
 Three parts, PETG, **none of which need support**:
 
-| part | on the bed | cost |
-|---|---|---|
-| body — driver compartment + GoPro two-prong | counterbore face **down**, fork **up** | 4.69 cm³, 41 m |
-| carrier — holds the 20 mm star, carries the thread | flat, pocket and thread **up** | 2.33 cm³, 19 m |
-| dome — diffuser | flat top face **down** | 4.96 cm³, 32 m |
+### Support: none of them. Switch it off.
+
+| part | on the bed | support OFF | support ON | bridges |
+|---|---|---|---|---|
+| body — driver compartment + GoPro two-prong | counterbore face **down**, fork **up** | 4.76 cm³, 41 m | 6.22 cm³, 1 h 06 | Z 8.0, 12.0, 26.0 |
+| carrier — star pocket, thread, bayonet lobes | flat underside **down**, thread **up** | 2.29 cm³, 19 m | 3.16 cm³, 33 m | Z 2.0 |
+| dome — diffuser | flat top face **down** | 5.09 cm³, 33 m | 5.09 cm³, 33 m | none |
+| **total** | | **12.14 cm³, 1 h 33** | **14.47 cm³, 2 h 12** | |
+
+Leaving support on costs **+2.33 cm³ and +39 minutes** and buys nothing. Every
+overhang in the beacon is either a bridge anchored right around its rim or a
+ledge a millimetre or two wide; `build_beacon.sh` slices all three with support
+disabled and fails if any layer ever contains a region with nothing beneath it.
+
+The bridges are all interior and none are load-bearing: the body's are its
+floor closing over the ⌀29 compartment (Z 8.0) plus two small ones around the
+cable slot and the fork's teardrop bore, and the carrier's single one is the
+1.5 mm annular ledge where the ⌀30 flange steps out over the ⌀27 shank.
+
+**Orientation is part of the answer, not a footnote.** Two of the three do not
+sit on the bed the way the STL sits in space, and the gate has to rotate them or
+it measures a part nobody prints. The dome was being sliced open-end-down for
+several revisions: it *passed*, because its ⌀29.8 cavity ceiling is a bridge and
+a bridge is not an island — but printed as designed, flat top face down, it has
+no bridge at all. Same verdict, different part.
 
 ### The carrier's support bill was self-inflicted
 
