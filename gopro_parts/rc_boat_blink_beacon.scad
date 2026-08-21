@@ -14,12 +14,12 @@
   Units: millimetres.
 */
 
-include <BOSL2/std.scad>
-include <BOSL2/threading.scad>
+include <../BOSL2/std.scad>
+include <../BOSL2/threading.scad>
 
-part = "assembly"; // [assembly,body,carrier,dome]
+part = "body"; // [assembly,body,carrier,dome]
 
-$fn = 72;
+$fn = 128;
 eps = 0.05;
 
 // Actual components ---------------------------------------------------------
@@ -29,7 +29,8 @@ pcb_total_thickness = 4.5;
 
 // The compartment is deliberately longer than the bare PCB to accommodate
 // solder joints and the bend radius of wires leaving both ends.
-pcb_compartment_length = 20.5;
+pcb_compartment_length = 21.5;
+pcb_compartment_width = 11.5;
 
 led_star_diameter = 20.0;
 led_star_thickness = 2.0;
@@ -49,6 +50,8 @@ body_diameter = 33.0;
 body_wall = 2.0;
 body_floor = 2.2;
 body_height = 9.5;
+pcb_compartment_wall = 1.2;
+pcb_rail_length = pcb_length + 1.0;
 
 carrier_diameter = 30.0;
 carrier_thickness = 3.2;
@@ -72,10 +75,12 @@ thread_length = 6.0;
 thread_slop = 0.20;
 thread_collar_wall = 2.0;
 
-dome_wall = 1.2;
+dome_wall = 1.6;
+dome_top_thickness = 2.0;
 dome_thread_start = carrier_thickness - carrier_seat_depth;
 dome_skirt_height = dome_thread_start + thread_length + 0.5;
-dome_height_above_skirt = 17.0;
+dome_height_above_skirt = 12.0;
+dome_total_height = dome_skirt_height + dome_height_above_skirt;
 dome_outer_diameter = 33.0;
 
 // GoPro-compatible two-prong interface -------------------------------------
@@ -90,7 +95,7 @@ gopro_web_thickness = 3.0;
 
 pcb_cavity = [
     pcb_compartment_length,
-    pcb_width + 2 * pcb_xy_clearance,
+    pcb_compartment_width,
     pcb_total_thickness + pcb_z_clearance
 ];
 
@@ -99,6 +104,35 @@ module rounded_box(size, radius) {
         for (x = [radius, size[0] - radius])
             for (y = [radius, size[1] - radius])
                 translate([x, y, 0]) cylinder(r = radius, h = size[2]);
+}
+
+// Lightweight body core: a sealed floor, thin cylindrical exterior, and two
+// free-standing PCB guide rails.  Their open ends leave the surrounding hollow
+// annulus available for solder joints, wire bends, and excess wire.
+module lightweight_body_shell() {
+    rail_height = body_height - carrier_seat_depth - body_floor;
+
+    union() {
+        // Subtracting only above body_floor leaves a continuous sealed floor.
+        difference() {
+            cylinder(d = body_diameter, h = body_height);
+            translate([0, 0, body_floor])
+                cylinder(d = body_diameter - 2 * body_wall,
+                         h = body_height - body_floor + eps);
+        }
+
+        // Two long rails locate the PCB laterally without enclosing its ends.
+        for (y = [-(pcb_cavity[1] / 2 + pcb_compartment_wall),
+                   pcb_cavity[1] / 2])
+            translate([-pcb_rail_length / 2,
+                       y,
+                       body_floor - eps])
+                rounded_box([
+                    pcb_rail_length,
+                    pcb_compartment_wall,
+                    rail_height + 2 * eps
+                ], pcb_compartment_wall / 2);
+    }
 }
 
 // A GoPro-style pair of fingers. Screw axis runs along Y.
@@ -144,7 +178,7 @@ module body() {
 
     difference() {
         union() {
-            cylinder(d = body_diameter, h = body_height);
+            lightweight_body_shell();
             gopro_two_prong();
         }
 
@@ -237,27 +271,10 @@ module carrier() {
 }
 
 module dome() {
-    outer_r = dome_outer_diameter / 2;
-    inner_r = outer_r - dome_wall;
-
     difference() {
-        union() {
-            // Straight skirt carries the internal thread and sealing face.
-            cylinder(d = dome_outer_diameter, h = dome_skirt_height);
-
-            // Upper half of an ellipsoid forms the beacon dome.
-            intersection() {
-                translate([0, 0, dome_skirt_height])
-                    scale([1, 1, dome_height_above_skirt / outer_r])
-                        sphere(r = outer_r);
-                translate([-outer_r - eps,
-                           -outer_r - eps,
-                           dome_skirt_height])
-                    cube([2 * outer_r + 2 * eps,
-                          2 * outer_r + 2 * eps,
-                          dome_height_above_skirt + eps]);
-            }
-        }
+        // A flat-ended cylinder can be printed inverted on its top face.
+        // The thread and hollow interior then build upward without support.
+        cylinder(d = dome_outer_diameter, h = dome_total_height);
 
         // Clearance around the exposed carrier edge.  This lets the dome
         // skirt descend until its lower face seats directly on the body.
@@ -280,25 +297,14 @@ module dome() {
                 $slop = thread_slop
             );
 
-        // Continue the open optical cavity above the threaded section.
+        // Open the full optical cavity above the threaded section.  Its
+        // diameter leaves 1.6 mm translucent side walls.  The thicker 2 mm
+        // top reduces the direct upward hotspot and provides stronger
+        // diffusion while the thinner sides preserve lateral brightness.
         translate([0, 0, dome_thread_start + thread_length - eps])
-            cylinder(d = thread_diameter - 2 * thread_collar_wall,
-                     h = dome_skirt_height - dome_thread_start -
-                         thread_length + 2 * eps);
-
-        // Upper half of the inner ellipsoid leaves a thin optical wall.
-        intersection() {
-            translate([0, 0, dome_skirt_height])
-                scale([1, 1,
-                       (dome_height_above_skirt - dome_wall) / inner_r])
-                    sphere(r = inner_r);
-            translate([-inner_r - eps,
-                       -inner_r - eps,
-                       dome_skirt_height - eps])
-                cube([2 * inner_r + 2 * eps,
-                      2 * inner_r + 2 * eps,
-                      dome_height_above_skirt + eps]);
-        }
+            cylinder(d = dome_outer_diameter - 2 * dome_wall,
+                     h = dome_total_height - dome_top_thickness -
+                         dome_thread_start - thread_length + eps);
     }
 }
 
