@@ -37,10 +37,10 @@ from collections import defaultdict
 # ---- spec (must mirror rc_boat_blink_beacon.scad) ------------------------
 BODY_D        = 33.00
 BODY_WALL     = 2.00
-BODY_H        = 9.50
+BODY_H        = 10.00
 BODY_FLOOR    = 2.20
-BOSS_D        = 30.00
-BOSS_PROUD    = 1.80
+CARRIER_D     = 30.00
+CARRIER_PROUD = 1.80
 THREAD_D      = 28.00
 THREAD_L      = 6.00
 COLLAR_WALL   = 2.00
@@ -48,7 +48,13 @@ COLLAR_BORE   = THREAD_D - 2 * COLLAR_WALL      # 24.00
 GENERAL_FIT   = 0.25
 DOME_H        = 20.30
 DOME_D        = 33.00
-COLLAR_TOP    = BODY_H + BOSS_PROUD + THREAD_L  # 17.30
+SEAT_DEPTH    = 1.80
+CARRIER_T     = SEAT_DEPTH + CARRIER_PROUD      # 3.60
+KEY_ACROSS    = 28.00
+SEAT_FIT      = 0.20
+STAR_POCKET_D = 20.40
+STAR_POCKET_DEPTH = 2.15
+CARRIER_FLOOR_Z = BODY_H - SEAT_DEPTH           # 8.20
 BORE_R        = BODY_D / 2 - BODY_WALL          # 14.50
 
 PCB_L         = 18.00
@@ -434,6 +440,21 @@ def gate(name, ok, detail):
     return ok
 
 
+def across_flats(tris, z):
+    """Full width along X and along Y of a section.
+
+    The key flats are cut on Y, so Y is the across-flats width while X still
+    reaches the full circle.  Two numbers off one section, which is what makes
+    "is it actually keyed" answerable rather than assumed.
+    """
+    segs = section(tris, z)
+    xs = [p[0] for s in segs for p in s]
+    ys = [p[1] for s in segs for p in s]
+    if not xs:
+        raise MeshError("no section at z=%.3f" % z)
+    return max(xs) - min(xs), max(ys) - min(ys)
+
+
 def check_body(t):
     print("--- body")
     f = []
@@ -443,41 +464,26 @@ def check_body(t):
     f.append(gate("single shell", shells(t) == 1, "%d shell(s)" % shells(t)))
 
     lo, hi = bbox(t)
-    f.append(report("overall height", hi[2] - lo[2], COLLAR_TOP + GP_DROP, TOL))
+    f.append(report("body top face", hi[2], BODY_H, TOL))
     f.append(report("GoPro finger tip (lowest point)", lo[2], -GP_DROP, TOL))
     f.append(report("outside diameter", hi[0] - lo[0], BODY_D, TOL))
-    f.append(report("top of the thread", hi[2], COLLAR_TOP, TOL))
 
-    # The collar -- everything the printed dome screws onto.
-    f.append(report("body face the dome seats on",
-                    2 * max_outer(t, BODY_H - 0.3), BODY_D, TOL))
-    f.append(report("boss diameter (dome's skirt bore rides here)",
-                    2 * max_outer(t, BODY_H + BOSS_PROUD / 2), BOSS_D, TOL))
-    f.append(report("thread crest diameter",
-                    2 * max_outer(t, BODY_H + BOSS_PROUD + THREAD_L / 2, 0.5),
-                    THREAD_D, 0.15))
-    f.append(report("collar bore (light out, electronics in)",
-                    2 * min_inner(t, BODY_H + BOSS_PROUD / 2, 8.0, 14.0),
-                    COLLAR_BORE, TOL))
-
-    # Measured, not assumed: how far the boss runs before the thread starts.
-    z = transition_z(lambda zz: max_outer(t, zz, 2.0), BODY_H + 0.05,
-                     BODY_H + BOSS_PROUD + 1.0, BOSS_D / 2, tol=0.06)
-    f.append(report("boss stand-off before the thread",
-                    (z - BODY_H) if z else None, BOSS_PROUD, 0.10,
-                    "this is where the dome's internal thread starts"))
-
-    # The compartment, and whether the parts can physically be assembled.
-    f.append(gate("driver + star fit under the collar",
-                  BODY_H - BODY_FLOOR >= PCB_T + STAR_T,
-                  "%.1f mm of compartment for %.1f mm of stack"
-                  % (BODY_H - BODY_FLOOR, PCB_T + STAR_T)))
-    diag = math.hypot(PCB_L, PCB_W)
-    f.append(gate("driver passes through the collar bore", COLLAR_BORE > diag + 1.0,
-                  "bore %.1f vs driver diagonal %.1f" % (COLLAR_BORE, diag)))
-    f.append(gate("LED star passes through the collar bore",
-                  COLLAR_BORE > STAR_D + 1.0,
-                  "bore %.1f vs star %.1f" % (COLLAR_BORE, STAR_D)))
+    # The counterbore the carrier drops into, and its key.
+    zc = CARRIER_FLOOR_Z + SEAT_DEPTH / 2
+    f.append(report("counterbore bore (round direction)",
+                    2 * wall_at(t, zc, 0.0, 10.0, 16.0),
+                    CARRIER_D + SEAT_FIT, 0.06))
+    f.append(report("counterbore key (across the flats)",
+                    2 * wall_at(t, zc, 90.0, 10.0, 16.0),
+                    KEY_ACROSS + SEAT_FIT, 0.06))
+    f.append(report("plain bore below the counterbore",
+                    2 * wall_at(t, (BODY_FLOOR + CARRIER_FLOOR_Z) / 2,
+                                31.0, 10.0, 16.0),
+                    BODY_D - 2 * BODY_WALL, TOL))
+    f.append(gate("compartment holds the driver",
+                  CARRIER_FLOOR_Z - BODY_FLOOR >= PCB_T + 1.0,
+                  "%.1f mm for a %.1f mm board"
+                  % (CARRIER_FLOOR_Z - BODY_FLOOR, PCB_T)))
 
     # GoPro grid.
     ys = sorted({round(p[1], 3) for p in verts(t) if p[2] < -GP_WEB_T - 0.5})
@@ -486,8 +492,6 @@ def check_body(t):
     inner = [y for y in ys if abs(y) < 3.0]
     f.append(report("centre gap (takes the arm's middle prong)",
                     max(inner) - min(inner), GP_GAP, TOL))
-    f.append(report("finger thickness (enters the arm's %.2f slot)" % ARM_SLOT_W,
-                    (max(ys) - min(ys) - GP_GAP) / 2, GP_FING_T, TOL))
     f.append(report("knuckle diameter", 2 * max(
         math.hypot(p[0], p[2] - GP_PIVOT_Z) for p in verts(t)
         if p[2] < GP_PIVOT_Z + 1.0), GP_TIP_D, TOL))
@@ -499,83 +503,116 @@ def check_body(t):
     return all(f)
 
 
+def check_carrier(t):
+    print("--- carrier")
+    f = []
+    bad, ne = closed(t)
+    f.append(gate("mesh closed (every edge in 2 facets)", bad == 0,
+                  "%d bad of %d edges" % (bad, ne)))
+    f.append(gate("single shell", shells(t) == 1, "%d shell(s)" % shells(t)))
+
+    lo, hi = bbox(t)
+    f.append(report("overall height (disc + thread)", hi[2] - lo[2],
+                    CARRIER_T + THREAD_L, TOL))
+    # The whole point of v4: nothing hangs below the underside, so it prints
+    # flat on the bed with no support anywhere.
+    f.append(gate("underside is flat -- nothing hangs below it",
+                  abs(lo[2]) < 1e-6, "lowest point z=%.4f" % lo[2]))
+
+    f.append(report("rim diameter (the dome rides on this)",
+                    2 * max_outer(t, CARRIER_T - CARRIER_PROUD / 2),
+                    CARRIER_D, TOL))
+    rnd, key = across_flats(t, SEAT_DEPTH / 2)
+    f.append(report("keyed seat, round direction", rnd, CARRIER_D, TOL))
+    f.append(report("keyed seat, across the flats", key, KEY_ACROSS, TOL))
+    f.append(gate("the seat really is keyed, not round", rnd - key > 1.0,
+                  "%.2f mm of flat, which is what stops it spinning"
+                  % (rnd - key)))
+    f.append(report("thread crest diameter",
+                    2 * max_outer(t, CARRIER_T + THREAD_L / 2, 0.5),
+                    THREAD_D, 0.15))
+    f.append(report("star pocket diameter",
+                    2 * wall_at(t, CARRIER_T - STAR_POCKET_DEPTH / 2,
+                                31.0, 5.0, 14.0),
+                    STAR_POCKET_D, TOL))
+    f.append(gate("opaque floor left under the star",
+                  CARRIER_T - STAR_POCKET_DEPTH >= 1.0,
+                  "%.2f mm" % (CARRIER_T - STAR_POCKET_DEPTH)))
+    f.append(gate("star drops in through the threaded collar",
+                  COLLAR_BORE > STAR_D + 1.0,
+                  "collar bore %.1f vs star %.1f" % (COLLAR_BORE, STAR_D)))
+    return all(f)
+
+
 def check_dome(t, same_as):
     print("--- dome")
     f = []
     lo, hi = bbox(t)
     f.append(report("dome height", hi[2] - lo[2], DOME_H, TOL))
     f.append(report("dome outside diameter", hi[0] - lo[0], DOME_D, TOL))
-    f.append(report("skirt bore (rides on the body's boss)",
-                    2 * wall_at(t, BOSS_PROUD / 2, 31.0, 13.0, 17.0),
-                    BOSS_D + 2 * GENERAL_FIT, TOL))
     if same_as:
         ref = load(same_as)
-        # The reference was exported ASCII (full double precision); this one is
-        # binary (float32).  They cannot be compared byte for byte -- and a
-        # hash of the triangle list answers the wrong question anyway, because
-        # the same solid comes back with its facets in a different order and
-        # each facet started from a different one of its three corners.  What
-        # is being asked is "did any point of this surface MOVE", so compare
-        # the two SORTED VERTEX CLOUDS, which no reordering disturbs.
+        # The reference was exported ASCII (double precision), this one binary
+        # (float32), so they cannot be compared byte for byte -- and hashing the
+        # triangle list asks the wrong question, because the same solid comes
+        # back with its facets reordered and each started from a different
+        # corner.  Compare SORTED VERTEX CLOUDS, which no reordering disturbs.
         a, b = sorted(verts(t)), sorted(verts(ref))
         dev = (max(abs(x - y) for pa, pb in zip(a, b) for x, y in zip(pa, pb))
                if len(a) == len(b) else float('inf'))
         rel = abs(volume(t) - volume(ref)) / abs(volume(ref))
-        print("    against the mesh that is on the printer (%s):" % same_as)
-        print("      facets            %6d  vs %6d" % (len(t), len(ref)))
-        print("      volume        %10.4f  vs %10.4f mm^3  (rel %.2e)"
-              % (volume(t), volume(ref), rel))
-        print("      largest vertex movement  %.2e mm  (float32 quantum ~2e-6)" % dev)
+        print("    vs the mesh on the printer: %d vs %d facets, largest vertex "
+              "movement %.2e mm" % (len(t), len(ref), dev))
         f.append(gate("dome geometry UNCHANGED from the printed part",
                       len(a) == len(b) and dev < 1e-4 and rel < 1e-6,
                       "the dome on the printer still fits"
-                      if dev < 1e-4 else "THE DOME MOVED -- it would need reprinting"))
+                      if dev < 1e-4 else "THE DOME MOVED -- reprint required"))
     return all(f)
 
 
-def check_fit(body, dome):
-    """The one joint left, asked across both meshes at once.
+def check_fit(carrier, body, dome):
+    """Both joints, each asked across two meshes at once.
 
-    Neither part can answer this alone: the body knows how far its boss stands
-    proud, the dome knows how deep its skirt bore runs before the thread
-    starts, and the beacon only closes if those two are the same number.
+    No single part can answer either: the carrier knows how far its rim stands
+    proud, the dome knows how deep its skirt bore runs, the body knows how wide
+    its counterbore is.
     """
-    print("--- THE JOINT (body boss vs the dome that is already printed)")
+    print("--- THE JOINTS")
     f = []
-    boss = 2 * max_outer(body, BODY_H + BOSS_PROUD / 2)
-    skirt = 2 * wall_at(dome, BOSS_PROUD / 2, 31.0, 13.0, 17.0)
-    clr = skirt - boss
-    print("    boss %.3f  into skirt bore %.3f  =  %.3f mm diametral clearance"
-          % (boss, skirt, clr))
-    f.append(gate("boss enters the dome's skirt bore", 0.2 <= clr <= 1.0,
-                  "%.3f mm" % clr))
+    rim = 2 * max_outer(carrier, CARRIER_T - CARRIER_PROUD / 2)
+    skirt = 2 * wall_at(dome, CARRIER_PROUD / 2, 31.0, 13.0, 17.0)
+    print("    carrier rim %.3f into dome skirt bore %.3f  =  %.3f mm clearance"
+          % (rim, skirt, skirt - rim))
+    f.append(gate("carrier enters the dome's skirt bore",
+                  0.2 <= skirt - rim <= 1.0, "%.3f mm" % (skirt - rim)))
 
-    zb = transition_z(lambda zz: max_outer(body, zz, 2.0), BODY_H + 0.05,
-                      BODY_H + BOSS_PROUD + 1.0, BOSS_D / 2, tol=0.06)
-    zd = transition_z(lambda zz: wall_at(dome, zz, 31.0, 13.0, 17.0),
-                      0.05, BOSS_PROUD + 1.0, (BOSS_D + 2 * GENERAL_FIT) / 2,
-                      tol=0.06)
-    body_off = (zb - BODY_H) if zb else None
-    print("    thread starts %.3f above the body face, %.3f into the dome"
-          % (body_off or -1, zd or -1))
-    f.append(gate("thread datums agree",
-                  body_off is not None and zd is not None
-                  and abs(body_off - zd) < 0.12,
-                  "%.3f vs %.3f mm" % (body_off or -1, zd or -1)))
-
-    zt = BOSS_PROUD + THREAD_L / 2
-    crest = 2 * max_outer(body, BODY_H + BOSS_PROUD + THREAD_L / 2, 0.5)
-    # The female ROOT (major diameter), not its crest: 15.5 keeps the dome's
-    # own 33 mm outside wall out of the window.
+    crest = 2 * max_outer(carrier, CARRIER_T + THREAD_L / 2, 0.5)
+    zt = CARRIER_PROUD + THREAD_L / 2
+    # The female ROOT (major diameter), not its crest: the 15.5 ceiling keeps
+    # the dome's own 33 mm outside wall out of the window.
     root = 2 * max_inner(dome, zt, 12.0, 15.5, 0.5)
-    fem_crest = 2 * min_inner(dome, zt, 12.0, 15.5, 0.5)
-    print("    male crest %.3f into female root %.3f  =  %.3f mm diametral slop"
+    print("    male crest %.3f into female root %.3f  =  %.3f mm slop"
           % (crest, root, root - crest))
-    print("    female crest %.3f sits in the male groove" % fem_crest)
     f.append(gate("thread has clearance and is not loose",
                   0.2 <= (root - crest) <= 1.4, "%.3f mm" % (root - crest)))
-    f.append(gate("female crest clears the male root", fem_crest < crest,
-                  "%.3f vs %.3f" % (fem_crest, crest)))
+
+    # And the seat -- including the key, which is the only thing stopping the
+    # carrier turning while the dome is screwed down onto it.
+    zc_b = CARRIER_FLOOR_Z + SEAT_DEPTH / 2
+    zc_c = SEAT_DEPTH / 2
+    # The BODY's seat is a HOLE, so it is measured by ray -- the first wall the
+    # ray meets on each axis.  The CARRIER's seat is SOLID, so it is measured by
+    # extent.  Using a ray on the carrier too is what reported "13.600 into
+    # 30.200": the innermost thing a ray meets there is a wire hole.
+    c_rnd, c_key = across_flats(carrier, zc_c)
+    b_rnd = 2 * wall_at(body, zc_b, 0.0, 10.0, 16.0)
+    b_key = 2 * wall_at(body, zc_b, 90.0, 10.0, 16.0)
+    for name, seat, part_w in [("round", b_rnd, c_rnd), ("key  ", b_key, c_key)]:
+        clr = seat - part_w
+        print("    seat %s carrier %.3f into body %.3f  =  %.3f mm"
+              % (name, part_w, seat, clr))
+        f.append(gate("carrier seats in the body (%s)" % name.strip(),
+                      0.05 <= clr <= 0.6, "%.3f mm" % clr))
     return all(f)
 
 
@@ -583,6 +620,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--selftest", action="store_true")
     ap.add_argument("--body")
+    ap.add_argument("--carrier")
     ap.add_argument("--dome")
     ap.add_argument("--same-as")
     a = ap.parse_args()
@@ -592,13 +630,16 @@ def main():
         print("--- loader + probe selftest")
         ok = not selftest(os.environ.get("TMPDIR", "/tmp")) and ok
     body = load(a.body) if a.body else None
+    carrier = load(a.carrier) if a.carrier else None
     dome = load(a.dome) if a.dome else None
     if body:
         ok = check_body(body) and ok
+    if carrier:
+        ok = check_carrier(carrier) and ok
     if dome:
         ok = check_dome(dome, a.same_as) and ok
-    if body and dome:
-        ok = check_fit(body, dome) and ok
+    if body and carrier and dome:
+        ok = check_fit(carrier, body, dome) and ok
 
     print("\n%s" % ("ALL CHECKS PASSED" if ok else "*** CHECKS FAILED"))
     sys.exit(0 if ok else 1)

@@ -3,10 +3,10 @@
 #
 #   ./build_beacon.sh
 #
-# Two parts now: the dome threads straight onto the body.  The LED carrier that
-# used to sit between them is gone -- it was a shallow cup printed open-end-down
-# whose 25.2 mm roof cost 1.96 cm^3 of support against a 2.71 cm^3 part, to
-# mount a board that can be glued to the driver instead.
+# Three parts, none of which need support.  The carrier is back, but as a flat
+# disc: its skirt only ever existed to give snap tongues length, and that skirt
+# was what made it a cup with a 25.2 mm roof costing 1.96 cm^3 of support on a
+# 2.71 cm^3 part.  No snap, no skirt, no roof, no support.
 #
 # The beacon is NOT part of build.sh: it does not come off main.scad's include
 # chain, it is its own file with its own part picker.  Keeping it separate also
@@ -72,6 +72,7 @@ preview_ok() {   # preview_ok <part>
 
 echo "--- previews (F5), because everything below this line only tests F6"
 preview_ok body
+preview_ok carrier
 preview_ok dome
 preview_ok assembly
 
@@ -83,6 +84,8 @@ python3 verify_beacon.py --selftest | tail -14
 
 echo "--- body"
 scad stl/rc_boat_blink_beacon_body.stl body
+echo "--- carrier"
+scad stl/rc_boat_blink_beacon_carrier.stl carrier
 echo "--- dome"
 scad stl/rc_boat_blink_beacon_dome.stl dome
 
@@ -90,17 +93,18 @@ scad stl/rc_boat_blink_beacon_dome.stl dome
 # a perfectly good mesh that happens to start in mid-air.  A bridge is fine, an
 # ISLAND is not, and only the slicer knows which is which.
 #
-# The body's two rails ARE islands and they stay: two thin walls cost less
-# material than the solid floor a pocket would have to be sunk into, so the
-# body is printed with support and the count is pinned at 2.  A THIRD island
-# still fails the build.  The dome must stay at zero.
+# ALL THREE now expect ZERO islands.  The rails are gone and the carrier is a
+# flat disc, so there is nothing left anywhere in the beacon that starts in
+# mid-air.  If that ever stops being true this build fails.
 echo "--- slicing, because a good mesh can still be unprintable"
 if command -v prusa-slicer >/dev/null 2>&1 && [ -f "$SLICE_CFG" ]; then
     python3 verify_slice.py --selftest | sed 's/^/  /'
     # The body is printed THREAD DOWN, which is not how the STL sits, so the
     # check has to rotate it or it measures a part nobody prints.
     python3 verify_slice.py --config "$SLICE_CFG" --rotate-x 180 \
-            --expect-islands 2 --label body stl/rc_boat_blink_beacon_body.stl
+            --label body stl/rc_boat_blink_beacon_body.stl
+    python3 verify_slice.py --config "$SLICE_CFG" \
+            --label carrier stl/rc_boat_blink_beacon_carrier.stl
     python3 verify_slice.py --config "$SLICE_CFG" \
             --label dome stl/rc_boat_blink_beacon_dome.stl
 else
@@ -117,8 +121,9 @@ else
 fi
 
 python3 verify_beacon.py \
-    --body stl/rc_boat_blink_beacon_body.stl \
-    --dome stl/rc_boat_blink_beacon_dome.stl \
+    --body    stl/rc_boat_blink_beacon_body.stl \
+    --carrier stl/rc_boat_blink_beacon_carrier.stl \
+    --dome    stl/rc_boat_blink_beacon_dome.stl \
     "${SAME[@]}"
 
 echo

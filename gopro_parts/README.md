@@ -2347,113 +2347,85 @@ being a weak direction at all on that variant.
 
 ## RC boat blink beacon (`rc_boat_blink_beacon.scad`)
 
-Not an arm — a lit beacon that hangs off one. Its own file, its own part
-picker, its own build script:
+A lit beacon that hangs off a GoPro arm. Its own file, its own build script:
 
 ```
-./build_beacon.sh          # renders body + dome, then gates them
+./build_beacon.sh          # renders all three, then gates them
 ```
 
-**Two** printed parts: an opaque **body** carrying the driver, the GoPro
-two-prong mount, and the male thread; and a translucent **dome** that screws
-straight onto it. PETG. The LED star is glued to the driver.
+Three parts, PETG, **none of which need support**:
 
-| part | on the bed | support | cost |
-|---|---|---|---|
-| body | thread **down**, GoPro fork **up**, **use a brim** | yes, for the rails | 6.00 cm³, 53 m |
-| dome | flat top face **down** | none | 4.96 cm³, 32 m |
+| part | on the bed | cost |
+|---|---|---|
+| body — driver compartment + GoPro two-prong | counterbore face **down**, fork **up** | 4.69 cm³, 41 m |
+| carrier — holds the 20 mm star, carries the thread | flat, pocket and thread **up** | 2.33 cm³, 19 m |
+| dome — diffuser | flat top face **down** | 4.96 cm³, 32 m |
 
-### The carrier is gone, and that is the whole story
+### The carrier's support bill was self-inflicted
 
-v1 and v2 had a third part: an LED carrier that snapped into the body and
-carried the thread. v1's snap did not work at all — retention was eight ⌀1.4
-spheres giving **0.144 mm** of interference (measured off the v1 mesh) against
-a *closed ring*, with no cantilever anywhere in the joint, so it meant about
-1 % hoop strain in a 30 mm ring. The bumps printed away to nothing and the
-parts just stacked.
+v2's carrier needed almost as much support as it contained filament. The
+reason had nothing to do with what the carrier is *for*: it carried a **snap**.
+Cantilever tongues need length → length meant a 6.4 mm skirt → a skirt made it
+a cup → and a cup printed open-end-down has a flat ⌀25.2 roof. That roof *was*
+the support: 1.96 cm³ against a 2.71 cm³ part.
 
-v2 fixed that properly — a slotted skirt with six 0.9 mm cantilever tongues,
-**0.400 mm** of engagement at 1.97 % peak strain — and it was still the wrong
-part to own. The carrier was a shallow cup printed open-end-down, so its rim
-underside was a flat ⌀25.2 roof, and no chamfer fixes that: closing the bore
-at 45° needs 12.6 mm of height and the rim had 3.2. Sliced with support, that
-roof cost **1.96 cm³ against a 2.71 cm³ part** — support very nearly as large
-as the thing it held up, to mount a board that can be glued to the driver.
+Strip the snap and the carrier is what it always should have been — a **flat
+disc**. Star pocket opens upward, threaded collar rises off the top face,
+underside sits on the bed, nothing overhangs anything: **2.33 cm³, 19 min, zero
+support.** It is retained the way v1 already retained it, by the dome screwing
+onto its thread and bottoming on the body's face. The snap was never
+load-bearing; it was a convenience that cost more to print than the part it
+was on.
 
-So the dome now threads directly onto the body. Against the three-part v2 the
-beacon went **16.50 cm³ / 2h45 → 10.96 cm³ / 1h25**: 34 % less material, 48 %
-less time, and one fewer part to print, fit and assemble.
+The body lost its PCB rails at the same time — free-standing walls standing on
+a floor that, printed this way up, does not exist yet. They were the only
+islands in the whole beacon. The driver is held with tape.
 
-### What the printed dome still requires
+### Anti-rotation, for free
 
-The dome was already on the printer, so everything it touches is frozen and
-asserted: boss ⌀30.0, its 1.8 mm stand-off before the thread starts, the
-28 × 2 thread 6 mm long, and body ⌀33 to sit flush. `build_beacon.sh`
-re-renders the dome every run and compares it against `stl/dome_AS_PRINTED.stl`
-by sorted vertex cloud — not a file hash, because the reference was exported
-ASCII and the render is binary, and because the same solid comes back with its
-facets reordered. Largest vertex movement: **7.6e-07 mm**, i.e. float32
-rounding.
+The carrier's seat is **keyed with two flats** so screwing the dome down cannot
+spin it and wind up the LED wires. A flat costs nothing on a part that is
+already flat on the bed. Two things make it actually work:
 
-With the carrier gone there is one joint left, and no single part can be asked
-about it, so `verify_beacon.py` measures it across both meshes at once: boss
-30.000 into skirt bore 30.499 (**0.499 mm** clearance), thread datums 1.803 vs
-1.860, male crest 28.000 into female root 28.808 (**0.808 mm** slop), female
-crest 26.635 clearing the male root.
+* The body's plain bore **stops at the counterbore** rather than running the
+  full height. It is ⌀29, wider than the key is across its flats — run it to
+  the top and it silently erases the key, leaving a round seat that spins.
+* The carrier is **one cylinder with the flats cut out of its lower band**, not
+  a keyed extrusion unioned under a round one. Those two share a curved face
+  over their whole overlap, and the union exported with **140 non-manifold
+  edges** while still reporting `manifold`.
 
-### Assembly
+### The printed dome still fits
 
-The collar bore is ⌀24, which is what the electronics go in through and what
-the light comes out of. The driver's diagonal is 20.6 and the star is ⌀20, so
-both post in through the top; the rails catch the driver as it lands. That
-bore starts at the **body face**, not the floor — taken all the way down it
-quietly eats everything inside r=12, which includes the rails at r=11.77, and
-they simply vanish from the mesh.
+Frozen and asserted: carrier ⌀30.0, its 1.8 mm stand-off, thread 28 × 2 × 6,
+body ⌀33. Every build re-renders the dome and compares it against
+`stl/dome_AS_PRINTED.stl` by sorted vertex cloud — not a file hash, because the
+reference was exported ASCII and the render is binary, and the same solid comes
+back with its facets reordered. Largest vertex movement **7.6e-07 mm**.
 
-### The rails, and why they stay islands
-
-Printed thread-down the floor is the *last* thing laid down, so the two PCB
-rails — which stand on it — start in mid-air, and the slicer needs support for
-them. That is a deliberate trade: two thin walls cost less material than the
-solid floor a pocket would have to be sunk into. So the body prints with
-support and `verify_slice.py` pins the island count at **2**; a third one still
-fails the build.
+Both joints are measured **across two meshes at once**, because no single part
+can answer either: carrier rim 30.000 into dome skirt bore 30.499 (0.499),
+male crest 28.000 into female root 28.808 (0.808 slop), and the seat in both
+directions — round 30.000 into 30.200, key 28.000 into 28.200.
 
 ### The prongs
 
-Rebuilt on the same 3 mm grid as `arm.scad`: fingers 2.90 into the arm's 3.10
-slots, centre gap 3.10, knuckle ⌀15.0 = 2 × `tab_r`. v1 ran 3.00 fingers on a
-3.50 gap, which sat 0.20 mm outboard of the arm's slot — it went together, but
-it was fighting.
+Same 3 mm grid as `arm.scad`: fingers 2.90 into the arm's 3.10 slots, centre
+gap 3.10, knuckle ⌀15.0 = 2 × `tab_r`. The real fault was **length** — v1's
+`gopro_finger_drop = 17.0` put the pivot 6.50 mm below the web, *inside* the
+mating knuckle's R7.5 (R7.75 on a real GoPro), so it bottomed out about a
+millimetre before the bores lined up and the thumbscrew would not pass. 19.5
+puts the pivot 9.00 mm down.
 
-The real fault was **length**. v1's `gopro_finger_drop = 17.0` put the pivot
-only 6.50 mm below the web, which is *inside* the mating knuckle's R7.5
-(R7.75 on a genuine GoPro). The beacon bottomed out on the knuckle about a
-millimetre before the bores lined up, so the thumbscrew would not pass. 19.5
-puts the pivot 9.00 mm down: 1.50 clear of our arms, 1.25 clear of a real
-GoPro, and enough for the joint to actually swing.
+### The gates
 
-### The gates, and why each one exists
-
-Each of these was added the day something got through:
-
-* **`verify_beacon.py`** measures the exported meshes, never the `.scad`. It
-  slices the mesh and casts a ray out from the axis, because the obvious
-  approach — look at where the vertices are — finds *nothing*: a cylindrical
-  wall between z=a and z=b has vertices at a and b and nowhere in between, and
-  an empty set reads as a perfect score. Same trap one level up: a
-  single-bearing ray lands in a thread groove and confidently reports the minor
-  diameter, so anything hunting a local feature sweeps every bearing.
-* **The preview gate** renders every part in F5 and fails on `Aborting
-  normalization` / `resulted in an empty tree`. The v2 carrier previewed as a
-  blank viewport while F6 rendered it perfectly — and every mesh check passed,
-  because an STL comes from F6.
-* **`verify_slice.py`** slices with support off, rasterizes each layer, and
-  fails any connected region with nothing beneath it. A bridge is anchored at
-  its rim and passes; an island is not and does not. It finds the rails by
-  their own dimensions — two 18.6 mm regions at y = ±6.3 — and its own
-  selftests check it fires on a detached blob *and* stays quiet on a plain
-  stack and on a bridged lid.
-* **`beacon_print.ini`** is committed so those answers come from the settings
-  these parts are really printed with, and the gate does not quietly stop
-  running on a machine with no local profile.
+Each was added the day something got through. `verify_beacon.py` measures the
+exported meshes by plane-section and ray-cast, never by sampling vertices (a
+cylindrical wall has vertices only at its two ends, and an empty set reads as a
+perfect score; a single bearing lands in a thread groove). A **preview gate**
+renders every part in F5 and fails on `Aborting normalization` — the v2 carrier
+drew nothing in F5 while F6 was perfect, and every mesh check passed because an
+STL comes from F6. **`verify_slice.py`** slices with support off, rasterizes
+each layer and fails any region with nothing beneath it; all three parts are
+pinned at **zero** islands. `beacon_print.ini` is committed so those answers
+come from real print settings.
