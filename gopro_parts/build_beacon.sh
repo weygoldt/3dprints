@@ -21,6 +21,11 @@ SRC=rc_boat_blink_beacon.scad
 # still renders that exact mesh; if it does not, the printed part is scrap and
 # the check says so out loud.
 REF=stl/dome_AS_PRINTED.stl
+# A real slicer profile, so the printability gate below is answered with the
+# settings these parts are actually printed with rather than with defaults.
+# Committed, because a gate whose config is a local artifact is a gate that
+# quietly stops running on the next machine.
+SLICE_CFG=beacon_print.ini
 
 scad() {   # scad <out> <part>
     local out="$1" part="$2"
@@ -89,6 +94,26 @@ echo "--- probe: seated carrier vs body (must be empty)"
 scad stl/beacon_probe_fit.stl probe_fit
 echo "--- probe: barb material outside the bore (must NOT be empty)"
 scad stl/beacon_probe_hook.stl probe_hook
+
+# Does it SLICE support-free?  The mesh checks cannot see this either: the
+# body's two old PCB rails were a perfectly good mesh that happened to start in
+# mid-air, and they were the only reason this thing needed support at all.
+# A bridge is fine, an ISLAND is not, and only the slicer knows which is which.
+echo "--- slicing (support off), because a good mesh can still be unprintable"
+if command -v prusa-slicer >/dev/null 2>&1 && [ -f "$SLICE_CFG" ]; then
+    python3 verify_slice.py --selftest | sed 's/^/  /'
+    # The body is printed SOCKET DOWN, which is not how the STL sits, so the
+    # check has to rotate it or it measures a part nobody prints.
+    python3 verify_slice.py --config "$SLICE_CFG" --rotate-x 180 \
+            --label body stl/rc_boat_blink_beacon_body.stl
+    python3 verify_slice.py --config "$SLICE_CFG" \
+            --label carrier stl/rc_boat_blink_beacon_carrier.stl
+    python3 verify_slice.py --config "$SLICE_CFG" \
+            --label dome stl/rc_boat_blink_beacon_dome.stl
+else
+    echo "!!! prusa-slicer or $SLICE_CFG missing -- the support-free proof did NOT run."
+    echo "!!! Regenerate the config with:  prusa-slicer --save $SLICE_CFG"
+fi
 
 echo
 # stl/ is gitignored, so the reference dome is a LOCAL artifact -- a fresh

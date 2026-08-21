@@ -43,7 +43,7 @@ from collections import defaultdict
 BODY_D        = 33.00
 BODY_WALL     = 2.25
 BODY_H        = 11.00
-BODY_FLOOR    = 2.20
+BODY_FLOOR    = 3.00
 CARRIER_D     = 30.00
 CARRIER_PROUD = 1.80
 RIM_H         = 3.20

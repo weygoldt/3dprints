@@ -2426,11 +2426,25 @@ GoPro, and enough for the joint to actually swing.
 
 ### Print it
 
-| part | on the bed | support |
-|---|---|---|
-| body | socket face **down**, GoPro fork **up** | **yes** — the PCB rails start in mid-air this way up |
-| carrier | skirt **down**, thread **up** | **yes**, or a bridge — see below |
-| dome | flat top face **down** | no |
+| part | on the bed | support | support-free cost |
+|---|---|---|---|
+| body | socket face **down**, GoPro fork **up** | **none** | 5.06 cm³, 43 m |
+| carrier | skirt **down**, thread **up** | **none** | 2.65 cm³, 27 m |
+| dome | flat top face **down** | **none** | 4.96 cm³, 32 m |
+
+**Turn support off.** All three are designed to print without it, and
+`build_beacon.sh` fails if that ever stops being true. Leaving support on costs
+**+3.62 cm³ and +62 minutes** across body and carrier — support is roughly as
+large as the carrier itself — and buys nothing.
+
+That was not free. The body used to carry two free-standing PCB rails, and
+they were the only thing in either part that actually needed support: printed
+socket-down the floor is the *last* thing laid down, so anything standing on it
+is printed first, in mid-air. The slicer turned them into two 18.6 × 1.2 mm
+loops floating at Z 3.6. They are gone; the PCB now sits in a pocket sunk
+**into** the floor, which cannot float because it is a void in something that
+is already there. Hence the rule for that cavity: **cut into the floor, never
+build on it.**
 
 The carrier's orientation is not a preference. Inverted, the thread needs
 support and the star pocket becomes a ceiling; on its side it is a circle. So
@@ -2439,26 +2453,18 @@ vertical gaps, and the barbs' 30° lead ramps at layer 3. Keep the tongue at
 **2 perimeters** — 0.90 mm is exactly 2 × 0.45 extrusion width, and a slicer
 that gap-fills it instead will change the spring rate.
 
-**The carrier's underside is a ⌀25.2 flat roof over the skirt bore, and your
-slicer is right to flag it.** It cannot be designed out. Closing that bore
-with a self-supporting 45° cone would need 12.6 mm of height and there are
-3.2 mm of rim; at the height available the cone lies at 14°, nowhere near
-standing up. Shrinking the span means thickening the skirt, which is material
-in the place the PCB has to live. It is a shallow cup, and a cup printed
-open-end-down has a roof.
+The carrier's underside **is** a ⌀25.2 flat roof over the skirt bore, and that
+much cannot be designed out — closing the bore with a self-supporting 45° cone
+needs 12.6 mm of height and there are 3.2 mm of rim, which puts the cone at
+14°. But a roof is not an island. That one is anchored right around its rim
+(79 % of the circumference present, widest gap 1.51 mm), so PrusaSlicer emits
+exactly one bridge-infill region for it, at Z 6.6, and needs no support. The
+body's floor is the same story at ⌀28.5.
 
-Two ways to take it, both fine:
-
-* **Support on.** The support sits inside an open 6.4 mm cup and lifts out
-  through the bottom, which is about the friendliest place PETG support can
-  be. This is the safe choice, and the one to take on a shared plate — a
-  single support setting covers the body too.
-* **Support off, per object.** That ceiling is a hole ceiling, anchored right
-  around its rim (79 % of the circumference, widest gap 1.51 mm), so slicers
-  treat it as bridge infill. Any sag is on a face sealed inside the body, and
-  there is 2.9 mm of clearance under it before anything is touched. `Support
-  on build plate only` gets this for free — the overhang is internal, so it
-  is never supported under that setting.
+Worth knowing if you print other things from this repo: your profile carries
+`dont_support_bridges = 0`, where PrusaSlicer ships `1`. That is why support
+gets wrapped around roofs that would bridge perfectly well. Putting it back
+only recovers 0.66 cm³ here, though — for these parts just switch support off.
 
 Do **not** over-squish the first layer. The barbs live in layers 3–10, and
 elephant foot on the skirt's free end walks straight into them; the 0.6 × 45°

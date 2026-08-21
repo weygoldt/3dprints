@@ -44,23 +44,26 @@
   ---------------------------------------------------------------------------
   PRINT ORIENTATION -- unchanged from v1, and the snap is designed around it
   ---------------------------------------------------------------------------
+  ALL THREE PARTS PRINT WITH SUPPORT OFF.  That is a design constraint here,
+  not a hope: verify_slice.py slices each one and fails the build if any layer
+  contains a region with nothing beneath it.
+
   BODY:    top face (the carrier socket) DOWN on the bed, GoPro fork UP.  So
            the socket, the seat ledge and the snap groove are all printed in
            the first four layers, where detail is best.  The groove's roof is a
-           0.40 mm step -- it needs no support at any flank angle.  The part as
-           a whole DOES want support: the PCB rails start in mid-air this way
-           up.
+           0.40 mm step -- it needs no support at any flank angle.  Printed
+           this way the floor is the LAST thing laid down, so nothing may stand
+           up off it; see pcb_pocket().
   CARRIER: skirt DOWN on the bed, thread UP.  The skirt is a ring, so it lands
            on a 1.4 mm annulus rather than six separate towers.  The tongue
            cuts are vertical gaps and the barbs' lead ramps sit 0.6 mm off the
-           bed.  SUPPORT, or a bridge: the rim's underside is a flat 25.2 mm
-           roof over the skirt bore, and no amount of chamfering fixes that --
-           closing the bore at 45 deg needs 12.6 mm of height and the rim has
-           3.2, which puts the cone at 14 deg.  It is a shallow cup, and a cup
-           printed open-end-down has a roof.  The roof is fully anchored around
-           its rim, so slicers will bridge it if told not to support it, and
-           any sag lands on a face sealed inside the body with 2.9 mm of
-           clearance under it.  README has the trade.
+           bed.  Its rim underside is a flat 25.2 mm roof over the skirt bore
+           and no chamfer fixes that -- closing the bore at 45 deg needs
+           12.6 mm of height and the rim has 3.2, which puts the cone at 14
+           deg.  It is a shallow cup, and a cup printed open-end-down has a
+           roof.  But a roof is not an island: this one is anchored right
+           around its rim, so it BRIDGES, and the slicer only wraps it in
+           support if you ask for support.  Do not.
   DOME:    flat top face down, as before.
 
   This is why the flexing member is on the CARRIER and not on the body: body-
@@ -106,10 +109,24 @@ wire_hole_clearance = 0.35;
 // INSIDE it and the usable headroom actually went up (5.9 -> 7.4).
 body_diameter = 33.0;
 body_wall = 2.25;              // was 2.00 -- widens the carrier's seat ledge
-body_floor = 2.2;
+// The floor went 2.2 -> 3.0 so the PCB pocket can be sunk INTO it and still
+// leave 1.8 mm of sealed floor underneath.  It costs the compartment nothing:
+// the pocket gives back exactly what the thicker floor took.
+body_floor = 3.0;
 body_height = 11.0;            // was 9.5
-pcb_compartment_wall = 1.2;
-pcb_rail_length = pcb_length + 1.0;
+
+// The PCB is located by a shallow pocket sunk into the floor, NOT by rails
+// standing up off it.  Measured, on this exact geometry: the body prints
+// socket-down, so anything rising from the floor is printed BEFORE the floor
+// and starts in mid-air -- the old 19 mm rails came out as floating overhang
+// perimeters at Z 3.6, and they were the ONLY reason either part needed
+// support.  Dropping them took the pair from 11.54 cm^3 / 2h13m to
+// 7.92 cm^3 / 1h11m.  A pocket cannot float: it is a void in a floor that is
+// already there.
+pcb_pocket_clr = 0.60;         // total, so 0.30 a side
+pcb_pocket_depth = 1.20;       // enough to stop it sliding; shallow enough
+                               // that any bridge droop lands harmlessly in it
+pcb_pocket_round = 1.50;
 
 carrier_diameter = 30.0;       // DOME SEES THIS -- do not change
 carrier_rim_height = 3.2;      // the OD30 section: rim seat + the proud part
@@ -164,7 +181,7 @@ carrier_floor_z = body_height - carrier_seat_depth;   // skirt's free end, in bo
 snap_groove_z0 = carrier_floor_z + snap_barb_z - snap_play;
 
 carrier_bore_ceiling = carrier_floor_z + skirt_height; // ceiling over the PCB
-rail_height = pcb_total_thickness + 1.0;
+pcb_pocket_floor = body_floor - pcb_pocket_depth;      // PCB rests here
 
 // Thread and dome -- FROZEN.  The dome is already printed.
 thread_diameter = 28.0;
@@ -231,12 +248,20 @@ assert(tongue_ir - skirt_ir >= snap_engage + 0.05,
        "no room behind the tongue to deflect into");
 
 // PCB has to fit under the skirt, not just inside the body.
-assert(carrier_bore_ceiling - body_floor >= pcb_cavity[2] + 1.0,
+assert(carrier_bore_ceiling - pcb_pocket_floor >= pcb_cavity[2] + 1.0,
        "PCB compartment too short");
-assert(sqrt(pow(pcb_rail_length / 2, 2) +
-            pow(pcb_cavity[1] / 2 + pcb_compartment_wall, 2)) < skirt_ir - 0.5,
-       "PCB rails foul the carrier skirt");
-assert(body_floor + rail_height < carrier_bore_ceiling, "rails hit the carrier");
+// The pocket is sunk into the floor, so the floor has to have the depth to
+// spare -- otherwise it stops being a sealed floor.
+assert(pcb_pocket_floor >= 1.5,
+       "PCB pocket leaves too little floor under it");
+// It also has to stay clear of the skirt landing above it, and inside the bore.
+assert(sqrt(pow((pcb_length + pcb_pocket_clr) / 2, 2) +
+            pow((pcb_width + pcb_pocket_clr) / 2, 2)) < body_bore_r - 1.0,
+       "PCB pocket runs out through the bore wall");
+// NOTHING may stand up off the floor.  The body prints socket-down, so a
+// feature rising from the floor is printed before the floor exists and starts
+// in mid-air -- which is the whole reason this part used to need support.
+assert(pcb_pocket_depth > 0, "locate the PCB with a pocket, never with rails");
 
 // GoPro joint: the web must clear the mating knuckle or the screw cannot pass.
 assert(gopro_pivot_clear >= 7.75 + 1.0,
@@ -261,32 +286,35 @@ module sector(ang, h, r) {
                         [r * cos(t), r * sin(t)]]));
 }
 
-// Lightweight body core: a sealed floor, thin cylindrical exterior, and two
-// free-standing PCB guide rails.  Their open ends leave the surrounding hollow
-// annulus available for solder joints, wire bends, and excess wire.
+// Lightweight body core: a sealed floor and a thin cylindrical exterior.
+//
+// There is deliberately NOTHING standing up inside it.  This part prints
+// socket-face down, which means the floor is the LAST thing laid down and
+// anything rising off it is printed first, in mid-air.  The two PCB rails that
+// used to live here came out of the slicer as floating overhang perimeters and
+// were, on their own, the reason the beacon needed support at all.  The floor
+// itself is fine unsupported: it is a ceiling anchored right around its rim,
+// which slicers bridge.  So the rule for this cavity is that a feature may be
+// cut INTO the floor and may never be built ON it.
 module lightweight_body_shell() {
-    union() {
-        // Subtracting only above body_floor leaves a continuous sealed floor.
-        difference() {
-            cylinder(d = body_diameter, h = body_height);
-            translate([0, 0, body_floor])
-                cylinder(d = body_diameter - 2 * body_wall,
-                         h = body_height - body_floor + eps);
-        }
-
-        // Two long rails locate the PCB laterally without enclosing its ends.
-        // They stop short of the carrier: the skirt's bore is the ceiling now.
-        for (y = [-(pcb_cavity[1] / 2 + pcb_compartment_wall),
-                   pcb_cavity[1] / 2])
-            translate([-pcb_rail_length / 2,
-                       y,
-                       body_floor - eps])
-                rounded_box([
-                    pcb_rail_length,
-                    pcb_compartment_wall,
-                    rail_height + eps
-                ], pcb_compartment_wall / 2);
+    // Subtracting only above body_floor leaves a continuous sealed floor.
+    difference() {
+        cylinder(d = body_diameter, h = body_height);
+        translate([0, 0, body_floor])
+            cylinder(d = body_diameter - 2 * body_wall,
+                     h = body_height - body_floor + eps);
     }
+}
+
+// The PCB's seat: a shallow rounded pocket sunk into the floor.  Shallow on
+// purpose -- it only has to stop the board sliding, and keeping it shallow
+// means the bridged floor above it can sag into the pocket without the board
+// ever noticing.
+module pcb_pocket() {
+    w = pcb_length + pcb_pocket_clr;
+    d = pcb_width + pcb_pocket_clr;
+    translate([-w / 2, -d / 2, pcb_pocket_floor])
+        rounded_box([w, d, pcb_pocket_depth + eps], pcb_pocket_round);
 }
 
 // A GoPro-style pair of fingers. Screw axis runs along Y.
@@ -350,15 +378,10 @@ module body() {
             gopro_two_prong();
         }
 
-        // Driver cavity: open from the top for assembly.
-        translate([-pcb_cavity[0] / 2,
-                   -pcb_cavity[1] / 2,
-                   body_floor])
-            rounded_box([
-                pcb_cavity[0],
-                pcb_cavity[1],
-                body_height - body_floor + eps
-            ], 1.0);
+        // The PCB's seat.  The compartment itself is just the bore -- there is
+        // no separate cavity cut any more, because with the rails gone there
+        // was nothing left for it to cut.
+        pcb_pocket();
 
         // Counterbore for the carrier's rim.  Its floor is the seat: a 1.0 mm
         // annulus the rim lands on, and the only thing setting how deep the
@@ -370,13 +393,14 @@ module body() {
         snap_groove();
 
         // One rounded slot lets all three external wires pass through the
-        // bottom together.  It overlaps the enlarged PCB cavity and exits
-        // beside the GoPro fork, so there is no hidden connecting tunnel.
+        // bottom together.  It exits beside the GoPro fork, so there is no
+        // hidden connecting tunnel.
         cable_slot_width = wire_diameter + 1.7;
         cable_slot_length = 3 * wire_diameter + 3.0;
-        // Pull the slot inward so its complete 3 mm width overlaps the PCB
-        // pocket by roughly 1.75 mm, rather than meeting it at a thin tangent.
-        slot_x = pcb_cavity[0] / 2 - cable_slot_width * 0.08;
+        // Sat just outboard of the PCB pocket, where the wires leave the board
+        // -- clear of the pocket so it does not chew a notch in the seat, and
+        // well inside the bore so it does not break out through the wall.
+        slot_x = (pcb_length + pcb_pocket_clr) / 2 + cable_slot_width / 2 + 0.3;
         hull()
             for (y = [-(cable_slot_length - cable_slot_width) / 2,
                        (cable_slot_length - cable_slot_width) / 2])
