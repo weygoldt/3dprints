@@ -47,11 +47,20 @@
   BODY:    top face (the carrier socket) DOWN on the bed, GoPro fork UP.  So
            the socket, the seat ledge and the snap groove are all printed in
            the first four layers, where detail is best.  The groove's roof is a
-           0.40 mm step -- it needs no support at any flank angle.
-  CARRIER: skirt DOWN on the bed, thread UP.  The skirt is a continuous ring,
-           so it lands on a 1.4 mm annulus rather than six separate towers, and
-           the rim above it bridges a plain 25.2 mm circle.  The tongue cuts are
-           vertical gaps and the barbs' lead ramps sit 0.6 mm off the bed.
+           0.40 mm step -- it needs no support at any flank angle.  The part as
+           a whole DOES want support: the PCB rails start in mid-air this way
+           up.
+  CARRIER: skirt DOWN on the bed, thread UP.  The skirt is a ring, so it lands
+           on a 1.4 mm annulus rather than six separate towers.  The tongue
+           cuts are vertical gaps and the barbs' lead ramps sit 0.6 mm off the
+           bed.  SUPPORT, or a bridge: the rim's underside is a flat 25.2 mm
+           roof over the skirt bore, and no amount of chamfering fixes that --
+           closing the bore at 45 deg needs 12.6 mm of height and the rim has
+           3.2, which puts the cone at 14 deg.  It is a shallow cup, and a cup
+           printed open-end-down has a roof.  The roof is fully anchored around
+           its rim, so slicers will bridge it if told not to support it, and
+           any sag lands on a face sealed inside the body with 2.9 mm of
+           clearance under it.  README has the trade.
   DOME:    flat top face down, as before.
 
   This is why the flexing member is on the CARRIER and not on the body: body-
@@ -380,8 +389,22 @@ module body() {
 // The flexing half of the joint.  A continuous ring so the rim above it has
 // something to bridge onto and the part has a real footprint on the bed; six
 // tongues cut out of that ring so the retention is bending, not hoop strain.
+// NOTE the render().  Without it this module previews as NOTHING -- and so do
+// the carrier and the assembly -- while F6 renders all three correctly, which
+// is a confusing way to lose an evening.  Preview normalizes the CSG tree by
+// distributing the difference over the union, and this is a union of SEVEN
+// solids (ring + six barbs) inside a difference with EIGHTEEN cutters (six
+// reliefs, twelve slots).  That product runs past OpenSCAD's element ceiling,
+// at which point it gives up:
+//     WARNING: Normalized tree is growing past 100000 elements. Aborting
+//     WARNING: CSG normalization resulted in an empty tree
+// -- an empty viewport, explained only by two warnings that scroll past in the
+// console.  render() puts this subtree through CGAL instead, so preview sees
+// one mesh and normalization has nothing left to expand.  It costs ~60 ms and
+// changes no geometry: the exported STLs are byte for byte what they were.
 module carrier_skirt() {
     span = 2 * tongue_cut_off;           // tongue + half a cut either side
+    render()
     difference() {
         union() {
             // Ring, with a 45 deg chamfer on the free end so it finds the bore.

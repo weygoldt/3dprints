@@ -33,7 +33,44 @@ scad() {   # scad <out> <part>
     grep -E "Status|WARNING|ERROR|Genus" <<<"$msg" | sed 's/^/    /' || true
 }
 
-# FIRST, because every measurement reaches the mesh through the loader, and a
+# Does it PREVIEW?  Every other check in here reads an STL, and an STL comes
+# from F6 -- so all of them passed with flying colours on a carrier that drew
+# absolutely nothing in the interactive viewport.  F5 normalizes the CSG tree
+# by distributing differences over unions; a union of seven solids inside a
+# difference with eighteen cutters blows past the element ceiling, and OpenSCAD
+# gives up with "Aborting normalization" / "resulted in an empty tree".  Two
+# warnings in a console nobody is watching, and an empty screen.
+#
+# The fix is render() on the offending subtree.  This is the check that would
+# have caught needing it.
+preview_ok() {   # preview_ok <part>
+    local part="$1" png msg
+    png=$(mktemp -t beacon_prev_XXXX.png)
+    if ! msg=$(openscad -o "$png" --imgsize=200,200 \
+                        -D "part=\"${part}\"" "$SRC" 2>&1); then
+        rm -f "$png"
+        echo "    *** preview of ${part} failed to run:"
+        echo "$msg" | sed 's/^/        /'
+        exit 1
+    fi
+    rm -f "$png"
+    if grep -qE "Aborting normalization|resulted in an empty tree" <<<"$msg"; then
+        echo "    *** ${part} PREVIEWS AS NOTHING (F6 would still be fine):"
+        grep -E "WARNING" <<<"$msg" | sed 's/^/        /'
+        echo "    *** wrap the offending subtree in render()"
+        exit 1
+    fi
+    printf "    %-10s %s\n" "$part" "$(grep -oE 'Normalized CSG tree has [0-9]+ elements' \
+                                       <<<"$msg" | tail -1)"
+}
+
+echo "--- previews (F5), because everything below this line only tests F6"
+preview_ok body
+preview_ok carrier
+preview_ok dome
+preview_ok assembly
+
+# Then the loader, because every measurement reaches the mesh through it, and a
 # loader that returns an empty mesh does not error -- it measures 0.0 mm^3 and
 # an inverted bbox, which reads as a perfect fit.
 echo "--- loader selftest"

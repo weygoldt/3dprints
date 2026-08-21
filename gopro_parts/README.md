@@ -2424,6 +2424,46 @@ millimetre before the bores lined up, so the thumbscrew would not pass. 19.5
 puts the pivot 9.00 mm down: 1.50 clear of our arms, 1.25 clear of a real
 GoPro, and enough for the joint to actually swing.
 
+### Print it
+
+| part | on the bed | support |
+|---|---|---|
+| body | socket face **down**, GoPro fork **up** | **yes** — the PCB rails start in mid-air this way up |
+| carrier | skirt **down**, thread **up** | **yes**, or a bridge — see below |
+| dome | flat top face **down** | no |
+
+The carrier's orientation is not a preference. Inverted, the thread needs
+support and the star pocket becomes a ceiling; on its side it is a circle. So
+skirt down, which also puts the tongues up as vertical prisms, the cuts as
+vertical gaps, and the barbs' 30° lead ramps at layer 3. Keep the tongue at
+**2 perimeters** — 0.90 mm is exactly 2 × 0.45 extrusion width, and a slicer
+that gap-fills it instead will change the spring rate.
+
+**The carrier's underside is a ⌀25.2 flat roof over the skirt bore, and your
+slicer is right to flag it.** It cannot be designed out. Closing that bore
+with a self-supporting 45° cone would need 12.6 mm of height and there are
+3.2 mm of rim; at the height available the cone lies at 14°, nowhere near
+standing up. Shrinking the span means thickening the skirt, which is material
+in the place the PCB has to live. It is a shallow cup, and a cup printed
+open-end-down has a roof.
+
+Two ways to take it, both fine:
+
+* **Support on.** The support sits inside an open 6.4 mm cup and lifts out
+  through the bottom, which is about the friendliest place PETG support can
+  be. This is the safe choice, and the one to take on a shared plate — a
+  single support setting covers the body too.
+* **Support off, per object.** That ceiling is a hole ceiling, anchored right
+  around its rim (79 % of the circumference, widest gap 1.51 mm), so slicers
+  treat it as bridge infill. Any sag is on a face sealed inside the body, and
+  there is 2.9 mm of clearance under it before anything is touched. `Support
+  on build plate only` gets this for free — the overhang is internal, so it
+  is never supported under that setting.
+
+Do **not** over-squish the first layer. The barbs live in layers 3–10, and
+elephant foot on the skirt's free end walks straight into them; the 0.6 × 45°
+chamfer there is partly for that.
+
 ### The gate
 
 `verify_beacon.py` measures the exported meshes, never the `.scad`. It slices
