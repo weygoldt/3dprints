@@ -758,10 +758,16 @@ pad_h      = 2*bp_axis + 2*bp_edge;                        // pad backs the 4 X 
 // CONNECTOR (mating face X=0 + register tongue + 4x M4) and the MOTOR mount (A2212 cross + boss) are UNCHANGED.
 pylon_base_t = 24;    // fore-aft depth at the BASE (= the flat AFT face X = the motor standoff pad_aft) -- sets base stiffness
 mast_top_t   = 14;    // fore-aft depth at the mast TOP (forward face recedes 0 -> pad_aft-mast_top_t up the mast => a wedge)
-pad_head_w   = 30;    // the mast tapers pylon_width -> pad_head_w by pad_y0, then holds CONSTANT to the top -> a rectangular
-                      // HEAD (pad_y0..mast_top_y) whose aft face EXACTLY matches the guard's rectangular hub (guard_hub_w =
-                      // pad_head_w) -> the guard base-plate aligns PERFECTLY with the pylon face.  Backs the motor SHORT cross + walls.
-pad_w_top    = pad_head_w; // (the wedge top width IS the head width)
+// DEAD PARAMETER -- kept only so old -D command lines and the legacy plate mode still parse.  It USED to taper the
+// mast's width down to a 30 mm head, and the guard's base plate was sized from it.  The LOWERED/SIDE-PRINT rev made
+// pylon() a CONSTANT-width linear_extrude(pylon_width) (pylon.scad:52), so the taper has not existed for a revision --
+// but guard_hub_w was still reading this, so the guard shipped a 30 mm plate onto a 44 mm face and covered 55.5% of
+// its own seat.  Measured 2026-08-22: 7.005 mm of bare pylon on EACH side.  The guard now derives its plate from the
+// real pad face (see guard_hub_w / guard_hub_h below); nothing reads pad_head_w any more.  Narrowing the pylon to
+// match instead was priced and REJECTED: it would cut the M3-bore-to-edge wall 13.58 -> 6.58, the d=8 driver
+// counterbore wall 11.28 -> 4.28, and 31.8% of the mast's thrust-bending stiffness (I ~ w for this mode).
+pad_head_w   = 30;    // (dead -- see above)  legacy name for the old rectangular head width
+pad_w_top    = pad_head_w; // (dead with it -- the wedge is full pylon_width to the top)
 pylon_edge_ch = 1.5;  // 45deg chamfer on the wedge's long edges -- MATCHES the box edge_ch (rugged/machined look)
 pad_aft      = pylon_base_t;                              // pylon aft (motor) face fore-aft = the flat back-print face
 motor_zc     = pylon_width/2;                             // motor CENTRED across the width (symmetric pylon -- same part both hulls)
@@ -1156,21 +1162,41 @@ guard_style       = "rugged";// [rugged, bloom, web, legacy] surface FAMILY.  ru
                             // ENGINEERED to match the square rugged housing boxes: a chamfered rectangular hub + straight
                             // radial BARS + a chamfered ring + a chamfered proud RIM, all flat faces + small 45deg chamfers
                             // (like the box edge_ch), bed edges crisp.  bloom/web/legacy = earlier organic/experimental looks.
-guard_edge_ch     = 2;      // 45deg chamfer on the guard's aft/top edges -- box edge_ch language, a touch chunkier (machined/rugged)
-guard_spoke_w     = 9;      // rugged spoke BAR width -- beefy clean rectangular bars (engineered, takes a knock; not wires)
-guard_arc         = 180;    // Patrick 2026-08-16: a full HALF circle (symmetric about top) -- a full ring (360) is nicer
-                            // still but its 228 OD exceeds the 210 bed axis, so 180 is the biggest one-piece guard.  The
-                            // symmetric arc lets the spars land every 45deg -> on the mounting-square DIAGONALS + axes.
-guard_arc_bias    = 45;     // Patrick 2026-08-16: lean the HALF circle 45deg so the OUTBOARD side gets the most
-                            // protection -- the arc centre sits on the top-outboard diagonal (135 deg) and the open
-                            // side faces down + INBOARD, and the wire slot exits HORIZONTAL-inboard toward the boat centre.
-                            // In guard-local the OUTBOARD side is -X / 180 deg (a_ctr = 90 + this*motor_offset_dir);
-                            // the per-hull mirror carries it to the right side on each hull -- VERIFY by eye.
-// The lowered mast drops the guard's DOWN-OUTBOARD tip ~5 mm below the deck (it nicks the fibre-glassed aft deck,
-// which can't be knifed -- Patrick 2026-08-19).  Trim that many degrees off the a1 (down-outboard) end of the arc so
-// the guard clears the deck.  Only the down-outboard end pulls up (guard_a0, the up-inboard end, stays), so the
-// TOP + OUTBOARD coverage is kept; the lost wedge is on the down-outboard side, which was already the open half.
-guard_arc_lo_trim = 28;     // deg trimmed off the down-outboard (a1) arc end for deck clearance (0 = full 180 half-circle)
+// ---------------------------------------------------------------------------------------------------------------
+//  REV "SPAR" (Patrick 2026-08-22) -- the rugged family is rebuilt as ONE closed 2D region, morphologically CLOSED,
+//  extruded ONCE with ONE top chamfer, then only ever DIFFERENCEd (see guard_rugged_body in propguard.scad).
+//  WHY: the old body unioned a separately-chamfered hub + 5 separately-chamfered bars + 2 separately-chamfered
+//  rings, so every junction was a chamfer-on-chamfer re-entrant V.  Measured 2026-08-22: 40 of them, floor at
+//  z = 3.00 in a 5.00 plate (40% through), 126.9 mm^3 of missing material -- at the exact station where a rim
+//  strike's bending moment peaks.  Patrick reported this as "gaps ... this is the load bearing part".  With a
+//  single extrusion the defect cannot be CONSTRUCTED: there is no second chamfer to collide with.
+guard_edge_ch     = 1.2;    // the ONE top chamfer on the unified web.  1.2, not the old 2.0: a chamfer insets from BOTH
+                            // sides, so on the 3.5 mm mid ring a 2.0 would leave -0.5 mm of flat crown (i.e. a knife
+                            // ridge); 1.2 leaves 1.1 mm flat on the ring, 1.6 on the rim, 1.1 on the spoke tip.
+                            // The base plate's aft edge gets NO chamfer -- it is the motor's bearing face.
+guard_web_d       = 7.0;    // spoke / mid-ring / rim depth from the bed.  The spokes get their section from DEPTH, not
+                            // width: 9x7 gives S_out 73.5 mm^3 against the old 9x5's 37.5, for LESS material once the
+                            // tip taper is applied.  guard_t (the plate, and therefore the screw length) is untouched.
+guard_spoke_w     = 9;      // spoke width at the ROOT
+guard_spoke_tip   = 3.5;    // spoke width at the TIP.  A constant-section bar is the wrong shape for a cantilever --
+                            // the bending moment at the rim is ~4% of the root value, so the tip pays for nothing.
+guard_spoke_pitch = 36;     // spoke angular pitch = 360/10, a decagon grid.  The ladder is ANCHORED ON 90 deg and the
+                            // ARC IS DERIVED FROM IT (guard_a0/a1 below) -- so a spoke is EXACTLY vertical on BOTH
+                            // hulls, and the rim always terminates ON a spoke instead of dangling past the last one.
+guard_can_r       = 16.5;   // the plate stays FLAT (= guard_t) inside this radius: motor-can / baseplate keep-out.  Each
+                            // spoke then ramps 45 deg up to guard_web_d -- that ramp IS the root fillet in the Z plane.
+                            // ASSUMPTION, and it is load-bearing: Motor.stl/BasePlate.stl are ILLUSTRATIVE, not measured.
+                            // A motor baseplate wider than 33 mm dia would foul it.  MEASURE YOURS.
+guard_keep_r      = 18.0;   // full-guard_t bearing disc: the motor can and all 4 M3 at r<=9.5 live inside it
+guard_root_fz     = 2.0;    // 45 deg fillet leg left standing against every spoke wall where it rises off the plate
+// ARC.  Superseded knobs: guard_arc / guard_arc_bias / guard_arc_lo_trim are GONE.  The old one-sided trim
+// (subtracted from a1 unconditionally) was a BLOCKER: a1 is the down-outboard end only when motor_offset_dir=+1, so
+// the dirN part built by build.sh had its trim on the UP-INBOARD end and drove its low tip 24.55 mm into the foam
+// deck.  _probe_guarddeck.scad could not see it -- it draws both hulls from the same global geometry, i.e. dirP and
+// a mirrored dirP, never the dirN part that actually ships.  Deriving the arc from a ladder anchored on vertical
+// makes the two hands an exact mirror by construction, so the trim has nothing to be one-sided about.
+guard_full_ring   = false;  // a full ring would need OD<=210 for the MK3 bed axis; this OD is 223.  Explicit now that
+                            // guard_arc is derived (it used to be `guard_arc >= 359.9`).
 guard_tip_gap     = 6;      // radial clearance: prop tip -> rim INNER (the rim must clear a flexing blade)
 guard_t           = 5;      // frontal-plate thickness (Z / axial) -- ALSO the washer thickness (its flat aft face bears the motor)
 // --- edge language (matches the pylon: round EVERYTHING ~2.5 EXCEPT bed-contact edges, which stay crisp) ---
@@ -1179,8 +1205,27 @@ guard_round       = 2.5;    // aft/top edge ROLL radius -- was 1.6 ; now MATCHES
 guard_front_round = 0.8;    // small 45deg easing on the FRONTAL (bed / intake) edges -- a chamfer (printable), not a lift
 guard_fillet      = 3;      // (reserved) concave junction fillet radius in the frontal plane -- the pylon-family fillet
 // --- HUB: a pad-echo rounded RECTANGLE that grows out of the motor pad (was a pancake disc) ---
-guard_hub_w       = pad_head_w;        // hub width  (X)       == the pylon HEAD width  -> the base-plate aligns PERFECTLY with the pylon face
-guard_hub_h       = pad_y1 - pad_y0;   // hub height (Y, up-mast) == the pylon head height (pad_y0..pad_y1) -> same rectangle, flush
+// --- THE BASE PLATE IS THE PYLON'S REAL PAD FACE, solved in the TILTED plane (rev SPAR) ---
+// The pad face is where pad_trim()'s plane -- through the hub (pad_aft, pylon_rise), normal [cos T, sin T] -- cuts the
+// pylon solid.  Guard-local gY = -(x - pad_aft)*sin T + (y - pylon_rise)*cos T.  Two edges bound it:
+//   TOP    the plane leaves the flat mast top at y = mast_top_y.
+//   BOTTOM the plane crosses the BUTTRESS aft slope, which runs (base_aft, 0) -> (head_aft, pad_y0).  This is the half
+//          everyone missed: the trim plane keeps cutting 5.78 mm PAST pad_y0 into the buttress, so the face is
+//          39.80 mm tall in-plane, not the 33 of pad_y1-pad_y0 nor even 33/cos(T) = 33.87.
+// The old guard_hub_h was a Y-PROJECTION used as a slant height, and the old guard_hub_w tracked a deleted taper.
+// Together they left the plate covering 55.5% of its own seat, 3.04 mm off-centre.  Measured on the rendered pylon
+// 2026-08-22: face 44.0000 x 39.8038, gY -22.8698 .. +16.9340.  These closed forms reproduce it to 5e-5 mm.
+pad_face_top      = (mast_top_y - pylon_rise)/cos(motor_tilt);                 // +16.93402
+pad_slope_k       = (head_aft - base_aft)/pad_y0;                              // buttress aft slope dx/dy = -0.025
+pad_face_yb       = (pad_aft - base_aft + pylon_rise*tan(motor_tilt))/(pad_slope_k + tan(motor_tilt));  // 34.21632 (pylon Y)
+pad_face_xb       = base_aft + pad_slope_k*pad_face_yb;                        // 29.14459 (pylon X)
+pad_face_bot      = -(pad_face_xb - pad_aft)*sin(motor_tilt)
+                    + (pad_face_yb - pylon_rise)*cos(motor_tilt);              // -22.86983
+guard_hub_w       = pylon_width;                    // 44.0000 -- the pylon is a CONSTANT-width extrude; this IS the face
+guard_hub_h       = pad_face_top - pad_face_bot;     // 39.80385 in-plane, NOT pad_y1-pad_y0 and NOT that over cos(tilt)
+guard_hub_yc      = (pad_face_top + pad_face_bot)/2; // -2.96791 -- the face is NOT centred on the motor axis.  The plate
+                                                     // is offset DOWN-mast by this; centring it on the hub is what left
+                                                     // 6.370 mm bare at the bottom, exactly where the spoke roots load.
 guard_hub_rr      = 6;                 // hub in-plane corner radius (soft, a touch fuller than the pad -> a "bloom", not a box)
 guard_hub_light   = (guard_style=="legacy"); // SOLID hub in bloom/web (it IS the bearing washer) ; drilled relief only legacy
 // --- COLLAR: a SOLID inner bloom that grows from the pad, then opens into fins.  This is what makes bloom read as the
@@ -1200,12 +1245,18 @@ guard_fin_converge = 0.38;  // fins CURVE this fraction toward the arc centre as
                             // a swept, gathered look that echoes the pylon's smoothstep loft; converging so tips never
                             // overflow the arc.  The elegance lever: turns wheel-spokes into swept turbine blades.
 guard_ribs        = 1;      // concentric rolled rib(s) in the OUTER (finned) band -- breaks the angular gaps (still a screen)
-guard_rib_w       = 6.5;    // rib radial width (a rolled bead with a flat crown, was the thin 3 mm ring)
+guard_rib_w       = 3.5;    // rib radial width (was 6.5).  It now stands at the FULL guard_web_d like the spokes, so it
+                            // and the spokes share one top plane -- there is no step for a chamfer to notch.
 // --- RIM: ONE fuller rolled bead (merges the old thin ring + the SEPARATE foot-fillet shroud into a flowing rolled lip) ---
 guard_rim         = true;   // outer rolled rim / lip (the "shroud")
-guard_rim_wall    = 6;      // rim radial thickness (was guard_shroud_wall 2.2 -> a fuller rolled bead that reads next to the pylon mass)
-guard_rim_proud   = 3.5;    // how far the rim stands AFT beyond guard_t at the arc MIDDLE (a rolled lip vs SIDE debris;
-                            // still NOT reaching the disc -- the motor breathes open aft)
+guard_rim_wall    = 4.0;    // rim radial thickness (was 6).  THIS is where the material for the 77%-bigger base plate
+                            // comes from: the rim was 33.87% of the whole part and is not the governing member -- a rim
+                            // strike is reacted by the SPOKE, and the arc is in hoop, not bending.  -47.5% rim volume.
+                            // Going back to 5.0 costs exactly +2045.7 mm^3 / +0.98 g / +5m35s and buys +25% rim section.
+guard_rim_proud   = guard_web_d - guard_t;  // = 2.0.  DERIVED now: the rim is part of the one unified web, so it stands
+                            // exactly guard_web_d off the bed like the spokes and the rib.  Was an independent 3.5, which
+                            // is how the rim ended up 8.5 tall against 5 mm spokes -- a square internal corner at every
+                            // spoke tip.  Crown 8.5 -> 7.0 also flattens the silhouette a little.
 guard_rim_proud_min = 2;    // proud at the arc ENDS (a gentle cosine taper -> a deliberate, smooth silhouette)
 // --- WEB variant (guard_style=="web") ---
 guard_web_holes   = 6;      // number of organic lightening cut-outs punched in the solid shell
@@ -1236,11 +1287,16 @@ guard_od       = 2*guard_r_out;                      // guard outer diameter
 guard_standoff = (mm_block_aft_z - pad_aft) - prop_disc_z;  // pad face -> prop disc; the guard aft-to-prop gap
 // arc centre from +X (90 = top; bias leans toward OUTBOARD = the side the motor sits on).  The lean follows the mast
 // side (guard-local +X <-> pylon -Z), so the sign tracks motor_offset_dir.  VERIFY by eye in the assembly.
-guard_a_ctr    = 90 + guard_arc_bias * (mount_to=="motor" ? motor_offset_dir : 1);
-guard_a0       = guard_a_ctr - guard_arc/2;                       // up-INBOARD arc end (kept)
-guard_a1       = guard_a_ctr + guard_arc/2 - guard_arc_lo_trim;   // down-OUTBOARD arc end, pulled UP for deck clearance
-guard_arc_draw = guard_a1 - guard_a0;                            // the actual drawn arc span (rings extrude over this)
-guard_full_ring = guard_arc >= 359.9;
+// SPOKE LADDER, and the arc DERIVED from it (rev SPAR).  Anchor: a_ctr - pitch*lean == 90 exactly, for either lean, so
+// one spoke is DEAD VERTICAL on both hulls and the two hands are an exact mirror pair by construction.  guard_vanes must
+// be ODD and >= 3 (checked by an echo below).  The arc ends ON the end spokes, so no rim tip dangles unsupported.
+guard_lean     = (mount_to=="motor") ? motor_offset_dir : 1;   // +1 = arc leans OUTBOARD (guard-local 180); -1 = mirrored
+guard_a_ctr    = 90 + guard_spoke_pitch * guard_lean;
+guard_spoke_a  = [ for (i = [-(guard_vanes-1)/2 : (guard_vanes-1)/2]) guard_a_ctr + i*guard_spoke_pitch ];
+guard_a0       = min(guard_spoke_a);                             // arc end = the first spoke
+guard_a1       = max(guard_spoke_a);                             // arc end = the last spoke
+guard_arc      = guard_a1 - guard_a0;                            // DERIVED (was a 180 parameter): 144 at 5 spokes x 36 deg
+guard_arc_draw = guard_arc;
 // concentric rib radii: legacy spaces them from the hub; bloom spaces them in the OUTER (finned) band, from the collar/hub
 // reach out to the rim (so a rib never lands inside the solid collar).
 guard_ring_radii = (guard_style=="legacy")
@@ -1263,20 +1319,36 @@ guard_ring_radii = (guard_style=="legacy")
 function gmxy(rot) = (mount_to=="motor") ? [ for (h = mholes(rot)) [-h[1], h[0]] ]   // guard bolt pattern [X, Y=up-mast]
                                          : [ for (sx=[-1,1], sy=[-1,1]) [sx*bp_axis, sy*bp_axis] ];
 guard_mount_xy   = gmxy(mount_rot);                                                  // global (standalone); main passes per-hull rot
-guard_shroud_ext = atan((guard_vane_tip/2) / guard_r_tip); // extend the rim arc this far past each end vane so the full
-                                                           // vane width backs it (no half-contact / dangling end vane)
+// extend the rim/rib arc this far past each end spoke so the full spoke width backs it (no half-contact / dangling end).
+// Was computed from guard_vane_tip -- a BLOOM parameter (8) -- while the rugged spokes are a different width, so it came
+// out 0.266 deg short and the rugged end spokes protruded 0.498 mm past the rim's end face.  Style-aware now.
+guard_shroud_ext = atan(((guard_style=="rugged" ? guard_spoke_tip : guard_vane_tip)/2) / guard_r_tip);
 // --- WIRE ROUTING SLOT (Patrick 2026-08-16) ---
 wire_slot   = true;     // cut a gap in the guard base-plate so the motor leads route DOWN toward the boat CENTRE
-wire_slot_w = 7;        // slot width (mm) -- the CLEAR through-channel for the lead bundle
-wire_slot_round = 1.2;  // lip ROLL radius (mm) on the AFT face + obround mouth corners, so a flexing lead bends over a
-                        // ROUNDED edge, not a sharp 90deg corner that could saw the insulation.  The roll is cut INWARD
-                        // (a concave fillet), so it does NOT widen the slot in-plane -> the tight ~0.7 mm PLA web to the
-                        // nearest M3 motor pad is UNCHANGED (bed lip keeps the guard's crisp/chamfer face rule).
-wire_slot_corner_r = 4;   // the diagonal canal leaves the SQUARE hub through its corner, slicing it into two ACUTE prongs
-                        // (the sharp 45deg edges the moving cable chafes on).  This is the fillet radius that ROUNDS/blunts
-                        // those two prong tips (a morphological OPEN of the hub-minus-canal outline, clipped to the exit
-                        // corner, rounds exactly the convex prongs tangent to both the canal wall and the hub edge -- the
-                        // acute wedges need a generous radius to read as ROUND, not just a rounded point).  0 = leave them.
+// WAISTED FUNNEL (rev SPAR).  THE BUG THIS REPLACES: both lip easings were applied with the WRONG SIGN.  In BOSL2's
+// offset_sweep a POSITIVE r/width moves the profile INWARD (rounding.scad:1423).  The slot is a SUBTRACTED solid, so
+// easing it with a positive number SHRINKS THE CUT -- the channel pinched exactly at the two faces a lead bends over.
+// Measured 2026-08-22: 7.000 nominal -> 4.620 clear at the motor face, 4.892 at the bed.  Worse, the aft "chamfer"
+// closed the channel over its last 1.2 mm at 45 deg, which was the ONLY overhang in the entire part: 29.12 mm^2, 25
+// support blocks, and the support landed INSIDE the wire channel.  The bed lip meanwhile tapered to a ZERO-degree cusp,
+// feathering to 1.054 mm wide on the first layer and 0.017 by the sixth -- a knife, not a roll.  Both radii are NEGATIVE
+// now (= flared outward, the mouth opens), which also deletes the overhang: a hole that widens downward self-supports.
+wire_slot_w  = 6.0;     // CLEAR channel width through the M3 bolt ring (the waist).  Up from a measured 4.62.
+wire_slot_w2 = 10.0;    // clear width outboard (the funnel mouth) -- the lead leaves through a flare, not an aperture
+wire_slot_off = 0.5;    // channel axis offset up-mast: balances the PLA web to the two nearest M3 bores.  The shipped
+                        // part left 0.457 mm to bore #2 -- thinner than one 0.45 mm extrusion, while its own comment
+                        // claimed ~0.7.  Centring the channel on the axis is what makes both webs equal.
+wire_slot_ease   = 1.6; // AFT/motor lip: os_circle(r = -this) -- a tangent roll, so there is no edge there AT ALL.  This
+                        // is the face the motor sits on and the lead bears against, so it gets the roll, not a chamfer.
+wire_slot_bed_w  = 1.0; // BED lip break, flared OUT over wire_slot_bed_h -> 26.57 deg from vertical.  Shallower than 45,
+wire_slot_bed_h  = 2.0; // so it self-supports; a full roll here would still be fine but buys nothing (the bed face is
+                        // clamped flat against the pylon pad -- 688.94 mm^3 of pylon sits inside the slot tool).
+wire_slot_corner_r = 4;   // fillet on BOTH exit prongs (the canal splits the plate edge into two).  THE BUG THIS FIXES:
+                        // the sliver was clipped by circle(r=16) anchored on ONE hub CORNER, so it reached the +y prong
+                        // (13.00 mm away) and missed the -y prong (20.00 mm) -- measured r=3.9998 on one, r=0.000 on the
+                        // other.  And on the dirP part that circle bored a full-depth 17.2 mm^3 hole through the 45 deg
+                        // SPOKE ROOT, taking it to 54.9% of mid-span section.  The clip is a band centred on the CHANNEL
+                        // AXIS now, so it contains the two prongs and nothing else.  0 = leave them sharp.
 // direction from the hub centre to the INBOARD (toward boat centre) + DOWN (toward the deck) corner, in guard-local
 // (X=width, Y=up-mast).  INBOARD is OPPOSITE the arc lean (the arc covers the exposed OUTBOARD side); DOWN is -Y.  The sign
 // tracks motor_offset_dir -- VERIFY by eye (a mirror is probe-invisible; see the L/R memory).
