@@ -356,7 +356,11 @@ motor_bolt_short = 16;    // A2212 cross SHORT axis span (Patrick's real motor, 
 motor_screw_d    = 3.4;   // M3 clearance for the 4 mount screws (snug -- a vibration mount wants a tight hole)
 motor_seat_t     = 5;     // THIN mount-face the screws thread through (a front-access counterbore keeps the screw short)
 motor_engage     = 4;     // thread engagement into the A2212's BLIND hole (~3-4 mm typical -- MEASURE; sets screw length)
-motor_boss_d     = 10;    // central boss / shaft clearance dia (assume a small boss -> generous).  CAPPED ~12 mm: the
+motor_boss_d     = 10;    // MEASURED on Patrick's A2212, 2026-08-22 (the round boss in the centre of the mount face)
+                          // -- no longer an assumption.  It therefore fixes the thinnest wall in the guard: the
+                          // recess is guard_bore_d/2 = 5.75 and the short-axis M3 bores' inner edge is 6.30, so
+                          // 0.55 mm of PLA, and the ONLY lever left is the +1.5 clearance in guard_bore_d.
+                          // CAPPED ~12 mm: the
                           // 16 short-axis bolts sit at r8 (hole inner edge ~r6.3), so a bigger recess FOULS the bolts.
                           // A real A2212 with a fat bearing hub >~12 mm dia can't be cleared by a flat washer on this
                           // pattern -- MEASURE; if yours has one, tell me (needs a stepped hub, not a wider bore).
@@ -1356,7 +1360,11 @@ wire_slot   = true;     // cut a gap in the guard base-plate so the motor leads 
 // support blocks, and the support landed INSIDE the wire channel.  The bed lip meanwhile tapered to a ZERO-degree cusp,
 // feathering to 1.054 mm wide on the first layer and 0.017 by the sixth -- a knife, not a roll.  Both radii are NEGATIVE
 // now (= flared outward, the mouth opens), which also deletes the overhang: a hole that widens downward self-supports.
-wire_slot_w  = 6.0;     // CLEAR channel width through the M3 bolt ring (the waist).  Up from a measured 4.62.
+wire_slot_w  = 7.0;     // CLEAR channel width through the M3 bolt ring (the waist).  Patrick MEASURED the A2212 lead
+                        // bundle at 6.0 mm and asked for 7.0 so it is not a push fit (2026-08-22).  This is the number
+                        // that used to be nominal-7-but-actually-4.62 because of the easing sign bug -- it is a real 7
+                        // now, verified on the mesh.  It costs 0.5 mm of the PLA web to the nearest M3 bore
+                        // (1.487 -> 0.987), which is still over two 0.4 mm perimeters; GATE4 checks it.
 wire_slot_w2 = 10.0;    // clear width outboard (the funnel mouth) -- the lead leaves through a flare, not an aperture
 // Channel axis offset, measured in the CHANNEL's own frame, and DERIVED so it exactly balances the PLA web to the
 // two M3 bores that flank the canal.  With the cross clocked on the diagonals those two sit at motor_bolt_long/2 and

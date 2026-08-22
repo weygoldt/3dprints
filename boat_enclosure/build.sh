@@ -158,11 +158,29 @@ fi
 # 19692) because the arc tessellation is not triangle-for-triangle mirrored.  What is
 # asserted instead is that they are not ACCIDENTALLY the same file -- if a future edit
 # drops the handedness, this catches it.
+# WHICH FILE GOES ON WHICH HULL (Patrick, 2026-08-22).  Hold the guard so you are looking at the face that
+# SCREWS TO THE PYLON, with the fan pointing UP.  In that view:
+#
+#   dirP -- the wire channel exits to your LEFT   -> PORT hull
+#   dirN -- the wire channel exits to your RIGHT  -> STARBOARD hull
+#
+# Both files show the 19 mm bolt pair on the TOP-LEFT / BOTTOM-RIGHT diagonal in that view -- that is
+# automatic, because motor_clock is 135 on both hulls, and it is the check that tells you the part is the
+# right way up before you look at anything else.
+#
+# THE RULE BEHIND IT, so it can be re-derived: the leads must run INBOARD, toward the boat's centreline.
+# Measured through main.scad's own transform chain (_probe_guardhand.scad, marker at the channel mouth):
+# dirP on port puts the mouth at X = -87.50 against a hub at -108.50, and dirN on starboard puts it at
+# +87.50 against +108.50 -- both toward the middle.  The other two assignments push it to +/-129.50, i.e.
+# out over the water.  (Remember apply_side_of() MIRRORS the starboard hull, so feeding a hand to that hull
+# displays the other one -- the numbers above are the physical parts, not the fed ones.)
 sec "guard washer: dirP"
 scad stl/airboat_guardwasher_a2212_dirP.stl guard_dirP propguard.scad -D 'motor_offset_dir=1'  -D '$fn=128'
+[ "$ACTIVE" = "1" ] && echo "    ^ PORT hull: looking at the pylon face, the wire channel exits LEFT"
 
 sec "guard washer: dirN"
 scad stl/airboat_guardwasher_a2212_dirN.stl guard_dirN propguard.scad -D 'motor_offset_dir=-1' -D '$fn=128'
+[ "$ACTIVE" = "1" ] && echo "    ^ STARBOARD hull: looking at the pylon face, the wire channel exits RIGHT"
 
 if [ "$ACTIVE" = "1" ] && [ -f stl/airboat_guardwasher_a2212_dirP.stl ] \
                        && [ -f stl/airboat_guardwasher_a2212_dirN.stl ]; then

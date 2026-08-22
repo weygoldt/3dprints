@@ -346,10 +346,36 @@ the two LOW screws are still fully blocked. So:
 
 The "re-torque after the first runs" advice therefore costs a full drive removal each time. Budget for it.
 
-**Still open (needs a caliper, not a render):** the A2212 lead-bundle OD against the 6.00 mm waist; the
-motor boss diameter (`motor_boss_d`=10 is assumed — every 1 mm off that clearance is +0.5 mm of PLA wall at
-the two short-axis bolts, which are the thinnest walls in the part at 0.55 mm); and which printed hand goes
-on which physical hull — `dirP` on port / `dirN` on starboard gives 22° of deck roll margin, swapped it is 13°.
+### Which file goes on which hull
+
+Hold the guard so you are looking at **the face that screws to the pylon**, fan pointing **up**:
+
+| file | wire channel exits | hull |
+|---|---|---|
+| `airboat_guardwasher_a2212_dirP.stl` | your **LEFT** | **PORT** |
+| `airboat_guardwasher_a2212_dirN.stl` | your **RIGHT** | **STARBOARD** |
+
+Both files show the **19 mm bolt pair on the top-left / bottom-right diagonal** in that view. That comes free
+— `motor_clock` is 135° on both hulls, so the pattern is identical on the two parts — and it is the quickest
+check that you are holding the part the right way up before you look at anything else.
+
+**The rule behind it,** so it survives a rev: *the leads run inboard, toward the centreline.* Measured
+through main.scad's own chain (`_probe_guardhand.scad`, marker at the channel mouth): dirP on port puts the
+mouth at X = −87.50 against a hub at −108.50; dirN on starboard puts it at +87.50 against +108.50 — both
+toward the middle. The other two assignments put it at ±129.50, out over the water. Note `apply_side_of()`
+**mirrors** the starboard hull, so feeding a hand to that hull *displays* the other one; the numbers above
+are the physical parts.
+
+Deck clearance does not depend on getting this right — all four combinations are EMPTY against the foam —
+but the **margin** does, and it points the same way: rolled toward the deck, dirP/port and dirN/starboard
+first touch at **24°**, the swapped pair at **16°** (`_probe_guarddeck.scad`, 4° steps). So the mapping
+above is both the one that routes the leads inboard and the one with 50% more room.
+
+**Still open (needs a caliper, not a render):** nothing on the wire channel — Patrick measured the A2212
+bundle at 6.0 mm and the waist is set to 7.0. `motor_boss_d`=10 is now MEASURED too. What remains is that
+the 0.55 mm PLA wall between the boss recess and the two short-axis M3 bores is the thinnest feature in the
+part, and the only lever on it is the +1.5 mm clearance in `guard_bore_d` — tightening that to +0.8 would
+buy 0.9 mm of wall, at the cost of a snugger boss recess.
 
 ---
 
