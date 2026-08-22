@@ -76,8 +76,14 @@ module pylon_cut(rot = mount_rot) {
   //   here justified the straight bore by "a tilted tunnel exits too low for the bottom holes": true, they now descend
   //   as they run forward and clip the forward gusset's angled front tip -- which Patrick pre-authorised removing, is
   //   the least-loaded knife edge of the gusset, and is measured by the driver_bear_clear echo guard in common.scad.
-  //   Access on the boat is unchanged in kind (the mouths still open above the block); the motor goes on at the BENCH
-  //   with the front fully open anyway.  Uniform seat depth -> ALL 4 SCREWS ARE STILL THE SAME LENGTH.
+  //   Uniform seat depth -> ALL 4 SCREWS ARE STILL THE SAME LENGTH.
+  //   ACCESS, CORRECTED 2026-08-22.  This comment used to claim "access on the boat is unchanged in kind (the mouths
+  //   still open above the block)".  That was measured and it is FALSE: with the box assembled, all four motor-screw
+  //   corridors are 100% occluded by the body and the lid -- even a 2.5 mm hex key will not reach -- and with the lid
+  //   OFF the two LOW screws are still fully blocked.  So the assembly order is not a preference, it is forced:
+  //     motor + guard onto the PYLON at the bench  ->  prop off  ->  4x M4 from aft to hang the drive on the block.
+  //   That also means the "re-torque after the first runs" advice in common.scad's echo costs a full drive removal
+  //   each time.  Written down in AIRBOAT-NOTES.md so it is not rediscovered at the waterside.
   motor_tilted() for (h = mholes(rot))
     translate([-driver_reach, pylon_rise + h[0], motor_zc + h[1]])
       td_bore(driver_reach + seat_x, motor_head_d);      // daylight -> the head seat (floor square to the screw)

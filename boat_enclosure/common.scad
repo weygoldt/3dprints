@@ -1187,14 +1187,16 @@ guard_can_r       = 16.5;   // the plate stays FLAT (= guard_t) inside this radi
                             // spoke then ramps 45 deg up to guard_web_d -- that ramp IS the root fillet in the Z plane.
                             // ASSUMPTION, and it is load-bearing: Motor.stl/BasePlate.stl are ILLUSTRATIVE, not measured.
                             // A motor baseplate wider than 33 mm dia would foul it.  MEASURE YOURS.
-guard_keep_r      = 18.0;   // full-guard_t bearing disc: the motor can and all 4 M3 at r<=9.5 live inside it
 guard_root_fz     = 2.0;    // 45 deg fillet leg left standing against every spoke wall where it rises off the plate
+                            // (a guard_keep_r "bearing disc" parameter lived here briefly and was read by NOTHING --
+                            //  the exact failure mode this rev exists to correct.  Deleted rather than documented.)
 // ARC.  Superseded knobs: guard_arc / guard_arc_bias / guard_arc_lo_trim are GONE.  The old one-sided trim
 // (subtracted from a1 unconditionally) was a BLOCKER: a1 is the down-outboard end only when motor_offset_dir=+1, so
 // the dirN part built by build.sh had its trim on the UP-INBOARD end and drove its low tip 24.55 mm into the foam
 // deck.  _probe_guarddeck.scad could not see it -- it draws both hulls from the same global geometry, i.e. dirP and
 // a mirrored dirP, never the dirN part that actually ships.  Deriving the arc from a ladder anchored on vertical
-// makes the two hands an exact mirror by construction, so the trim has nothing to be one-sided about.
+// makes the two hands' ARCS mirror-symmetric by construction, so the trim has nothing to be one-sided about.
+// (The finished PARTS are still not exact mirrors, and should not be: see the note at the spoke ladder below.)
 guard_full_ring   = false;  // a full ring would need OD<=210 for the MK3 bed axis; this OD is 223.  Explicit now that
                             // guard_arc is derived (it used to be `guard_arc >= 359.9`).
 guard_tip_gap     = 6;      // radial clearance: prop tip -> rim INNER (the rim must clear a flexing blade)
@@ -1276,6 +1278,20 @@ guard_shroud_foot = 2.5;    // legacy filleted foot at the shroud inner base
 // its central bore is the boss recess (the 4 motor pads bear on the flat hub face around it).  "plate": legacy pad square.
 guard_bore_d      = (mount_to=="motor") ? motor_boss_d + 1.5 : bp_bore + 1.5;   // central boss clearance (>=10 in motor mode)
 guard_bolt_d      = (mount_to=="motor") ? motor_screw_d : bp_screw_d;           // M3 clearance (snug -- a vibration mount)
+guard_bore_fn     = 96;     // ONE segment count for the boss recess, used by BOTH the swept lower part and the plain
+                            // upper bore.  They used to be 96 and $fn=128, which left a 0.00135 mm faceting ledge
+                            // right round the bore at z = guard_t -- 160 concave edges, the only such census in the part.
+// BED break on the boss recess -- OFF, and this is the considered answer rather than the default.
+// It shipped briefly at 0.6, which reaches r = 5.75 + 0.6 = 6.35 against the two SHORT-axis M3 bores' inner edge at
+// motor_bolt_short/2 - motor_screw_d/2 = 6.30.  They OVERLAPPED: measured along the 135 deg bolt ray, the recess and
+// the bolt hole were ONE merged void out to r = 9.7 at the first layer, and the 0.55 mm wall between them fell to
+// 0.006 mm.  Capping it at 0.25 fixed the merge but still left only 0.315 mm of wall on layer one.
+// Zero is better on every count.  The break's only job was to ease the recess's bed rim -- a face that is clamped
+// FLAT against the pylon pad, where no lead can reach it, and where this file's own print rule says bed-contact
+// edges stay CRISP anyway.  So it bought nothing and cost the thinnest wall in the part.  Off, the wall is a full
+// 0.55 mm from the bed up, the same as the pre-SPAR part.  GATE5 keeps it honest if anyone raises it again.
+guard_bore_bed_break = 0;
+guard_bore_break_max = motor_bolt_short/2 - motor_screw_d/2 - guard_bore_d/2 - 0.3;   // 0.25 -- the ceiling GATE5 enforces
 // -- derived --
 guard_hub_ext  = (guard_style=="legacy") ? guard_hub_r : max(guard_hub_w, guard_hub_h)/2; // hub outer reach (rib/vane root placement)
 guard_vane_r0  = (guard_collar_r > guard_hub_ext) ? guard_collar_r : guard_hub_ext;        // fins start here (collar rim, or the hub if no collar)
@@ -1288,8 +1304,15 @@ guard_standoff = (mm_block_aft_z - pad_aft) - prop_disc_z;  // pad face -> prop 
 // arc centre from +X (90 = top; bias leans toward OUTBOARD = the side the motor sits on).  The lean follows the mast
 // side (guard-local +X <-> pylon -Z), so the sign tracks motor_offset_dir.  VERIFY by eye in the assembly.
 // SPOKE LADDER, and the arc DERIVED from it (rev SPAR).  Anchor: a_ctr - pitch*lean == 90 exactly, for either lean, so
-// one spoke is DEAD VERTICAL on both hulls and the two hands are an exact mirror pair by construction.  guard_vanes must
+// one spoke is DEAD VERTICAL on both hulls and the two hands' BODIES are mirror-symmetric.  guard_vanes must
 // be ODD and >= 3 (checked by an echo below).  The arc ends ON the end spokes, so no rim tip dangles unsupported.
+// HOW ALIKE THE TWO HANDS ACTUALLY ARE -- measured, because a mirror is invisible to a probe and this claim has
+// already been overstated once.  Body: bbox delta 0.0000000 mm, volume delta 0.00011 mm^3 -- mirror-symmetric.
+// Whole part: NOT an exact mirror, and it must not be.  The A2212 cross is clocked to the SAME mount_rot on both
+// hulls (that is what lets one pylon serve both), so the 4-hole pattern is identical rather than mirrored.  The
+// symmetric difference is 98.61 mm^3 (control: dirN shifted 0.5 mm -> 1987.74, so the boolean is live), concentrated
+// at r 5.75..12 -- the boss recess and the bolt ring.  DO NOT print one STL mirrored to make the other.
+// See _probe_guardmirror.scad.
 guard_lean     = (mount_to=="motor") ? motor_offset_dir : 1;   // +1 = arc leans OUTBOARD (guard-local 180); -1 = mirrored
 guard_a_ctr    = 90 + guard_spoke_pitch * guard_lean;
 guard_spoke_a  = [ for (i = [-(guard_vanes-1)/2 : (guard_vanes-1)/2]) guard_a_ctr + i*guard_spoke_pitch ];
@@ -1335,9 +1358,26 @@ wire_slot   = true;     // cut a gap in the guard base-plate so the motor leads 
 // now (= flared outward, the mouth opens), which also deletes the overhang: a hole that widens downward self-supports.
 wire_slot_w  = 6.0;     // CLEAR channel width through the M3 bolt ring (the waist).  Up from a measured 4.62.
 wire_slot_w2 = 10.0;    // clear width outboard (the funnel mouth) -- the lead leaves through a flare, not an aperture
-wire_slot_off = 0.5;    // channel axis offset up-mast: balances the PLA web to the two nearest M3 bores.  The shipped
-                        // part left 0.457 mm to bore #2 -- thinner than one 0.45 mm extrusion, while its own comment
-                        // claimed ~0.7.  Centring the channel on the axis is what makes both webs equal.
+// Channel axis offset, measured in the CHANNEL's own frame, and DERIVED so it exactly balances the PLA web to the
+// two M3 bores that flank the canal.  With the cross clocked on the diagonals those two sit at motor_bolt_long/2 and
+// motor_bolt_short/2 off-axis, i.e. at (long/2)/sqrt(2) and (short/2)/sqrt(2) in y; splitting the difference puts the
+// canal exactly between them.  = 0.5303 for a 19x16 cross.
+//
+// IT IS IN THE CHANNEL FRAME ON PURPOSE, and this is worth stating because it looks like an asymmetry bug and one
+// "fix" for it has already been tried and reverted.  The canal runs +X on one hull and -X on the other, but the bolt
+// cross is clocked to the SAME mount_rot on both (that is what lets one pylon serve both hulls).  So the pair of
+// bores flanking the canal swaps sides between hands, and the offset has to swap with it.  Pinning the canal to the
+// same PHYSICAL height on both hands -- which is what "making it symmetric" means -- balances one hand and pushes
+// the other onto its near bore: measured, dirN's web fell from 1.487 to 0.457, the exact number the pre-SPAR part
+// shipped.  build.sh's GATE4 caught it.  Leave it in the channel frame.
+wire_slot_off = (motor_bolt_long - motor_bolt_short)/(4*sqrt(2));
+wire_slot_waist_ease = 1.0; // how much the easing tool is pulled in THROUGH THE WAIST.  Not zero, and not the full
+                        // shrink: at the full shrink the flare was clamped out entirely and both faces met the channel
+                        // wall at a square 90 deg arris for ~28 mm -- precisely the stretch inside the M3 bolt ring
+                        // where the lead is most constrained, i.e. the comment promising "a tangent roll, no edge at
+                        // all" was true only OUTBOARD of the bolt ring.  1.0 leaves the aft/motor lip a genuine
+                        // 0.6 mm tangent roll through the waist (the face the lead bears on) while the bed lip stays
+                        // flush there (it is clamped against the pylon pad, so nothing touches it).
 wire_slot_ease   = 1.6; // AFT/motor lip: os_circle(r = -this) -- a tangent roll, so there is no edge there AT ALL.  This
                         // is the face the motor sits on and the lead bears against, so it gets the roll, not a chamfer.
 wire_slot_bed_w  = 1.0; // BED lip break, flared OUT over wire_slot_bed_h -> 26.57 deg from vertical.  Shallower than 45,
@@ -1358,6 +1398,9 @@ wire_slot_corner_r = 4;   // fillet on BOTH exit prongs (the canal splits the pl
 // +X -> the correct inboard side on each hull -- VERIFY by eye (a mirror is probe-invisible; see the L/R memory).
 function wsa(dir) = dir > 0 ? 0 : 180;
 wire_slot_ang = wsa(motor_offset_dir);
+// The offset lives in the CHANNEL frame (see wire_slot_off above for why it must), so in GUARD coordinates it flips
+// with the hand.  This helper exists so the echo gate measures against the same convention the geometry uses.
+function wsa_off(dir) = wire_slot_off;
 
 // =====================================================================
 //  MOTOR MOUNT (integrated) -- derived + echo (needs guard_t, so it lives after the guard block)

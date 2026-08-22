@@ -73,6 +73,13 @@ scad() {
     # "<<" that is a gate rather than a reminder (the driver-bore vs forward-gusset
     # clearance) says WARNING, so this pattern still catches it.
     grep -E "Status:|WARNING|ERROR" <<<"$msg" || true
+    # A GATE that reads "<< FAIL" is not an advisory -- it is an assertion the part
+    # makes about itself, and it was verified to fire on a named control.  Stop.
+    if grep -qE "GATE[0-9].*<< FAIL" <<<"$msg"; then
+        grep -E "GATE[0-9].*<< FAIL" <<<"$msg"
+        echo "*** ${label}: a self-check FAILED -- not shipping this STL"
+        exit 1
+    fi
     measure "$out"
     echo "$CHAIN_HASH" > "stl/.${label}.hash"
 }
@@ -138,15 +145,33 @@ fi
 
 # The guards DO stay two handed parts: the arc lean and the wire slot follow the
 # motor offset even though the (2-fold symmetric) bolt pattern does not.
-# $fn=128, NOT the 220 the notes quote -- that line belongs to the superseded
-# propguard ARC.  128 is what the shipped washers were actually built at (6100
-# facets / 40039.5 mm^3, reproduced exactly); 220 would silently re-tessellate a
-# part nothing in this change touched.
+# $fn=128 is what the shipped washers are built at.
+#
+# YOU CANNOT PRINT ONE AND MIRROR IT.  The bodies ARE mirror-symmetric (bbox delta
+# 0.0000000, volume delta 0.00011 mm^3), which is exactly what makes that mistake
+# tempting -- but the A2212 cross is clocked to the same mount_rot on BOTH hulls, so
+# the 4-hole pattern is identical rather than mirrored, and the two parts differ by
+# 98.61 mm^3 concentrated at the bolt ring.  Print BOTH files.  (_probe_guardmirror.scad)
+#
+# The pylon's byte-identical `cmp -s` assertion is deliberately NOT reused here: the
+# two hands are genuinely different parts, and their facet counts differ (19686 vs
+# 19692) because the arc tessellation is not triangle-for-triangle mirrored.  What is
+# asserted instead is that they are not ACCIDENTALLY the same file -- if a future edit
+# drops the handedness, this catches it.
 sec "guard washer: dirP"
 scad stl/airboat_guardwasher_a2212_dirP.stl guard_dirP propguard.scad -D 'motor_offset_dir=1'  -D '$fn=128'
 
 sec "guard washer: dirN"
 scad stl/airboat_guardwasher_a2212_dirN.stl guard_dirN propguard.scad -D 'motor_offset_dir=-1' -D '$fn=128'
+
+if [ "$ACTIVE" = "1" ] && [ -f stl/airboat_guardwasher_a2212_dirP.stl ] \
+                       && [ -f stl/airboat_guardwasher_a2212_dirN.stl ]; then
+    if cmp -s stl/airboat_guardwasher_a2212_dirP.stl stl/airboat_guardwasher_a2212_dirN.stl; then
+        echo "*** the two guard hands rendered IDENTICAL -- handedness has been lost"
+        exit 1
+    fi
+    echo "    the two hands differ (as they must) -- print both, do not mirror one"
+fi
 
 # Fore-aft symmetric -> ONE part serves all four corners of the centre box.
 sec "centre-box connector bracket (x4)"

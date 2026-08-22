@@ -304,7 +304,56 @@ Change `prop_diameter` to 254 (1045) and the pylon grows to ~110 mm above the bo
    melted in from the block aft face). Wide fender washer / backing
    plate under the soft foam so the head can't pull through.
 
-## Propeller guard — freely-mounted flat arc grille, frontal-only (`propguard.scad`, 2026-08-13)
+## Propeller guard — rev "SPAR" (`propguard.scad`, 2026-08-22)
+
+> **The section below this box is SUPERSEDED and kept only as history.** It describes the legacy grille
+> (`guard_shroud`, `guard_spoke_root`, `guard_bar`, a 135° arc) and contradicts the code on every headline
+> number. `guard_arc_bias` and `guard_arc_lo_trim`, which it names, **no longer exist**.
+
+**What ships now.** `guard_style="rugged"`. The whole body is ONE closed 2D region — base plate ∪ spokes ∪
+mid ring ∪ rim — morphologically CLOSED at `guard_fillet`=3, extruded ONCE by `offset_sweep` with ONE 1.2 mm
+top chamfer, then only ever DIFFERENCEd. That construction is the point: the previous body unioned a
+chamfered hub with 5 chamfered bars and 2 chamfered rings, so every junction was a chamfer-on-chamfer
+re-entrant V — 40 of them, 2.00 mm deep in a 5.00 mm plate, at the spoke roots where a rim strike's moment
+peaks. With one extrusion there is no second chamfer to collide with.
+
+| | value |
+|---|---|
+| base plate | **44.0000 × 39.8038 mm**, centred **−2.9679** up-mast — the pylon's real *tilted* pad face, solved in closed form. Per-edge gap to the face: 0.0000 / 0.0000 / −2e−7 / −3e−7 |
+| spokes | 5 on a **36° decagon ladder anchored on 90°**, so one is dead vertical on *both* hulls; arc **derived** from the ladder (54…198° on dirP), so it ends *on* a spoke |
+| section | 9 → 3.5 mm wide × **7 mm deep** (plate stays `guard_t`=5.0 — that sets `motor_screw_len`=14 and those M3 are bought) |
+| rim / rib | wall 4.0, crown 7.0 (flush with the spokes) / 3.5 wide |
+| wire channel | waisted funnel, **6.00 mm** clear through the bolt ring opening to ~10.5 at the mouth; both lips flared **outward** (negative BOSL2 radii) |
+| material | **37 106 mm³**, −7.3% on the part it replaces |
+| supportless | 0.00 mm² above 27° from a flat roof; sliced with supports forced on → **0 blocks** (the old part: 22, all of them inside the wire channel) |
+
+**Gates.** `propguard.scad` echoes GATE1–GATE5 and `build.sh` now **aborts** on any `<< FAIL`. Each was
+verified to fire on a named control: `guard_vanes=4`, `motor_tilt=0`, `guard_fillet=1.2`, `wire_slot_w=9`,
+`guard_bore_bed_break=0.6`. Deck clearance is `_probe_guarddeck.scad`, which must be run **four times**
+(hand × hull) — see its header; its control is `probe_roll=28`, a rotation the probe owns so it cannot be
+deleted by a rev of the part.
+
+**Two hands, and you cannot mirror one.** The bodies *are* mirror-symmetric (bbox delta 0.0000000, volume
+delta 0.00011 mm³) which is what makes the mistake tempting — but the A2212 cross is clocked to the same
+`mount_rot` on both hulls, so the 4-hole pattern is identical rather than mirrored and the parts differ by
+189 mm³ at the bolt ring. **Print both files.**
+
+**ASSEMBLY ORDER IS FORCED — read this before building.** With the box assembled, all four motor-screw
+corridors are 100% occluded by the body and lid; even a 2.5 mm hex key will not reach, and with the lid off
+the two LOW screws are still fully blocked. So:
+
+> motor + guard onto the **pylon** at the bench → prop off → 4× M4 from aft to hang the drive on the block.
+
+The "re-torque after the first runs" advice therefore costs a full drive removal each time. Budget for it.
+
+**Still open (needs a caliper, not a render):** the A2212 lead-bundle OD against the 6.00 mm waist; the
+motor boss diameter (`motor_boss_d`=10 is assumed — every 1 mm off that clearance is +0.5 mm of PLA wall at
+the two short-axis bolts, which are the thinnest walls in the part at 0.55 mm); and which printed hand goes
+on which physical hull — `dirP` on port / `dirN` on starboard gives 22° of deck roll margin, swapped it is 13°.
+
+---
+
+### (superseded) freely-mounted flat arc grille, frontal-only — 2026-08-13
 
 A best-effort **prop guard** for the 8×4.5 (203 mm) pusher prop, to keep reeds/grass/branches off the disc.
 Params + derived live in **`common.scad`** (search "PROP GUARD") so `main.scad` draws it on each hull; the

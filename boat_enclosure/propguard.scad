@@ -306,6 +306,18 @@ module guard_pocket_tool()
   translate([0, 0, guard_t])
     offset_sweep(guard_R_pocket, height = guard_web_d + 40, steps = 8, check_valid = false,
                  bottom = os_chamfer(width = guard_root_fz, height = guard_root_fz));
+// (3) NOT DONE, DELIBERATELY: a break on the base plate's own top-edge perimeter.
+//     The old hub carried a 2 mm chamfer right round its top rim; this plate's perimeter is a bare 90 deg arris,
+//     because the plate's top is a CUT plane (the pocket floor) rather than the sweep's top, so the one top chamfer
+//     never reaches it.  Breaking a cut plane means cutting a wedge along it, and both constructions tried did real
+//     damage:
+//       a 400 mm outside-plane tool swallowed the mid ring and the rim   -> -8962 mm^3, 2790 mm^2 of flat roof;
+//       a thin band hugging the plate, spokes protected by difference()  -> 40.5 mm^2 of flat roof at exactly
+//         z = guard_t and 157 non-manifold edges, all of it just outside the plate corners where the morphological
+//         close bridges the plate into the 54/162 deg spoke roots -- material the band cut from underneath.
+//     The arris is against nothing: that face is the motor's bearing face, the perimeter is clear of every bolt, and
+//     no wire crosses it.  A cosmetic edge is not worth shipping a non-manifold mesh for.  If it is ever wanted, the
+//     honest construction is to build the plate's chamfer INTO guard_R_all as a second, lower sweep -- not to cut it.
 
 // rugged BODY only (no boss / mount holes / slot) -- so the assembly can MIRROR the body per hull while cutting the
 // (rotated) mount holes + the wire slot SEPARATELY (see guard_full).
@@ -331,21 +343,31 @@ module guard_rugged_body() difference() {
 // Half-width along the canal: a WAIST through the M3 bolt ring (where the PLA web to the nearest bore is the binding
 // constraint) opening to a funnel MOUTH outboard (where the lead actually turns and rubs).  x is measured along the
 // channel axis from the motor axis.
+// The ramp finishes at x = 21, INSIDE the plate (whose edge is at 22 on the +X side), so the full wire_slot_w2
+// mouth actually exists in the part.  It used to finish at 26 -- 4 mm outside the plate -- so the funnel was
+// truncated and the widest the channel ever got was 8.83 mm against a nominal 10.
 function wire_chan_hw(x) = (x <= 12) ? wire_slot_w/2
-                         : (x >= 26) ? wire_slot_w2/2
-                         : wire_slot_w/2 + (wire_slot_w2 - wire_slot_w)/2 * (x - 12)/14;
+                         : (x >= 20.5) ? wire_slot_w2/2
+                         : wire_slot_w/2 + (wire_slot_w2 - wire_slot_w)/2 * (x - 12)/8.5;
 // The eased tool is the same profile shrunk, so sweeping it with NEGATIVE radii flares the mouth without moving the
 // waist.  It must not flare inside the bolt ring or it eats the web, so it fades from a point at x=9 to full by x=15.
 function wire_ease_fade(x) = (x <= 9) ? 1.0 : (x >= 15) ? 0.0 : (15 - x)/6;
-wire_chan_x = [-4, 0, 6, 12, 16, 20, 24, 26, 34, 44];
-function wire_chan_path(shrink) =
+// ONLY the breakpoints.  wire_chan_hw is piecewise LINEAR, so knots at 16/20/24 inside the ramp added no shape --
+// but the prong fillet's tangent arc landed exactly on the x=16 vertex line and the difference-of-offsets there
+// produced knife-thin slivers: 13 non-manifold edges, two of them zero-length, all clustered at x=15.87..22.
+// Fewer vertices, no coincidence, same channel.
+wire_chan_x = [-4, 0, 6, 12, 20.5, 30, 44];
+// off is passed in, not read from the global: the path is built in the ROTATED channel frame, so the offset has to be
+// counter-rotated or it lands on the wrong side of the (un-mirrored) base plate on the second hull.
+function wire_chan_path(shrink, off) =
   let (hw = [ for (x = wire_chan_x) max(0.15, wire_chan_hw(x) - shrink*wire_ease_fade(x)) ])
-  concat([ for (i = [0:len(wire_chan_x)-1])    [wire_chan_x[i], wire_slot_off + hw[i]] ],
-         [ for (i = [len(wire_chan_x)-1:-1:0]) [wire_chan_x[i], wire_slot_off - hw[i]] ]);
+  concat([ for (i = [0:len(wire_chan_x)-1])    [wire_chan_x[i], off + hw[i]] ],
+         [ for (i = [len(wire_chan_x)-1:-1:0]) [wire_chan_x[i], off - hw[i]] ]);
 
 module guard_wire_slot(ang = wire_slot_ang) {
-  R_chan  = [ wire_chan_path(0) ];
-  R_ease  = [ wire_chan_path(3.2) ];
+  off     = wire_slot_off;   // in THIS (channel) frame -- see wire_slot_off in common.scad for why it must be
+  R_chan  = [ wire_chan_path(0, off) ];
+  R_ease  = [ wire_chan_path(wire_slot_waist_ease, off) ];
   rotate([0,0,ang]) {
     translate([0,0,-eps]) linear_extrude(guard_t + 2*eps) polygon(R_chan[0]);   // the clear channel itself
     // BOTH lips flared OUTWARD (negative radii).  Aft = a tangent roll: no edge at all on the face the motor bears on
@@ -362,14 +384,23 @@ module guard_wire_slot(ang = wire_slot_ang) {
   // this is emphatically not a no-op at ang = 180.
   if (wire_slot_corner_r > 0) {
     R_plate_c = [ [ for (p = guard_platep()) guard_rot2(-ang, p) ] ];
-    R_pc      = difference([R_plate_c, [wire_chan_path(0)]]);
+    R_pc      = difference([R_plate_c, [wire_chan_path(0, off)]]);
     rotate([0,0,ang]) translate([0,0,-eps]) linear_extrude(guard_t + 2*eps)
+      // The sliver is TANGENT to the channel wall at each end, i.e. knife-thin exactly there, and a knife-thin
+      // subtrahend meets the wall in a pinch: CGAL emitted 2-13 non-manifold edges right at the tangency depending
+      // on where the channel's knots fell.  A 2 um fattening gives the sliver width at the tangent point without
+      // moving the fillet anywhere a caliper could find it.
+      offset(delta = 0.002)
       intersection() {
         difference() {
           region(R_pc);
-          offset(r = -wire_slot_corner_r) offset(r = wire_slot_corner_r) region(R_pc);
+          // MORPHOLOGICAL OPEN = erode THEN dilate.  OpenSCAD applies the INNER offset first, so the erode must be
+          // written second.  Getting this backwards gives a CLOSING, and a closing always CONTAINS its input, so the
+          // difference is empty BY CONSTRUCTION and the whole prong cut silently does nothing -- it removed 0.0002
+          // mm^3 instead of ~18 mm^3, and shipped both prongs sharp while the comment claimed both were filleted.
+          offset(r = wire_slot_corner_r) offset(r = -wire_slot_corner_r) region(R_pc);
         }
-        translate([16, wire_slot_off]) square([44, 2*(wire_slot_w2/2 + wire_slot_corner_r + 3)], center = true);
+        translate([16, off]) square([44, 2*(wire_slot_w2/2 + wire_slot_corner_r + 3)], center = true);
       }
   }
 }
@@ -381,11 +412,19 @@ module guard_cuts(rot = mount_rot, slot_ang = wire_slot_ang) {
   // land's inner edge 5.75 -> 6.75 and cuts the short-axis bolt's fully-seated washer OD from 4.40 to 2.50 mm -- a
   // dimension already measured as marginal.  Not worth spending on a hazard that only exists IF the A2212's leads
   // exit its mount face, which is still unconfirmed.  Reverted, on purpose, with the number.
+  // The bed break is CAPPED so it can never reach the two SHORT-axis M3 bores.  It was a flat -0.6, which reaches
+  // r = 5.75 + 0.6 = 6.35 at z=0 against those bores' inner edge at 8.0 - 1.7 = 6.30: they OVERLAPPED by 0.05 mm over
+  // a 0.73 mm chord, so the recess and both bolt holes sliced as ONE merged void for the first two layers and the
+  // 0.55 mm PLA wall between them became 0.006 mm at the bed.  Derived from the bolt geometry, not typed in, so a
+  // change to the motor cross or the boss recess cannot silently re-open it.
+  // ONE sweep for the whole height.  It used to be a swept lower part capped by a separate cylinder, which left a
+  // 0.00135 mm faceting ledge right round the bore (96-gon against $fn=128) -- and when both were put on the same
+  // polygon they simply overlapped, giving 61 non-manifold edges at r=5.75, z=4.98.  A single sweep has no junction
+  // to get wrong.
   translate([0,0,-eps])
-    offset_sweep([ for (i=[0:95]) (guard_bore_d/2)*[cos(360*i/96), sin(360*i/96)] ],
-                 height = guard_t + 2*eps, steps = 10, check_valid = false,
-                 bottom = os_chamfer(width = -0.6, height = 1.2));
-  translate([0,0,guard_t-eps]) cylinder(h = guard_web_d, d = guard_bore_d);   // clear the rest of the way up
+    offset_sweep([ for (i=[0:guard_bore_fn-1]) (guard_bore_d/2)*[cos(360*i/guard_bore_fn), sin(360*i/guard_bore_fn)] ],
+                 height = guard_web_d + 2*eps, steps = 10, check_valid = false,
+                 bottom = os_chamfer(width = -guard_bore_bed_break, height = 2*guard_bore_bed_break));
   for (p = gmxy(rot)) translate([p[0],p[1],-1]) cylinder(h = guard_t + 2, d = guard_bolt_d);      // 4x M3 (rotated pattern)
   if (wire_slot && mount_to == "motor") guard_wire_slot(slot_ang);
 }
@@ -503,23 +542,38 @@ if (guard_style == "rugged") {
   // control: -D guard_fillet=1.2  ->  0  << FAIL
   echo(str("  GATE3 fillet vs chamfer: ", guard_fillet, " - ", guard_edge_ch, " = ", guard_fillet - guard_edge_ch,
            (guard_fillet - guard_edge_ch >= 0.5) ? " OK" : " << FAIL: chamfer >= fillet, the root crease returns"));
-  // GATE 4 -- the PLA web from the wire channel to the nearest M3 bore.  The shipped part left 0.457 mm here --
-  // thinner than one extrusion -- while its own comment claimed ~0.7.  Measured in the CHANNEL frame, per bore.
-  // control: -D wire_slot_w=9  ->  goes negative  << FAIL
-  // TRUE 2D clearance, not a per-x slab: a bore sitting BEHIND the channel's closed inboard end (x < first station)
-  // is not separated by a vertical wall at all, it is separated by the corner distance.  Measuring it as a slab
-  // under-reports by more than a factor of two and would have failed this gate on geometry that is actually fine.
+  // GATE 4 -- the PLA web around each M3 bore, against BOTH voids that crowd it: the wire channel AND the central
+  // boss recess.  An earlier version of this gate measured only the channel, and measured it to the channel
+  // polygon's inboard END CORNER at (-4, +3.5) -- which is at r = 5.32, i.e. INSIDE the 5.75 boss recess and
+  // therefore not a wall that exists in the solid.  It printed "worst 1.02 OK" while the part's real worst wall was
+  // 0.55.  A gate that scores a surface the geometry has already removed is worse than no gate.
+  // control: -D wire_slot_w=9  ->  the channel term goes negative  << FAIL
   webs = [ for (p = gmxy(mount_rot))
              let (q  = [ p[0]*cos(wire_slot_ang) + p[1]*sin(wire_slot_ang),
                         -p[0]*sin(wire_slot_ang) + p[1]*cos(wire_slot_ang) ],
                   x0 = wire_chan_x[0], x1 = wire_chan_x[len(wire_chan_x)-1],
                   xc = max(x0, min(x1, q[0])),
-                  gy = max(0, abs(q[1] - wire_slot_off) - wire_chan_hw(xc)),
-                  gx = (q[0] < x0) ? x0 - q[0] : (q[0] > x1) ? q[0] - x1 : 0)
-             norm([gx, gy]) - guard_bolt_d/2 ];
-  echo(str("  GATE4 wire channel -> M3 web: ", [ for (w = webs) round(1000*w)/1000 ], " mm, worst ",
-           round(1000*min(webs))/1000, (min(webs) >= 0.8) ? " OK (>=0.8 = two 0.4 mm perimeters)"
-                                                          : " << FAIL: thinner than two 0.4 mm perimeters"));
+                  gy = max(0, abs(q[1] - wsa_off(motor_offset_dir)) - wire_chan_hw(xc)),
+                  gx = (q[0] < x0) ? x0 - q[0] : (q[0] > x1) ? q[0] - x1 : 0,
+                  d_chan = norm([gx, gy]),                     // to the wire channel
+                  d_boss = norm(p) - guard_bore_d/2)           // to the central boss recess
+             min(d_chan, d_boss) - guard_bolt_d/2 ];
+  echo(str("  GATE4 PLA web around each M3 bore (channel AND boss recess): ",
+           [ for (w = webs) round(1000*w)/1000 ], " mm, worst ", round(1000*min(webs))/1000,
+           (min(webs) >= 0.5) ? " OK" : " << FAIL"));
+  // The floor is set by the MOTOR, not by anything this file chooses: the short-axis bolts sit at
+  // motor_bolt_short/2 = 8.0, their bores take 1.7, and the boss recess takes guard_bore_d/2 = 5.75, leaving 0.55.
+  // The only lever is guard_bore_d (= motor_boss_d + 1.5).  MEASURE the A2212's boss: every 1 mm off that clearance
+  // is +0.5 mm of wall here.  The previous rev shipped 0.4569, so this is an improvement, not a new problem.
+  echo(str("  GATE4 note: the 0.55 floor is motor_bolt_short/2 ", motor_bolt_short/2, " - bore ", guard_bolt_d/2,
+           " - boss recess ", guard_bore_d/2, ". Lever = guard_bore_d (measure your boss). Previous rev: 0.4569."));
+  // GATE 5 -- the boss recess's BED break must never reach the two short-axis M3 bores.  At 0.6 it overlapped them
+  // by 0.05 mm and the recess plus both bolt holes sliced as ONE void for the first two layers.  It is 0 now, but
+  // this is what stops it being raised back without the collision being noticed.
+  // control: -D guard_bore_bed_break=0.6  ->  0.6 > 0.25  << FAIL
+  echo(str("  GATE5 boss bed break ", guard_bore_bed_break, " vs ceiling ", round(1000*guard_bore_break_max)/1000,
+           " (= short-axis bolt inner edge - recess - 0.3 wall) -> ",
+           (guard_bore_bed_break <= guard_bore_break_max) ? "OK" : "<< FAIL: the break eats into the M3 bores at the bed"));
 }
 echo("------------------------------------------------------------");
 
